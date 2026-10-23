@@ -128,5 +128,19 @@ export const CSS = `
 .ccg-preview { position: sticky; top: 8px; width: 220px; display: flex; flex-direction: column; gap: 6px; }
 .ccg-editor .ccg-app.ccg-preview-host { min-height: 0; background: transparent; padding: 0; }
 .ccg-status-chip { display: inline-flex; gap: 6px; align-items: center; border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; background: var(--panel); }
+.ccg-behavior { border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 8px; padding: 4px 8px; background: var(--bg); }
+.ccg-behavior.is-if { border-left-color: #a35a00; }
+.ccg-behavior.is-sequence { border-left-color: #3c8a4f; }
+.ccg-behavior.is-weighted { border-left-color: #7a4bb3; }
+.ccg-behavior.has-error { border-color: var(--warn); }
+.ccg-behavior.is-flagged { outline: 2px solid var(--warn); }
+.ccg-behavior-head { display: flex; gap: 6px; align-items: center; }
+.ccg-editor .ccg-behavior-toggle { border: none; background: none; padding: 0 4px; }
+.ccg-behavior-summary { color: var(--muted); font-size: .85rem; }
+.ccg-behavior-body { margin: 6px 0 2px 12px; display: flex; flex-direction: column; gap: 6px; }
+.ccg-behavior-children { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.ccg-behavior-child { display: flex; flex-direction: column; gap: 4px; }
+.ccg-preview-rounds { margin: 4px 0; padding-left: 20px; font-size: .9rem; }
+.ccg-preview-target { fill: var(--accent); opacity: .55; pointer-events: none; }
 .ccg-raw summary { cursor: pointer; color: var(--muted); margin: 8px 0; }
 `;

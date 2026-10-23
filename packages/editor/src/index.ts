@@ -1,4 +1,5 @@
 /** The editor's model: React-free, so it runs in workers and tests. */
+export { behaviorSummary, conditionSummary, previewIntents, type IntentPreviewResult, type PreviewRound } from './behavior.js';
 export { assetPathFor, assetRefs, mimeType, moduleSource, type AssetUse } from './assets.js';
 export {
   EditorError,

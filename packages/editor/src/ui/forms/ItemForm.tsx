@@ -3,7 +3,9 @@
  * live preview drawn by the play client's own renderer for cards and a chip
  * for statuses. Header fields (name, id, tags) belong to the item panel.
  */
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import { previewIntents } from '../../behavior.js';
+import { previewSetup } from '../../forms/patterns.js';
 import { createContentSchemas, type ContentItem, type ContentKind, type OpRegistry } from '@ccg/content';
 import { CardPreview } from '@ccg/client';
 import { cardFace } from '@ccg/client/engine';
@@ -28,6 +30,12 @@ const SECTIONS: Partial<Record<ContentKind, [string, string[]][]>> = {
   status: [
     ['Rules', ['stacking', 'hooks', 'modifiers']],
     ['Display', ['description', 'icon']],
+  ],
+  unit: [
+    ['Stats', ['hp', 'faction']],
+    ['Starting statuses', ['statuses']],
+    ['Behaviour', ['behavior']],
+    ['Display', ['art']],
   ],
 };
 
@@ -89,6 +97,7 @@ export function ItemForm({ project, ops, item, issues, flagged, board, setBoard,
         </div>
         {item.kind === 'card' && <CardPreviewPane project={project} ops={ops} item={item} board={board} />}
         {item.kind === 'status' && <StatusPreview project={project} item={item} />}
+        {item.kind === 'unit' && <IntentPreview project={project} ops={ops} item={item} board={board} />}
       </div>
     </Form.Provider>
   );
@@ -118,6 +127,57 @@ function CardPreviewPane({ project, ops, item, board }: { project: Project; ops:
       ) : (
         <p className="ccg-muted">Fix the card's problems to see its preview.</p>
       )}
+    </aside>
+  );
+}
+
+/** What the unit telegraphs over three rounds against a target you place on the board (#44). */
+function IntentPreview({ project, ops, item, board }: { project: Project; ops: OpRegistry; item: ContentItem; board: PreviewBoard }) {
+  const setup = previewSetup(board);
+  const [target, setTarget] = useState<{ board: PreviewBoard; pos: string } | null>(null);
+  // Default: the target two tiles in front of the unit.
+  const fallback = setup.topology.step(setup.topology.step(setup.origin, 'w') ?? setup.origin, 'w') ?? setup.origin;
+  const pos = target?.board === board ? target.pos : fallback;
+  const preview = useMemo(() => previewIntents(project, ops, `unit:${item.id}`, board, pos, 3), [project, ops, item.id, board, pos]);
+  const layout = setup.topology.layout?.();
+  if (!item.behavior) return null;
+  const first = new Set(preview.rounds[0]?.cells ?? []);
+  const CELL = 22;
+  const hex = layout?.cell === 'hex';
+  const r = hex ? CELL / Math.sqrt(3) - 1 : CELL / 2 - 1;
+  const hexPoints = Array.from({ length: 6 }, (_, i) => {
+    const a = (Math.PI / 180) * (60 * i - 30);
+    return `${(r * Math.cos(a)).toFixed(1)},${(r * Math.sin(a)).toFixed(1)}`;
+  }).join(' ');
+  const xs = layout?.cells.map((c) => c.x) ?? [0];
+  const ys = layout?.cells.map((c) => c.y) ?? [0];
+  const view = `${(Math.min(...xs) - 0.7) * CELL} ${(Math.min(...ys) - 0.7) * CELL} ${(Math.max(...xs) - Math.min(...xs) + 1.4) * CELL} ${(Math.max(...ys) - Math.min(...ys) + 1.4) * CELL}`;
+  return (
+    <aside className="ccg-preview" aria-label="Intent preview">
+      <strong>Intent preview</strong>
+      {layout && (
+        <svg className="ccg-pattern-board" viewBox={view} role="group" aria-label="Preview board: click a tile to move the target">
+          {layout.cells.map((c) => {
+            const cls = ['ccg-pattern-cell', first.has(c.pos) && 'is-on', c.pos === setup.origin && 'is-origin'].filter(Boolean).join(' ');
+            const props = { className: cls, onClick: () => c.pos !== setup.origin && setTarget({ board, pos: c.pos }), style: { cursor: 'pointer' }, 'data-pos': c.pos };
+            return (
+              <g key={c.pos} transform={`translate(${c.x * CELL} ${c.y * CELL})`}>
+                {hex ? <polygon points={hexPoints} {...props} /> : <rect x={-r} y={-r} width={r * 2} height={r * 2} rx={3} {...props} />}
+                {c.pos === pos && <circle r={r * 0.55} className="ccg-preview-target" />}
+              </g>
+            );
+          })}
+        </svg>
+      )}
+      <ol className="ccg-preview-rounds" aria-label="Intents by round">
+        {preview.rounds.map((round) => (
+          <li key={round.round}>
+            <strong>{round.name}</strong> {round.text && <span className="ccg-muted">{round.text}</span>}
+          </li>
+        ))}
+      </ol>
+      {preview.error && <p className="ccg-error">{preview.error}</p>}
+      <p className="ccg-muted">The unit is in blue; click a tile to move its target. Red tiles are telegraphed this round.</p>
     </aside>
   );
 }
