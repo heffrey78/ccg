@@ -5,8 +5,8 @@ import { defaultPath, itemKey, type Project } from './project.js';
 export type TemplateBoard = 'lane' | 'grid';
 
 export const TEMPLATES: readonly { board: TemplateBoard; name: string; description: string }[] = [
-  { board: 'lane', name: 'Blank lane game', description: 'A one-row board: a hero, an enemy and a starter card.' },
-  { board: 'grid', name: 'Blank grid game', description: 'A square grid: a hero, an enemy and a starter card.' },
+  { board: 'lane', name: 'Blank lane game', description: 'A one-row board: a hero, an enemy, two starter cards and the rules to play them.' },
+  { board: 'grid', name: 'Blank grid game', description: 'A 7×7 grid: a hero, an enemy, two starter cards and the rules to play them.' },
 ];
 
 export function blankProject(options: { id: string; name: string; board: TemplateBoard }): Project {
@@ -22,6 +22,15 @@ export function blankProject(options: { id: string; name: string; board: Templat
       targeting: { kind: 'unit', filter: 'enemy', range: 1 },
       effects: [{ op: 'damage', amount: 6 }],
     },
+    {
+      formatVersion: v,
+      kind: 'card',
+      id: 'guard',
+      name: 'Guard',
+      cost: { energy: 1 },
+      targeting: { kind: 'self' },
+      effects: [{ op: 'gainBlock', amount: 5 }],
+    },
     { formatVersion: v, kind: 'unit', id: 'hero', name: 'Hero', hp: 30 },
     {
       formatVersion: v,
@@ -30,8 +39,10 @@ export function blankProject(options: { id: string; name: string; board: Templat
       name: 'Foe',
       hp: 20,
       behavior: {
-        kind: 'intent',
-        intent: { name: 'Hit', target: { kind: 'unit', select: 'nearestEnemy', range: 1 }, effects: [{ op: 'damage', amount: 5 }] },
+        kind: 'if',
+        cond: { kind: 'enemyWithin', range: 1 },
+        then: { kind: 'intent', intent: { name: 'Hit', target: { kind: 'unit', select: 'nearestEnemy', range: 1 }, effects: [{ op: 'damage', amount: 5 }] } },
+        else: { kind: 'intent', intent: { name: 'Advance', target: { kind: 'unit', select: 'nearestEnemy' }, effects: [{ op: 'approach', distance: 2 }] } },
       },
     },
     {
@@ -43,6 +54,15 @@ export function blankProject(options: { id: string; name: string; board: Templat
         { unit: 'hero', side: 'player', pos: heroPos, facing: 'e' },
         { unit: 'foe', side: 'enemy', pos: foePos, facing: 'w' },
       ],
+    },
+    {
+      formatVersion: v,
+      kind: 'ruleset',
+      id: 'main',
+      name: 'Rules',
+      board: options.board === 'lane' ? { topology: 'lane', length: 7 } : { topology: 'square', width: 7, height: 7 },
+      move: { range: options.board === 'lane' ? 1 : 2 },
+      player: { resources: { energy: 3 }, handSize: 5, deck: ['strike', 'strike', 'strike', 'strike', 'strike', 'guard', 'guard', 'guard', 'guard', 'guard'] },
     },
   ];
   return {
@@ -68,5 +88,7 @@ export function newItem(kind: ContentItem['kind'], id: string, name: string): Co
       return base;
     case 'encounter':
       return { ...base, units: [] };
+    case 'ruleset':
+      return { ...base, board: { topology: 'lane', length: 7 }, player: { resources: { energy: 3 }, handSize: 5, deck: [] } };
   }
 }

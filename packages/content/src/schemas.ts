@@ -276,7 +276,51 @@ export function createContentSchemas(ops: OpRegistry, { formatVersion: version =
     })
     .strict();
 
-  const item = z.discriminatedUnion('kind', [card, unit, status, tile, encounter]);
+  // How a content-only game plays (decision #87): the standard game builds its rules from this.
+  const size = (max: number) => z.number().int().min(1).max(max);
+  const ruleset = z
+    .object({
+      ...common,
+      kind: z.literal('ruleset'),
+      board: z.discriminatedUnion('topology', [
+        z.object({ topology: z.literal('lane'), length: size(64) }).strict(),
+        z.object({ topology: z.literal('square'), width: size(64), height: size(64), connectivity: z.union([z.literal(4), z.literal(8)]).optional() }).strict(),
+        z.object({ topology: z.literal('hex'), radius: z.number().int().min(0).max(32) }).strict(),
+      ]),
+      /** What a forced move does when it hits something. */
+      collision: z.enum(['stop', 'bump', 'chain']).optional(),
+      bumpDamage: count.optional(),
+      /** Pushing off the edge: a wall, or the unit falls. */
+      edge: z.enum(['wall', 'fall']).optional(),
+      fog: z
+        .discriminatedUnion('kind', [
+          z.object({ kind: z.literal('distance'), range: count }).strict(),
+          z.object({ kind: z.literal('lineOfSight'), range: count.optional(), unitsBlock: z.boolean().optional() }).strict(),
+        ])
+        .optional(),
+      /** A basic move action, separate from cards. */
+      move: z.object({ range: size(64), oncePerTurn: z.boolean().optional() }).strict().optional(),
+      player: z
+        .object({
+          side: id.optional(),
+          /** Each resource is set to this at the start of the player's turn. */
+          resources: z.record(id, count),
+          handSize: count,
+          deck: z.array(ref),
+          /** Keep unplayed cards between turns (default: discard the hand). */
+          keepHand: z.boolean().optional(),
+          /** Keep block between turns (default: block is lost at the start of the turn). */
+          keepBlock: z.boolean().optional(),
+        })
+        .strict(),
+      enemy: z.object({ side: id.optional() }).strict().optional(),
+      /** Response windows (#57): when the other side may answer an item on the stack. */
+      responses: z.object({ itemAnnounced: z.boolean().optional(), itemTop: z.boolean().optional() }).strict().optional(),
+      permanents: z.object({ maxPerSide: count.optional(), summoningSickness: z.boolean().optional() }).strict().optional(),
+    })
+    .strict();
+
+  const item = z.discriminatedUnion('kind', [card, unit, status, tile, encounter, ruleset]);
 
   const manifest = z
     .object({
@@ -291,12 +335,12 @@ export function createContentSchemas(ops: OpRegistry, { formatVersion: version =
     })
     .strict();
 
-  return { effect, behavior, card, unit, status, tile, encounter, item, manifest };
+  return { effect, behavior, card, unit, status, tile, encounter, ruleset, item, manifest };
 }
 
 export type ContentSchemas = ReturnType<typeof createContentSchemas>;
-export type ContentKind = 'card' | 'unit' | 'status' | 'tile' | 'encounter';
-export const CONTENT_KINDS: readonly ContentKind[] = ['card', 'unit', 'status', 'tile', 'encounter'];
+export type ContentKind = 'card' | 'unit' | 'status' | 'tile' | 'encounter' | 'ruleset';
+export const CONTENT_KINDS: readonly ContentKind[] = ['card', 'unit', 'status', 'tile', 'encounter', 'ruleset'];
 
 export interface ContentItem {
   formatVersion: number;

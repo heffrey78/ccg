@@ -37,6 +37,7 @@ export const KIND_FOLDERS: Readonly<Record<ContentKind, string>> = {
   status: 'statuses',
   tile: 'tiles',
   encounter: 'encounters',
+  ruleset: 'rulesets',
 };
 
 export const itemKey = (kind: ContentKind, id: string) => `${kind}:${id}`;

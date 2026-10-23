@@ -7,16 +7,18 @@ import type { Behavior } from './board/intents.js';
 import type { StatusDef } from './board/statuses.js';
 import type { TileDef, UnitDef } from './board/units.js';
 import type { CardDef } from './cards/zones.js';
+import type { RulesetDef } from './standard.js';
 
 export interface Definitions {
   cards: Record<string, CardDef>;
   units: Record<string, UnitDef>;
   statuses: Record<string, StatusDef>;
   tiles: Record<string, TileDef>;
+  rulesets: Record<string, RulesetDef>;
 }
 
 export function buildDefinitions(items: Iterable<ContentItem>): Definitions {
-  const defs: Definitions = { cards: {}, units: {}, statuses: {}, tiles: {} };
+  const defs: Definitions = { cards: {}, units: {}, statuses: {}, tiles: {}, rulesets: {} };
   for (const item of items) {
     const { formatVersion: _v, kind, id, name: _n, tags: _t, extensions: _e, ...fields } = item;
     switch (kind) {
@@ -37,6 +39,9 @@ export function buildDefinitions(items: Iterable<ContentItem>): Definitions {
         break;
       case 'tile':
         defs.tiles[id] = fields as TileDef;
+        break;
+      case 'ruleset':
+        defs.rulesets[id] = fields as unknown as RulesetDef;
         break;
       case 'encounter':
         break;

@@ -33,6 +33,11 @@ export function qualify(ref: string, packageId: string): string {
   return ref.includes(':') ? ref : `${packageId}:${ref}`;
 }
 
+/** Whether a package can be played: it builds its own rules, or has a ruleset for the standard game (decision #87). */
+export function isPlayable(pkg: GamePackage<unknown>): boolean {
+  return (pkg.createRules !== undefined && pkg.createSetup !== undefined) || pkg.content.some((item) => item.kind === 'ruleset');
+}
+
 /** Whether a value looks like a game package (for dynamically imported modules). */
 export function isGamePackage(value: unknown): value is GamePackage {
   if (typeof value !== 'object' || value === null) return false;

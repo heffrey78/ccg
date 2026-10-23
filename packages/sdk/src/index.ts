@@ -3,7 +3,7 @@
  * these helpers; they produce exactly the data the editor writes (#34).
  */
 import { FORMAT_VERSION, type ContentItem, type Manifest, type PatternShapeData, type Targeting } from '@ccg/content';
-import type { Behavior, CardPermanent, Effect, GamePackage, OpDefinition, ReactionCondition, RulesModule } from '@ccg/core';
+import type { Behavior, CardPermanent, Effect, GamePackage, OpDefinition, ReactionCondition, RulesModule, RulesetDef } from '@ccg/core';
 
 export {
   ENGINE_API_VERSION,
@@ -80,6 +80,9 @@ export interface EncounterFields extends Common {
   rewards?: { cards?: string[] };
 }
 
+/** How a content-only game plays (decision #87); see the content schema for every field. */
+export interface RulesetFields extends Common, RulesetDef {}
+
 const item = (kind: ContentItem['kind'], id: string, fields: object): ContentItem =>
   ({ formatVersion: FORMAT_VERSION, kind, id, ...fields }) as ContentItem;
 
@@ -89,5 +92,6 @@ export const defineUnit = (id: string, fields: UnitFields): ContentItem => item(
 export const defineStatus = (id: string, fields: StatusFields): ContentItem => item('status', id, fields);
 export const defineTile = (id: string, fields: TileFields): ContentItem => item('tile', id, fields);
 export const defineEncounter = (id: string, fields: EncounterFields): ContentItem => item('encounter', id, fields);
+export const defineRuleset = (id: string, fields: RulesetFields): ContentItem => item('ruleset', id, fields);
 
 export type { PatternShapeData, Targeting };

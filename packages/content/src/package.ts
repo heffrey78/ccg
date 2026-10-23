@@ -157,6 +157,9 @@ function checkReferences(items: LoadedItem[], assets: Set<string>): ContentIssue
         expect('status', s.status, `/statuses/${i}/status`),
       );
     }
+    if (item.kind === 'ruleset') {
+      (item.player as { deck: string[] }).deck.forEach((c, i) => expect('card', c, `/player/deck/${i}`));
+    }
     if (item.kind === 'encounter') {
       for (const [pos, tile] of Object.entries((item.tiles as Record<string, string> | undefined) ?? {})) {
         expect('tile', tile, `/tiles/${escapePointer(pos)}`);

@@ -80,6 +80,11 @@ export function mapRefs(item: ContentItem, ops: OpRegistry, visit: RefVisitor): 
       if (rewards?.cards) rewards.cards = rewards.cards.map((c, i) => ref('card', c, `/rewards/cards/${i}`));
       break;
     }
+    case 'ruleset': {
+      const player = f.player as { deck: string[] };
+      player.deck = player.deck.map((c, i) => ref('card', c, `/player/deck/${i}`));
+      break;
+    }
   }
   return item;
 }

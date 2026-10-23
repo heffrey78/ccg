@@ -178,16 +178,22 @@ describe('commands and undo', () => {
 describe('rename', () => {
   it('renames a card referenced by three reward pools and a search effect, and moves its file', () => {
     const p = referenced();
-    expect(referencesTo(p, 'card:strike', ops)).toHaveLength(4);
+    // Three reward pools, a search effect, and five copies in the template's ruleset deck.
+    expect(referencesTo(p, 'card:strike', ops)).toHaveLength(9);
     const next = renameItem('card:strike', 'jab', ops)(p);
     expect(next.items['card:strike']).toBeUndefined();
     expect(next.items['card:jab']).toMatchObject({ id: 'jab', name: 'Strike' });
     expect(next.paths['card:jab']).toBe('content/cards/jab.json');
     for (const n of ['a', 'b', 'c']) expect((next.items[`encounter:pool-${n}`] as unknown as { rewards: { cards: string[] } }).rewards.cards).toEqual(['jab', 'ember']);
     expect((next.items['card:tutor'] as unknown as { effects: { def: string }[] }).effects[0]?.def).toBe('jab');
-    expect(referencesTo(next, 'card:jab', ops)).toHaveLength(4);
+    expect(referencesTo(next, 'card:jab', ops)).toHaveLength(9);
     // Items that did not reference the card are shared, not copied.
     expect(next.items['unit:hero']).toBe(p.items['unit:hero']);
+  });
+
+  it('renaming a card updates the ruleset deck', () => {
+    const next = renameItem('card:strike', 'jab', ops)(referenced());
+    expect((next.items['ruleset:main'] as unknown as { player: { deck: string[] } }).player.deck.filter((c) => c === 'jab')).toHaveLength(5);
   });
 
   it('renames a status in keywords, unit statuses and qualified effect references', async () => {
@@ -214,7 +220,7 @@ describe('validation and templates', () => {
 
   it('a new item of every kind is valid as created', async () => {
     let p = blankProject({ id: 'fresh', name: 'Fresh', board: 'lane' });
-    for (const kind of ['card', 'unit', 'status', 'tile', 'encounter'] as const) p = createItem(newItem(kind, `new-${kind}`, `New ${kind}`))(p);
+    for (const kind of ['card', 'unit', 'status', 'tile', 'encounter', 'ruleset'] as const) p = createItem(newItem(kind, `new-${kind}`, `New ${kind}`))(p);
     expect(await validateProject(p)).toEqual([]);
   });
 

@@ -89,6 +89,26 @@ describe('engine host', () => {
     expect(after.events.some((e) => e.type === 'TurnEnded' && e.side === 'e')).toBe(true);
   });
 
+  it('lists and plays content-only games through the standard ruleset', async () => {
+    const item = (kind: string, id: string, fields: object) => ({ formatVersion: 1, kind, id, name: id, ...fields }) as never;
+    const plain: GamePackage<unknown> = {
+      manifest: { formatVersion: 1, id: 'plain', name: 'Plain', version: '1.0.0', engine: '^0.0.0' },
+      content: [
+        item('card', 'zap', { targeting: { kind: 'unit', filter: 'enemy' }, effects: [{ op: 'damage', amount: 3 }] }),
+        item('unit', 'hero', { hp: 10 }),
+        item('unit', 'dummy', { hp: 10 }),
+        item('encounter', 'one', { units: [{ unit: 'hero', side: 'player', pos: '0' }, { unit: 'dummy', side: 'enemy', pos: '3' }] }),
+        item('ruleset', 'main', { board: { topology: 'lane', length: 4 }, player: { resources: {}, handSize: 2, deck: ['zap', 'zap', 'zap'] } }),
+      ],
+    };
+    const engine = new EngineClient(localTransport(createEngineHost({ packages: [plain] })));
+    expect((await engine.listGames()).map((g) => g.id)).toEqual(['plain']);
+    const snap = await engine.start('plain', 1);
+    expect(snap.side).toBe('player');
+    expect(snap.legal.filter((a) => a.type === 'playCard')).toHaveLength(2);
+    expect(snap.catalog.cards['plain:zap']?.text).toBe('Deal 3 damage.');
+  });
+
   it('reports errors instead of throwing', async () => {
     const engine = client();
     await expect(engine.view()).rejects.toMatchObject({ code: 'not-started' });

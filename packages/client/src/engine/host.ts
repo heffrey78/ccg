@@ -9,6 +9,7 @@ import {
   cardText,
   decidingSide,
   effectsText,
+  isPlayable,
   legalActions,
   randomPolicy,
   redactEvents,
@@ -155,7 +156,7 @@ export function createEngineHost(options: HostOptions = {}): EngineHost {
       }
       switch (request.type) {
         case 'listGames':
-          return { ok: true, type: 'games', games: registry.list().filter((p) => p.createRules && p.createSetup).map(listing) };
+          return { ok: true, type: 'games', games: registry.list().filter(isPlayable).map(listing) };
 
         case 'start': {
           const pkg = registry.get(request.game);

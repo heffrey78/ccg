@@ -89,7 +89,16 @@ export {
 export { condition, evaluate, logicModule, type Condition } from './rules/logic.js';
 export { statusesModule, type DamageModifier, type StatusDef, type StatusHook } from './board/statuses.js';
 export { buildDefinitions, type Definitions } from './content.js';
-export { isGamePackage, qualify, type AssetResolver, type GamePackage } from './packages/package.js';
+export { isGamePackage, isPlayable, qualify, type AssetResolver, type GamePackage } from './packages/package.js';
+export {
+  sidesOf,
+  standardRules,
+  standardSetup,
+  topologyOf,
+  type RulesetDef,
+  type StandardGameInput,
+  type StandardWorld,
+} from './standard.js';
 export { PackageRegistry, type PackageIssue, type ResolveResult, type ResolvedGame } from './packages/registry.js';
 export { parseVersion, satisfies } from './packages/semver.js';
 export {

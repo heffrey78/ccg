@@ -76,7 +76,7 @@ group('item forms', () => {
   });
 
   it('every kind of item can be built from defaults', () => {
-    for (const kind of ['card', 'unit', 'status', 'tile', 'encounter'] as const) {
+    for (const kind of ['card', 'unit', 'status', 'tile', 'encounter', 'ruleset'] as const) {
       const root = jsonSchemaOf(schemas[kind]);
       const value = { ...(defaultValue(root, root) as object), id: 'x', name: 'X' };
       const checked = schemas[kind].safeParse(value);
