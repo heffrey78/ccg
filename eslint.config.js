@@ -39,4 +39,19 @@ export default tseslint.config(
     files: ['packages/core/**/*.ts'],
     rules: determinismRules,
   },
+  {
+    // Game packages build only on the engine's public API (decision #14), like external ones.
+    files: ['games/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            { group: ['@ccg/*/*'], message: 'Import only the public entry point of an @ccg package.' },
+            { group: ['**/packages/*', '**/packages/*/**'], message: 'Import @ccg packages by name, not by path.' },
+          ],
+        },
+      ],
+    },
+  },
 );

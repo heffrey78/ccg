@@ -3,7 +3,7 @@
  * these helpers; they produce exactly the data the editor writes (#34).
  */
 import { FORMAT_VERSION, type ContentItem, type Manifest, type PatternShapeData, type Targeting } from '@ccg/content';
-import type { Effect, GamePackage, OpDefinition, RulesModule } from '@ccg/core';
+import type { Behavior, CardPermanent, Effect, GamePackage, OpDefinition, ReactionCondition, RulesModule } from '@ccg/core';
 
 export {
   ENGINE_API_VERSION,
@@ -43,6 +43,10 @@ export interface CardFields extends Common {
   targeting?: Targeting;
   effects: Effect[];
   exhausts?: boolean;
+  timing?: 'main' | 'reaction' | 'any';
+  reaction?: ReactionCondition;
+  faceDown?: boolean;
+  permanent?: CardPermanent;
   upgrade?: { name?: string; cost?: Record<string, number>; effects?: Effect[] };
   text?: string;
   art?: string;
@@ -52,6 +56,7 @@ export interface UnitFields extends Common {
   hp: number;
   faction?: string;
   statuses?: { status: string; stacks: number }[];
+  behavior?: Behavior;
   art?: string;
 }
 
