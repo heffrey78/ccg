@@ -112,5 +112,10 @@ export const CSS = `
 .ccg-board-switch { display: inline-flex; }
 .ccg-editor .ccg-board-switch button { border-radius: 0; padding: 2px 8px; font-size: .8rem; }
 .ccg-editor .ccg-board-switch button[aria-checked="true"] { background: var(--accent); color: #fff; border-color: var(--accent); }
+.ccg-asset-item { display: flex; gap: 6px; align-items: center; }
+.ccg-asset-thumb { object-fit: contain; background: repeating-conic-gradient(var(--line) 0 25%, transparent 0 50%) 0 0 / 8px 8px; border-radius: 4px; }
+.ccg-asset-missing, .ccg-asset-icon { display: inline-grid; place-items: center; border: 1px dashed var(--warn); border-radius: 4px; color: var(--muted); }
+.ccg-asset-icon { border-color: var(--line); }
+.ccg-asset-preview { margin: 8px 0; }
 .ccg-raw summary { cursor: pointer; color: var(--muted); margin: 8px 0; }
 `;

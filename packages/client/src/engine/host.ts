@@ -25,6 +25,7 @@ import {
   type SideId,
   type StatePolicy,
 } from '@ccg/core';
+import { filesSource, unzipFiles } from '@ccg/content';
 import type { CardFace, Catalog, EngineReply, EngineRequest, GameListing, IntentSummary, Snapshot } from './protocol.js';
 
 export interface HostOptions {
@@ -157,6 +158,25 @@ export function createEngineHost(options: HostOptions = {}): EngineHost {
       switch (request.type) {
         case 'listGames':
           return { ok: true, type: 'games', games: registry.list().filter(isPlayable).map(listing) };
+
+        case 'importZip': {
+          let files: Record<string, Uint8Array>;
+          try {
+            files = unzipFiles(request.data);
+          } catch (e) {
+            return { ok: false, error: { code: 'invalid-package', message: `not a zip file: ${(e as Error).message}` } };
+          }
+          // Asset files become object URLs the page can show (they live as long as the engine).
+          const urls: Record<string, string> = {};
+          for (const [path, data] of Object.entries(files)) {
+            if (path.startsWith('assets/') && typeof URL.createObjectURL === 'function') urls[path] = URL.createObjectURL(new Blob([data as BlobPart]));
+          }
+          const loaded = await registry.loadFiles(filesSource(files), { replace: true, assets: { url: (path) => urls[path] ?? path } });
+          if (!loaded.ok) {
+            return { ok: false, error: { code: 'invalid-package', message: loaded.issues.map((i) => `${i.file ?? ''}${i.pointer}: ${i.message}`).join('\n') } };
+          }
+          return { ok: true, type: 'games', games: registry.list().filter(isPlayable).map(listing), loaded: loaded.package.manifest.id };
+        }
 
         case 'start': {
           const pkg = registry.get(request.game);

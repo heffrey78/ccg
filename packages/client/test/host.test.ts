@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { zipFiles } from '@ccg/content';
 import {
   LaneTopology,
   boardModule,
@@ -107,6 +108,28 @@ describe('engine host', () => {
     expect(snap.side).toBe('player');
     expect(snap.legal.filter((a) => a.type === 'playCard')).toHaveLength(2);
     expect(snap.catalog.cards['plain:zap']?.text).toBe('Deal 3 damage.');
+  });
+
+  it('loads a zipped content package, replacing an earlier import, with assets as URLs', async () => {
+    const enc = new TextEncoder();
+    const json = (v: object) => enc.encode(`${JSON.stringify(v)}\n`);
+    const files = (hp: number) => ({
+      'zipped/game.json': json({ formatVersion: 1, id: 'zipped', name: 'Zipped', version: '1.0.0', engine: '^0.0.0' }),
+      'zipped/content/cards/zap.json': json({ formatVersion: 1, kind: 'card', id: 'zap', name: 'Zap', art: 'assets/zap.png', targeting: { kind: 'none' }, effects: [] }),
+      'zipped/content/units/hero.json': json({ formatVersion: 1, kind: 'unit', id: 'hero', name: 'Hero', hp }),
+      'zipped/content/encounters/one.json': json({ formatVersion: 1, kind: 'encounter', id: 'one', name: 'One', units: [{ unit: 'hero', side: 'player', pos: '0' }, { unit: 'hero', side: 'enemy', pos: '2' }] }),
+      'zipped/content/rulesets/main.json': json({ formatVersion: 1, kind: 'ruleset', id: 'main', name: 'Main', board: { topology: 'lane', length: 3 }, player: { resources: {}, handSize: 1, deck: ['zap'] } }),
+      'zipped/assets/zap.png': new Uint8Array([1, 2, 3]),
+    });
+    const engine = client();
+    const first = await engine.importZip(zipFiles(files(5)));
+    expect(first.loaded).toBe('zipped');
+    expect(first.games.map((g) => g.id)).toEqual(['fixture', 'zipped']);
+    await engine.importZip(zipFiles(files(9)));
+    const snap = await engine.start('zipped', 1);
+    expect((snap.view.world as World).board.units.player1?.hp).toBe(9);
+    expect(snap.catalog.cards['zipped:zap']?.art).toMatch(/^blob:/);
+    await expect(engine.importZip(new Uint8Array([1, 2, 3]))).rejects.toMatchObject({ code: 'invalid-package' });
   });
 
   it('reports errors instead of throwing', async () => {

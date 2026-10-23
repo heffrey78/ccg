@@ -26,7 +26,7 @@ import type { GameRules, GameSetup } from '../kernel/types.js';
 import { describeOps, type RulesModule } from '../rules/compose.js';
 import { standardRules, standardSetup, type RulesetDef, type StandardGameInput, type StandardWorld } from '../standard.js';
 import { ENGINE_API_VERSION } from '../version.js';
-import { isGamePackage, qualify, type GamePackage } from './package.js';
+import { isGamePackage, qualify, type AssetResolver, type GamePackage } from './package.js';
 import { satisfies } from './semver.js';
 
 export interface PackageIssue {
@@ -62,10 +62,11 @@ export type ResolveResult<W> = { ok: true; game: ResolvedGame<W> } | { ok: false
 export class PackageRegistry<W = unknown> {
   readonly #packages = new Map<string, GamePackage<W>>();
 
-  register(pkg: GamePackage<W>): void {
+  /** Adds a package. `replace` swaps out an already registered package with the same id, e.g. a re-imported zip. */
+  register(pkg: GamePackage<W>, options: { replace?: boolean } = {}): void {
     const id = pkg.manifest.id;
     const existing = this.#packages.get(id);
-    if (existing && existing !== pkg) {
+    if (existing && existing !== pkg && !options.replace) {
       throw new ContentError(`package '${id}' is already registered (version ${existing.manifest.version})`);
     }
     this.#packages.set(id, pkg);
@@ -96,7 +97,10 @@ export class PackageRegistry<W = unknown> {
    * made in the editor, and registers it. Ops from already-registered packages
    * are available to its content.
    */
-  async loadFiles(source: FileSource): Promise<{ ok: true; package: GamePackage<W> } | { ok: false; issues: PackageIssue[] }> {
+  async loadFiles(
+    source: FileSource,
+    options: { replace?: boolean; assets?: AssetResolver } = {},
+  ): Promise<{ ok: true; package: GamePackage<W> } | { ok: false; issues: PackageIssue[] }> {
     const ops = builtinOps();
     for (const pkg of this.#packages.values()) describeOps(pkg.modules ?? [], ops);
     const loaded = await loadPackage(source, createContentSchemas(ops));
@@ -108,8 +112,9 @@ export class PackageRegistry<W = unknown> {
       manifest: loaded.manifest,
       content: loaded.items.map((i) => i.item),
       paths: Object.fromEntries(loaded.items.map((i) => [`${i.item.kind}:${i.item.id}`, i.path])),
+      ...(options.assets && { assets: options.assets }),
     };
-    this.register(pkg);
+    this.register(pkg, options.replace ? { replace: true } : {});
     return { ok: true, package: pkg };
   }
 

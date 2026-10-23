@@ -12,8 +12,8 @@ export interface EngineTransport {
 }
 
 export function localTransport(host: EngineHost): EngineTransport {
-  // Copy through JSON so in-process use behaves like a worker (no shared objects).
-  return { request: async (r) => JSON.parse(JSON.stringify(await host.handle(JSON.parse(JSON.stringify(r)) as EngineRequest))) as EngineReply };
+  // Copy like postMessage does, so in-process use behaves like a worker (no shared objects).
+  return { request: async (r) => structuredClone(await host.handle(structuredClone(r))) };
 }
 
 interface WorkerLike {
@@ -65,6 +65,14 @@ export class EngineClient {
     if (!reply.ok) throw new EngineError(reply.error.code, reply.error.message);
     if (reply.type !== 'games') throw new EngineError('protocol', 'expected a game list');
     return reply.games;
+  }
+
+  /** Loads a zipped game package; returns the updated game list and the id it loaded. */
+  async importZip(data: Uint8Array): Promise<{ games: GameListing[]; loaded: string }> {
+    const reply = await this.transport.request({ type: 'importZip', data });
+    if (!reply.ok) throw new EngineError(reply.error.code, reply.error.message);
+    if (reply.type !== 'games' || !reply.loaded) throw new EngineError('protocol', 'expected a game list');
+    return { games: reply.games, loaded: reply.loaded };
   }
 
   start(game: string, seed: string | number, encounter?: string): Promise<Snapshot> {

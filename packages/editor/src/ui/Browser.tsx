@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import { CONTENT_KINDS, type ContentKind } from '@ccg/content';
+import { assetRefs } from '../assets.js';
 import { itemsOfKind, type Project } from '../project.js';
+import { AssetPreview } from './AssetPanel.js';
 import { slug } from './ProjectPicker.js';
 import type { Selection } from './Workspace.js';
 
@@ -15,10 +17,11 @@ export interface BrowserProps {
   onSelect(selection: Selection): void;
   /** Creates an item; returns an error message, or null on success. */
   onCreate(kind: ContentKind, id: string, name: string): string | null;
+  onImportAssets(files: FileList): void;
 }
 
 /** The content tree: items by kind, filtered by a search and tags. */
-export function Browser({ project, selection, issues, onSelect, onCreate }: BrowserProps) {
+export function Browser({ project, selection, issues, onSelect, onCreate, onImportAssets }: BrowserProps) {
   const [query, setQuery] = useState('');
   const [tags, setTags] = useState<Set<string>>(new Set());
   const [adding, setAdding] = useState<ContentKind | null>(null);
@@ -91,7 +94,52 @@ export function Browser({ project, selection, issues, onSelect, onCreate }: Brow
           </details>
         );
       })}
+      <Assets project={project} selection={selection} query={q} onSelect={onSelect} onImport={onImportAssets} />
     </nav>
+  );
+}
+
+function Assets({ project, selection, query, onSelect, onImport }: { project: Project; selection: Selection; query: string; onSelect(s: Selection): void; onImport(files: FileList): void }) {
+  const used = useMemo(() => assetRefs(project), [project]);
+  const paths = Object.keys(project.assets)
+    .filter((p) => query === '' || p.toLowerCase().includes(query))
+    .sort();
+  const unused = Object.keys(project.assets).filter((p) => !used.has(p)).length;
+  return (
+    <details open>
+      <summary>
+        Assets <span className="ccg-muted">{paths.length}</span>
+        {unused > 0 && <span className="ccg-muted"> · {unused} unused</span>}
+        <label className="ccg-add ccg-file-button" aria-label="Import assets" onClick={(e) => e.stopPropagation()}>
+          +
+          <input
+            type="file"
+            multiple
+            accept="image/*,audio/*"
+            aria-label="Import asset files"
+            onChange={(e) => {
+              if (e.target.files && e.target.files.length > 0) onImport(e.target.files);
+              e.target.value = '';
+            }}
+          />
+        </label>
+      </summary>
+      <ul>
+        {paths.map((path) => (
+          <li key={path}>
+            <button
+              type="button"
+              className={`ccg-tree-item ccg-asset-item ${selection?.kind === 'asset' && selection.path === path ? 'is-selected' : ''}`}
+              onClick={() => onSelect({ kind: 'asset', path })}
+            >
+              <AssetPreview project={project} path={path} size={24} />
+              <span>{path.slice('assets/'.length)}</span>
+              {!used.has(path) && <span className="ccg-muted"> unused</span>}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </details>
   );
 }
 

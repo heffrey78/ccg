@@ -10,6 +10,7 @@ import type { Project } from '../../project.js';
 import { itemsOfKind } from '../../project.js';
 import { defaultValue, describe, itemHint, matchOption, type JsonSchema } from '../../forms/schema.js';
 import type { PreviewBoard } from '../../forms/patterns.js';
+import { AssetPreview } from '../AssetPanel.js';
 import { CostEditor } from './CostEditor.js';
 import { EffectList } from './EffectComposer.js';
 import { humanize, NumberInput, Row, TextInput } from './inputs.js';
@@ -92,16 +93,20 @@ export function SchemaField({ node, root, value, onChange, pointer, label, hint:
     );
   }
   if (hint === 'asset' && (typeof value === 'string' || value === undefined)) {
-    const id = `assets-${pointer}`;
+    const current = (value as string | undefined) ?? '';
+    const assets = Object.keys(ctx.project.assets).sort();
     return row(
-      <>
-        <TextInput label={label} value={(value as string | undefined) ?? ''} onCommit={onChange} list={id} placeholder="assets/…" />
-        <datalist id={id}>
-          {Object.keys(ctx.project.assets).map((a) => (
-            <option key={a} value={a} />
+      <span className="ccg-row">
+        {current && <AssetPreview project={ctx.project} path={current} size={40} />}
+        <select aria-label={label} value={current} onChange={(e) => onChange(e.target.value)}>
+          {!assets.includes(current) && <option value={current}>{current ? `${current} (missing)` : '— choose a file —'}</option>}
+          {assets.map((a) => (
+            <option key={a} value={a}>
+              {a.slice('assets/'.length)}
+            </option>
           ))}
-        </datalist>
-      </>,
+        </select>
+      </span>,
     );
   }
 

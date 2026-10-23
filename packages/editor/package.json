@@ -25,8 +25,7 @@
   },
   "dependencies": {
     "@ccg/content": "workspace:^",
-    "@ccg/core": "workspace:^",
-    "fflate": "^0.8.2"
+    "@ccg/core": "workspace:^"
   },
   "devDependencies": {
     "@types/react": "^19.3.0",

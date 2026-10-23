@@ -16,6 +16,8 @@ export type EngineRequest =
   | { type: 'listGames' }
   | { type: 'start'; game: string; seed: string | number; encounter?: string }
   | { type: 'act'; action: Action }
+  /** Loads a game package from a zip (as the editor exports), replacing one with the same id. */
+  | { type: 'importZip'; data: Uint8Array }
   | { type: 'view' };
 
 /** A card as the UI shows it: text is generated from its effects (decision #12). */
@@ -66,6 +68,6 @@ export interface Snapshot {
 }
 
 export type EngineReply =
-  | { ok: true; type: 'games'; games: GameListing[] }
+  | { ok: true; type: 'games'; games: GameListing[]; /** The package a zip import loaded. */ loaded?: string }
   | { ok: true; type: 'snapshot'; snapshot: Snapshot }
   | { ok: false; error: ApplyError | { code: 'not-started' | 'unknown-game' | 'invalid-package'; message: string } };

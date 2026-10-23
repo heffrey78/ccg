@@ -11,14 +11,16 @@ import type { ContentKind, OpRegistry } from '@ccg/content';
 import { EditorError, createItem, type Command } from '../commands.js';
 import { itemKey, projectFiles, splitKey, type Project } from '../project.js';
 import { guessBoard, type PreviewBoard } from '../forms/patterns.js';
+import { moduleSource } from '../assets.js';
 import { zipFiles } from '../stores/zip.js';
+import { AssetPanel, importAssets } from './AssetPanel.js';
 import { newItem } from '../templates.js';
 import type { ProjectIssue } from '../validate.js';
 import { Browser } from './Browser.js';
 import { ItemPanel, ManifestPanel } from './ItemPanel.js';
 import { useStore, type Session } from './session.js';
 
-export type Selection = { kind: 'manifest' } | { kind: 'item'; key: string; pointer?: string } | null;
+export type Selection = { kind: 'manifest' } | { kind: 'item'; key: string; pointer?: string } | { kind: 'asset'; path: string } | null;
 
 export interface WorkspaceProps {
   session: Session;
@@ -77,15 +79,17 @@ export function Workspace({ session, ops, validate, onClose }: WorkspaceProps) {
     }
   }, [session]);
 
-  const exportZip = () => {
-    const blob = new Blob([zipFiles(projectFiles(project)) as BlobPart], { type: 'application/zip' });
-    const url = URL.createObjectURL(blob);
+  const download = (data: BlobPart, type: string, name: string) => {
+    const url = URL.createObjectURL(new Blob([data], { type }));
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${project.manifest.id}-${project.manifest.version}.zip`;
+    a.download = name;
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
+  const base = `${project.manifest.id}-${project.manifest.version}`;
+  const exportZip = () => download(zipFiles(projectFiles(project)) as BlobPart, 'application/zip', `${base}.zip`);
+  const exportModule = () => download(moduleSource(project), 'text/javascript', `${base}.js`);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -110,7 +114,8 @@ export function Workspace({ session, ops, validate, onClose }: WorkspaceProps) {
   }, [save, store]);
 
   // Keep the selection valid across undo/redo and deletes.
-  const shown: Selection = selection?.kind === 'item' && !project.items[selection.key] ? null : selection;
+  const shown: Selection =
+    (selection?.kind === 'item' && !project.items[selection.key]) || (selection?.kind === 'asset' && !project.assets[selection.path]) ? null : selection;
   const issueKeys = useMemo(() => new Set((issues ?? []).flatMap((i) => (i.key ? [i.key] : []))), [issues]);
 
   const create = (kind: ContentKind, id: string, name: string) => {
@@ -135,8 +140,11 @@ export function Workspace({ session, ops, validate, onClose }: WorkspaceProps) {
         <button type="button" className="ccg-primary" disabled={!store.dirty} aria-keyshortcuts="Control+S" onClick={() => void save()}>
           Save
         </button>
-        <button type="button" onClick={exportZip}>
+        <button type="button" onClick={exportZip} title="A zip the play client loads (Play → Load a game from a zip)">
           Export zip
+        </button>
+        <button type="button" onClick={exportModule} title="One JavaScript file, assets included, that hosts load by URL">
+          Export JS module
         </button>
         <button type="button" onClick={() => (store.dirty ? setConfirmClose(true) : onClose())}>
           Close
@@ -171,7 +179,19 @@ export function Workspace({ session, ops, validate, onClose }: WorkspaceProps) {
       )}
 
       <div className="ccg-editor-main">
-        <Browser project={project} selection={shown} issues={issueKeys} onSelect={setSelection} onCreate={create} />
+        <Browser
+          project={project}
+          selection={shown}
+          issues={issueKeys}
+          onSelect={setSelection}
+          onCreate={create}
+          onImportAssets={(files) =>
+            void importAssets(project, files).then(({ command, paths }) => {
+              const error = run(`Import ${paths.length === 1 ? paths[0] : `${paths.length} assets`}`, command);
+              if (!error && paths[0]) setSelection({ kind: 'asset', path: paths[0] });
+            })
+          }
+        />
         <div className="ccg-editor-center">
           {shown?.kind === 'item' ? (
             <ItemPanel
@@ -185,6 +205,8 @@ export function Workspace({ session, ops, validate, onClose }: WorkspaceProps) {
               board={board}
               setBoard={setBoard}
             />
+          ) : shown?.kind === 'asset' ? (
+            <AssetPanel project={project} path={shown.path} run={run} onSelect={setSelection} />
           ) : shown?.kind === 'manifest' ? (
             <ManifestPanel project={project} run={run} />
           ) : (

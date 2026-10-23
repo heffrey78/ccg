@@ -82,7 +82,24 @@ export function App({ engine, platform, seed, renderers }: AppProps) {
           {...(renderers && { renderers })}
         />
       ) : games ? (
-        <GameSelect games={games} lastPlayed={lastPlayed} onStart={start} />
+        <GameSelect
+          games={games}
+          lastPlayed={lastPlayed}
+          onStart={start}
+          onImport={(file) =>
+            void file
+              .arrayBuffer()
+              .then((buffer) => engine.importZip(new Uint8Array(buffer)))
+              .then(
+                ({ games: list, loaded }) => {
+                  setGames(list);
+                  setLastPlayed(loaded);
+                  setError(null);
+                },
+                (e: Error) => setError(e.message),
+              )
+          }
+        />
       ) : (
         <p>Loading…</p>
       )}
