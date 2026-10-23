@@ -38,6 +38,7 @@ export {
 } from './rules/compose.js';
 export {
   ZONES,
+  ZONE_VISIBILITY,
   canAfford,
   createCardsState,
   effectiveDef,
@@ -98,3 +99,4 @@ export {
   type Selector,
 } from './board/intents.js';
 export { greedyPolicy, playTurn, randomPolicy, type AiPolicy } from './ai.js';
+export { canSee, opaqueId, redactEvents, viewState, type GameView, type ViewItem, type Visibility } from './kernel/visibility.js';

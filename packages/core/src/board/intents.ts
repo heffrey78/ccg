@@ -245,8 +245,29 @@ export function intentsModule<W extends BoardWorld & IntentsWorld>(config: Inten
 
   const findIntent = (state: GameState<W>, id: unknown) => state.world.intents.declared.find((i) => i.id === id);
 
+  /** What a viewer on another side may know of an intent (#53): full, its name only, or that it exists. */
+  const shown = (intent: DeclaredIntent, viewer: SideId | null): DeclaredIntent | Partial<DeclaredIntent> => {
+    if (viewer === intent.side || intent.visibility === 'full') return intent;
+    const base = { id: intent.id, unit: intent.unit, side: intent.side, visibility: intent.visibility };
+    return intent.visibility === 'partial' ? { ...base, name: intent.name, ...(intent.icon && { icon: intent.icon }) } : base;
+  };
+
   return {
     name: 'intents',
+    view(world, viewer) {
+      world.intents.declared = world.intents.declared.map((i) => shown(i, viewer)) as DeclaredIntent[];
+      if (viewer === null) world.intents.cursors = {};
+      else for (const unit of Object.keys(world.intents.cursors)) if (world.board.units[unit]?.side !== viewer) delete world.intents.cursors[unit];
+    },
+    redact(event, viewer) {
+      if (event.type !== 'IntentDeclared') return event;
+      const visibility = event.visibility as DeclaredIntent['visibility'];
+      if (viewer === event.side || visibility === 'full') return event;
+      const { target: _t, cells: _c, bound: _b, ...rest } = event;
+      if (visibility === 'partial') return rest;
+      const { name: _n, ...unnamed } = rest;
+      return unnamed;
+    },
     declarePhase: (side, id = `${side}:intents`) => ({ id, side, enter: (ctx) => declareFor(ctx, side) }),
     resolvePhase: (side, id = `${side}:act`) => ({ id, side, enter: (ctx) => resolveFor(ctx, side) }),
 
@@ -265,6 +286,7 @@ export function intentsModule<W extends BoardWorld & IntentsWorld>(config: Inten
             bound: intent.bound,
             target: intent.target ?? null,
             cells: intent.cells ?? null,
+            visibility: intent.visibility,
           },
         ];
       },

@@ -9,6 +9,7 @@
 import type { Targeting } from '@ccg/content';
 import { z } from 'zod';
 import { ContentError } from '../kernel/params.js';
+import { canSee, opaqueId, type Visibility } from '../kernel/visibility.js';
 import type { ActionDef, Effect, EffectContext, EventInput, GameState, SideId, Step } from '../kernel/types.js';
 import { defineOp, type RulesModule } from '../rules/compose.js';
 
@@ -21,7 +22,22 @@ export interface CardInstance {
   def: string;
   owner: SideId;
   upgraded?: boolean;
+  /** Overrides its zone's visibility, e.g. a revealed card in hand (#53). */
+  visibility?: Visibility;
+  /** Times it has been shuffled; each shuffle issues a fresh opaque id (#53). */
+  shuffles?: number;
 }
+
+/** Who sees cards in each zone (#53): the draw pile's order is hidden even from its owner. */
+export const ZONE_VISIBILITY: Record<string, Visibility> = {
+  draw: 'hidden',
+  hand: 'owner',
+  discard: 'public',
+  exhaust: 'public',
+  resolving: 'public',
+};
+
+const CARD_EVENTS = new Set(['CardDrawn', 'CardDiscarded', 'CardExhausted', 'CardPlayed', 'CardMoved', 'CardUpgraded']);
 
 export interface CardsState {
   instances: Record<string, CardInstance>;
@@ -57,6 +73,8 @@ export interface TargetingResolver<W> {
 
 export interface ZonesOptions<W> {
   targeting?: TargetingResolver<W>;
+  /** Visibility of zones by name; package zones default to public. */
+  zoneVisibility?: Record<string, Visibility>;
 }
 
 export interface CardsSetupOptions {
@@ -200,9 +218,41 @@ export function zonesModule<W extends CardsWorld>(defs: Record<string, CardDef>,
     },
   };
 
+  const zoneVisibility = { ...ZONE_VISIBILITY, ...options.zoneVisibility };
+  const visibleTo = (instance: CardInstance | undefined, side: SideId, zoneName: string, viewer: SideId | null) =>
+    canSee(instance?.visibility ?? zoneVisibility[zoneName] ?? 'public', viewer, side);
+
   return {
     name: 'zones',
     actions: { playCard },
+
+    view(world, viewer, state) {
+      const cards = world.cards;
+      for (const [side, zones] of Object.entries(cards.zones)) {
+        for (const [zoneName, ids] of Object.entries(zones)) {
+          zones[zoneName] = ids.map((id) => {
+            const instance = state.world.cards.instances[id];
+            if (visibleTo(instance, side, zoneName, viewer)) return id;
+            delete cards.instances[id];
+            return opaqueId(state, 'card', id, instance?.shuffles);
+          });
+        }
+      }
+      for (const instance of Object.values(cards.instances)) delete instance.shuffles;
+    },
+
+    redact(event, viewer, state) {
+      if (!CARD_EVENTS.has(event.type)) return event;
+      const instance = state.world.cards.instances[str(event.card)];
+      const ends = [event.from, event.to].filter(Boolean) as { side: SideId; zone: string }[];
+      if (ends.length === 0) {
+        const where = locateCard(state.world.cards, str(event.card));
+        if (where) ends.push(where);
+      }
+      if (ends.some((e) => visibleTo(instance, e.side, e.zone, viewer))) return event;
+      const { def: _def, ...rest } = event;
+      return { ...rest, card: event.hidden };
+    },
 
     steps: {
       moveCard(state, s) {
@@ -223,6 +273,7 @@ export function zonesModule<W extends CardsWorld>(defs: Record<string, CardDef>,
             type,
             card: cardId,
             def: instance.def,
+            hidden: opaqueId(state, 'card', cardId, instance.shuffles),
             from: { side: from.side, zone: from.zone },
             to: { side: toSide, zone: toZone },
             reason: s.reason ?? null,
@@ -236,6 +287,11 @@ export function zonesModule<W extends CardsWorld>(defs: Record<string, CardDef>,
           throw new ContentError(`orderZone must keep the same cards in '${str(s.zone)}'`);
         }
         ids.splice(0, ids.length, ...order);
+        // Fresh opaque ids, so hidden cards cannot be tracked through the shuffle.
+        for (const id of ids) {
+          const instance = cardsOf(state).instances[id] as CardInstance;
+          instance.shuffles = (instance.shuffles ?? 0) + 1;
+        }
         return [{ type: 'ZoneShuffled', side: s.side, zone: s.zone, count: ids.length }];
       },
       resource(state, s): EventInput[] {
@@ -250,7 +306,7 @@ export function zonesModule<W extends CardsWorld>(defs: Record<string, CardDef>,
         const instance = cardsOf(state).instances[str(s.card)];
         if (!instance || instance.upgraded) return [];
         instance.upgraded = true;
-        return [{ type: 'CardUpgraded', card: instance.id, def: instance.def }];
+        return [{ type: 'CardUpgraded', card: instance.id, def: instance.def, hidden: opaqueId(state, 'card', instance.id, instance.shuffles) }];
       },
     },
 

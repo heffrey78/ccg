@@ -95,6 +95,8 @@ export interface GameState<W = unknown> {
   /** Number of actions applied so far. */
   actionCount: number;
   rng: RngState;
+  /** Per-game secret for opaque ids of hidden things (#53). Never included in views. */
+  secret: string;
   sides: Side[];
   turn: TurnState;
   /** Bottom first; the top item is the last element. */
@@ -279,6 +281,13 @@ export interface GameRules<W = unknown> {
   onItemResolved?(ctx: PhaseContext<W>, item: StackItem): void;
   limits?: Partial<Limits>;
   windows?: WindowConfig;
+  /**
+   * Hides what `viewer` may not see in a copy of the world (#53). `viewer` is
+   * a side, or null for a spectator who sees only public information.
+   */
+  view?(world: W, viewer: SideId | null, state: GameState<W>): void;
+  /** Redacts an event for a viewer, or returns null to withhold it. */
+  redact?(event: GameEvent, viewer: SideId | null, state: GameState<W>): GameEvent | null;
 }
 
 export interface GameSetup<W> {
