@@ -6,7 +6,8 @@ import { EngineClient, createEngineHost, localTransport } from '@ccg/client/engi
 import type { Project } from '../project.js';
 import type { DirectoryHandleLike } from '../stores/fsa.js';
 import type { ProjectLibrary } from '../stores/indexeddb.js';
-import { editorOps, validateProject, type ProjectIssue } from '../validate.js';
+import { editorOps, simulateProject, validateProject, type ProjectIssue } from '../validate.js';
+import type { Simulator } from './BalancePanel.js';
 import { ProjectPicker } from './ProjectPicker.js';
 import type { Session } from './session.js';
 import { CSS } from './styles.js';
@@ -22,9 +23,11 @@ export interface EditorAppProps {
   ops?: OpRegistry;
   /** The engine for playtests, e.g. in a worker. Defaults to one running in this thread. */
   playtestEngine?: EngineClient;
+  /** Balance simulations, e.g. over a worker pool. Defaults to this thread. */
+  simulate?: Simulator;
 }
 
-export function EditorApp({ library, pickDirectory, validate, ops, playtestEngine }: EditorAppProps) {
+export function EditorApp({ library, pickDirectory, validate, ops, playtestEngine, simulate }: EditorAppProps) {
   const [session, setSession] = useState<Session | null>(null);
   const engine = useMemo(() => playtestEngine ?? new EngineClient(localTransport(createEngineHost({ debug: true }))), [playtestEngine]);
   const registry = useMemo(() => ops ?? editorOps(), [ops]);
@@ -34,7 +37,7 @@ export function EditorApp({ library, pickDirectory, validate, ops, playtestEngin
       <style>{CLIENT_CSS}</style>
       <style>{CSS}</style>
       {session ? (
-        <Workspace key={session.id} session={session} ops={registry} validate={check} playtestEngine={engine} onClose={() => setSession(null)} />
+        <Workspace key={session.id} session={session} ops={registry} validate={check} playtestEngine={engine} simulate={simulate ?? ((p, o) => simulateProject(p, o))} onClose={() => setSession(null)} />
       ) : (
         <ProjectPicker library={library} {...(pickDirectory && { pickDirectory })} onOpen={setSession} />
       )}

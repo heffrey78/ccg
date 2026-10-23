@@ -16,6 +16,8 @@ import {
   runRewards,
   runScenario,
   runScenarios,
+  simulate,
+  summarize,
   Session,
   standardInput,
   topologyOf,
@@ -304,5 +306,38 @@ describe('scenarios as tests', () => {
       ['plain:a', true],
       ['plain:b', true],
     ]);
+  });
+});
+
+describe('balance simulation', () => {
+  function game() {
+    const registry = new PackageRegistry();
+    registry.register(contentGame());
+    const resolved = registry.resolve('plain');
+    if (!resolved.ok) throw new Error('resolve');
+    return resolved.game;
+  }
+  const seeds = Array.from({ length: 30 }, (_, i) => i + 1);
+
+  it('plays many games and summarizes them, identically for the same seeds', () => {
+    const greedy = summarize(simulate(game(), { seeds, bot: 'greedy' }));
+    expect(summarize(simulate(game(), { seeds, bot: 'greedy' }))).toEqual(greedy);
+    expect(greedy.games).toBe(30);
+    expect(greedy.wins + greedy.losses + greedy.unfinished).toBe(30);
+    expect(greedy.winRate).toBeGreaterThan(0.8);
+    expect(greedy.cardPlays.map(([def]) => def)).toContain('plain:strike');
+    expect(greedy.damagePerResource).toBeGreaterThan(0);
+    expect(Object.values(greedy.rounds).reduce((a, b) => a + b, 0)).toBe(30);
+  });
+
+  it('a random player does worse than a greedy one', () => {
+    const random = summarize(simulate(game(), { seeds, bot: 'random', maxActions: 300 }));
+    const greedy = summarize(simulate(game(), { seeds, bot: 'greedy' }));
+    expect(random.winRate).toBeLessThan(greedy.winRate);
+    // The greedy player blocks every hit; the random one gets hurt, and the foe is credited.
+    expect(greedy.averageTaken).toBe(0);
+    expect(random.averageTaken).toBeGreaterThan(0);
+    expect(random.enemyLethality.map(([def]) => def)).toEqual(['plain:foe']);
+    expect(random.enemyLethality[0]?.[1]).toBeCloseTo(random.averageTaken);
   });
 });

@@ -15,6 +15,7 @@ import { moduleSource } from '../assets.js';
 import { zipFiles } from '../stores/zip.js';
 import type { EngineClient } from '@ccg/client/engine';
 import { AssetPanel, importAssets } from './AssetPanel.js';
+import { BalancePanel, type Simulator } from './BalancePanel.js';
 import { PlaytestPane } from './PlaytestPane.js';
 import { newItem } from '../templates.js';
 import { testProject, type ProjectIssue } from '../validate.js';
@@ -31,10 +32,12 @@ export interface WorkspaceProps {
   validate(project: Project): Promise<ProjectIssue[]>;
   /** The engine playtests run in (a worker on web). */
   playtestEngine: EngineClient;
+  /** Runs balance simulations (a worker pool on web). */
+  simulate: Simulator;
   onClose(): void;
 }
 
-export function Workspace({ session, ops, validate, playtestEngine, onClose }: WorkspaceProps) {
+export function Workspace({ session, ops, validate, playtestEngine, simulate, onClose }: WorkspaceProps) {
   const store = useStore(session.store);
   const project = store.project;
   const [selection, setSelection] = useState<Selection>({ kind: 'manifest' });
@@ -42,6 +45,7 @@ export function Workspace({ session, ops, validate, playtestEngine, onClose }: W
   const [status, setStatus] = useState<string | null>(null);
   const [confirmClose, setConfirmClose] = useState(false);
   const [playtest, setPlaytest] = useState(false);
+  const [balance, setBalance] = useState(false);
   const [tests, setTests] = useState<{ running: boolean; results: ScenarioResult[] | null; error: string | null } | null>(null);
   // A card to try in the playtest pane; the counter restarts it on every click.
   const [tryCard, setTryCard] = useState<{ card: string; n: number } | null>(null);
@@ -158,6 +162,9 @@ export function Workspace({ session, ops, validate, playtestEngine, onClose }: W
         <button type="button" aria-pressed={playtest} onClick={() => setPlaytest((p) => !p)}>
           Playtest
         </button>
+        <button type="button" aria-pressed={balance} onClick={() => setBalance((b) => !b)} title="Simulate many games with a bot">
+          Balance
+        </button>
         <button
           type="button"
           title="Run every scenario that has expectations"
@@ -244,6 +251,7 @@ export function Workspace({ session, ops, validate, playtestEngine, onClose }: W
         </div>
       </div>
 
+      {balance && <BalancePanel project={project} simulate={simulate} onClose={() => setBalance(false)} />}
       {tests && <TestResults tests={tests} project={project} onSelect={setSelection} onClose={() => setTests(null)} />}
 
       {playtest && (

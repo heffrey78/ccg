@@ -1,0 +1,157 @@
+/**
+ * Balance simulation (#47): plays an encounter many times with bots and
+ * gathers what happened, deterministically per seed, so the same seeds
+ * always give the same statistics.
+ */
+import { greedyPolicy, randomPolicy, type StatePolicy } from './ai.js';
+import type { BoardWorld } from './board/units.js';
+import type { CardsWorld } from './cards/zones.js';
+import { apply, createGame, decidingSide, legalActions } from './kernel/engine.js';
+import type { GameState, SideId } from './kernel/types.js';
+import type { ResolvedGame } from './packages/registry.js';
+import { sidesOf, type RulesetDef } from './standard.js';
+
+export type Bot = 'random' | 'greedy';
+
+export interface SimOptions {
+  /** The encounter to play (default: the game's first). */
+  encounter?: string;
+  seeds: (string | number)[];
+  /** How the player side plays. The other side keeps its usual AI. */
+  bot?: Bot;
+  /** A game still going after this many actions counts as unfinished. */
+  maxActions?: number;
+}
+
+export interface GameRecord {
+  seed: string | number;
+  winner: 'player' | 'enemy' | 'none';
+  rounds: number;
+  actions: number;
+  /** Card definition → times the player played it. */
+  cardPlays: Record<string, number>;
+  /** Resources the player paid for cards. */
+  spent: number;
+  /** Damage the player's side dealt and took. */
+  dealt: number;
+  taken: number;
+  /** Enemy unit definition → damage it dealt to the player's side. */
+  enemyDamage: Record<string, number>;
+}
+
+type World = BoardWorld & CardsWorld;
+const add = (map: Record<string, number>, key: string, n: number) => {
+  map[key] = (map[key] ?? 0) + n;
+};
+
+/** A greedy score for the player: their units' HP and block, against twice the enemies' HP, and winning above all. */
+function playerScore(sides: { player: SideId }) {
+  return (state: GameState<World>, side: SideId) => {
+    if (state.outcome) return state.outcome.winners.includes(side) ? 1e6 : -1e6;
+    return Object.values(state.world.board.units).reduce((n, u) => n + (u.side === sides.player ? u.hp + u.block : -2 * u.hp), 0);
+  };
+}
+
+export function simulate<W>(game: ResolvedGame<W>, options: SimOptions): GameRecord[] {
+  const rules = game.createRules();
+  const prefix = `${game.root.id}:`;
+  const ruleset = game.items.find((i) => i.kind === 'ruleset' && i.id.startsWith(prefix));
+  const sides = ruleset ? sidesOf(game.definitions.rulesets[ruleset.id] as RulesetDef) : { player: 'player', enemy: 'enemy' };
+  const max = options.maxActions ?? 400;
+
+  return options.seeds.map((seed) => {
+    const record: GameRecord = { seed, winner: 'none', rounds: 0, actions: 0, cardPlays: {}, spent: 0, dealt: 0, taken: 0, enemyDamage: {} };
+    const created = createGame(rules, game.createSetup({ seed, ...(options.encounter && { encounter: options.encounter }) }));
+    if (!created.ok) throw new Error(created.error.message);
+    let state = created.state as unknown as GameState<World>;
+    const bot: StatePolicy<World> =
+      options.bot === 'greedy' ? greedyPolicy<World>(playerScore(sides)) : randomPolicy<World>(`sim:${String(seed)}`);
+    const ai = randomPolicy<World>(`sim-ai:${String(seed)}`);
+    /** Stack item → the unit whose intent it is. */
+    const itemUnit = new Map<string, string>();
+
+    while (!state.outcome && record.actions < max) {
+      const side = decidingSide(rules as never, state);
+      if (side === null) break;
+      const actions = legalActions(rules as never, state, side);
+      if (actions.length === 0) break;
+      const action = (side === sides.player ? bot : ai).choose(rules as never, state, side, actions);
+      const before = state;
+      const result = apply(rules as never, state, action);
+      if (!result.ok) throw new Error(`seed ${String(seed)}: ${result.error.message}`);
+      state = result.state as unknown as GameState<World>;
+      record.actions++;
+      if (action.type === 'playCard' && side === sides.player) {
+        const def = before.world.cards.instances[action.card as string]?.def;
+        if (def) add(record.cardPlays, def, 1);
+      }
+      const defs = { ...Object.fromEntries(Object.values(before.world.board.units).map((u) => [u.id, u.def])), ...Object.fromEntries(Object.values(state.world.board.units).map((u) => [u.id, u.def])) };
+      for (const e of result.events) {
+        if (e.type === 'ItemAnnounced' && e.kind === 'intent' && typeof e.source === 'string') itemUnit.set(e.item as string, e.source);
+        if (e.type === 'ResourceChanged' && e.side === sides.player && e.reason === 'cost') record.spent -= e.delta as number;
+        if (e.type === 'DamageDealt') {
+          const amount = e.amount as number;
+          if (e.side === sides.player) {
+            record.taken += amount;
+            const attacker = typeof e.by === 'string' ? e.by : e.cause.item ? itemUnit.get(e.cause.item) : undefined;
+            const def = attacker ? defs[attacker] : undefined;
+            if (def) add(record.enemyDamage, def, amount);
+          } else record.dealt += amount;
+        }
+      }
+    }
+    record.rounds = state.turn.round;
+    if (state.outcome) record.winner = state.outcome.winners.includes(sides.player) ? 'player' : 'enemy';
+    return record;
+  });
+}
+
+export interface SimSummary {
+  games: number;
+  wins: number;
+  losses: number;
+  unfinished: number;
+  winRate: number;
+  averageRounds: number;
+  /** Rounds → games that ended then. */
+  rounds: Record<number, number>;
+  /** Card definition → plays per game, most played first. */
+  cardPlays: [string, number][];
+  /** Damage dealt per resource paid. */
+  damagePerResource: number;
+  averageTaken: number;
+  /** Enemy unit definition → damage dealt per game, most lethal first. */
+  enemyLethality: [string, number][];
+}
+
+export function summarize(records: GameRecord[]): SimSummary {
+  const n = Math.max(1, records.length);
+  const plays: Record<string, number> = {};
+  const lethality: Record<string, number> = {};
+  const rounds: Record<number, number> = {};
+  for (const r of records) {
+    for (const [def, k] of Object.entries(r.cardPlays)) add(plays, def, k);
+    for (const [def, k] of Object.entries(r.enemyDamage)) add(lethality, def, k);
+    rounds[r.rounds] = (rounds[r.rounds] ?? 0) + 1;
+  }
+  const perGame = (map: Record<string, number>) =>
+    Object.entries(map)
+      .map(([k, v]) => [k, v / n] as [string, number])
+      .sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1));
+  const wins = records.filter((r) => r.winner === 'player').length;
+  const losses = records.filter((r) => r.winner === 'enemy').length;
+  const spent = records.reduce((s, r) => s + r.spent, 0);
+  return {
+    games: records.length,
+    wins,
+    losses,
+    unfinished: records.length - wins - losses,
+    winRate: records.length === 0 ? 0 : wins / records.length,
+    averageRounds: records.reduce((s, r) => s + r.rounds, 0) / n,
+    rounds,
+    cardPlays: perGame(plays),
+    damagePerResource: spent === 0 ? 0 : records.reduce((s, r) => s + r.dealt, 0) / spent,
+    averageTaken: records.reduce((s, r) => s + r.taken, 0) / n,
+    enemyLethality: perGame(lethality),
+  };
+}
