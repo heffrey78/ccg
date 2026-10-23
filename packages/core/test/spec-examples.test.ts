@@ -247,7 +247,7 @@ describe('resolution-order worked examples', () => {
     expect(hashState(state)).toBe(before);
   });
 
-  it.todo('E13: a hidden trap in fair-AI and cheating-AI views (#53, #56)');
+  it.todo('E13: a hidden trap in fair-AI and cheating-AI views (#56: face-down traps and fair AI; views exist since #53)');
 
   it('E14: a game with no response windows never pauses', () => {
     const state = startLane(

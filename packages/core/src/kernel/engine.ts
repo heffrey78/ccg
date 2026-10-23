@@ -8,7 +8,7 @@
  * Not yet implemented: per-viewer views (#53).
  */
 import { clonePlain } from '../clone.js';
-import { canonicalJson } from '../hash.js';
+import { canonicalJson, hashState } from '../hash.js';
 import { Rng, seedRng } from '../rng.js';
 import { controllerRanker, sortListeners } from './order.js';
 import { ContentError, resolveParams } from './params.js';
@@ -83,6 +83,7 @@ export function createGame<W>(rules: GameRules<W>, setup: GameSetup<W>): ApplyRe
     seq: 0,
     actionCount: 0,
     rng: seedRng(setup.seed),
+    secret: hashState({ seed: setup.seed, purpose: 'opaque ids' }),
     sides: clonePlain(setup.sides),
     turn: { round: 0, slot: -1, phase: '', activeSide: null },
     stack: [],

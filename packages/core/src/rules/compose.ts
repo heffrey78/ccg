@@ -32,6 +32,8 @@ export interface RulesModule<W> {
   listeners?: GameRules<W>['listeners'];
   stateChecks?: GameRules<W>['stateChecks'];
   onItemResolved?(ctx: PhaseContext<W>, item: StackItem): void;
+  view?: GameRules<W>['view'];
+  redact?: GameRules<W>['redact'];
 }
 
 export type BaseRules<W> = Omit<GameRules<W>, 'ops' | 'steps'> & {
@@ -50,6 +52,8 @@ function asModule<W>(base: BaseRules<W>): RulesModule<W> {
     ...(base.listeners && { listeners: base.listeners }),
     ...(base.stateChecks && { stateChecks: base.stateChecks }),
     ...(base.onItemResolved && { onItemResolved: base.onItemResolved }),
+    ...(base.view && { view: base.view }),
+    ...(base.redact && { redact: base.redact }),
   };
 }
 
@@ -92,6 +96,23 @@ export function composeRules<W>(base: BaseRules<W>, modules: RulesModule<W>[]): 
   if (base.outcome) rules.outcome = base.outcome;
   if (base.limits) rules.limits = base.limits;
   if (base.windows) rules.windows = base.windows;
+  const views = all.flatMap((m) => (m.view ? [m.view] : []));
+  if (views.length > 0) {
+    rules.view = (world, viewer, state) => {
+      for (const view of views) view(world, viewer, state);
+    };
+  }
+  const redactors = all.flatMap((m) => (m.redact ? [m.redact] : []));
+  if (redactors.length > 0) {
+    rules.redact = (event, viewer, state) => {
+      let current: typeof event | null = event;
+      for (const redact of redactors) {
+        if (current === null) return null;
+        current = redact(current, viewer, state);
+      }
+      return current;
+    };
+  }
   return rules;
 }
 

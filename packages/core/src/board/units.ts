@@ -9,6 +9,7 @@ import type { Targeting } from '@ccg/content';
 import { z } from 'zod';
 import type { TargetingResolver } from '../cards/zones.js';
 import { ContentError } from '../kernel/params.js';
+import { canSee, type Visibility } from '../kernel/visibility.js';
 import type {
   ActionDef,
   Effect,
@@ -39,6 +40,8 @@ export interface UnitState {
   createdAt: number;
   /** Turn key (`round:side`) of the unit's last basic move. */
   movedOn?: string;
+  /** Who can see the unit, e.g. a hidden trap or a unit in fog (#53, #56). Default public. */
+  visibility?: Visibility;
 }
 
 export interface BoardState {
@@ -274,6 +277,18 @@ export function boardModule<W extends BoardWorld>(config: BoardConfig): RulesMod
   return {
     name: 'board',
     ...(moveAction && { actions: { move: moveAction } }),
+
+    view(world, viewer) {
+      for (const u of Object.values(world.board.units)) {
+        if (!canSee(u.visibility, viewer, u.side)) delete world.board.units[u.id];
+      }
+    },
+
+    redact(event, viewer, state) {
+      // Withhold events about a unit the viewer cannot see (it may have left play since).
+      const u = typeof event.unit === 'string' ? state.world.board.units[event.unit] : undefined;
+      return u && !canSee(u.visibility, viewer, u.side) ? null : event;
+    },
 
     steps: {
       moveUnit(state, s) {
