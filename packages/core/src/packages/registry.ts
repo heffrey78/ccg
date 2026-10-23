@@ -275,6 +275,8 @@ function qualifyItem(item: ContentItem, pkg: string, ops: OpRegistry, sink: RefS
       effects((f.upgrade as { effects?: unknown } | undefined)?.effects, '/upgrade/effects');
       const keywords = f.keywords as string[] | undefined;
       if (keywords) f.keywords = keywords.map((k, i) => ref('status', k, `/keywords/${i}`));
+      const permanent = f.permanent as { unit?: string } | undefined;
+      if (permanent?.unit) permanent.unit = ref('unit', permanent.unit, '/permanent/unit');
       break;
     }
     case 'unit': {
