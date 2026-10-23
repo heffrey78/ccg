@@ -331,6 +331,28 @@ export function createContentSchemas(ops: OpRegistry, { formatVersion: version =
     })
     .strict();
 
+  // What a scenario checks after its actions (#46), so scenarios run as regression tests.
+  const between = z.object({ min: z.number().optional(), max: z.number().optional() }).strict();
+  const expectation = z.discriminatedUnion('kind', [
+    z.object({ kind: z.literal('outcome'), winner: z.enum(['player', 'enemy', 'none']) }).strict(),
+    z
+      .object({
+        kind: z.literal('unit'),
+        unit: ref,
+        side: id.optional(),
+        /** false: no such unit is left on the board. */
+        alive: z.boolean().optional(),
+        hp: between.optional(),
+        block: between.optional(),
+        pos: z.string().min(1).optional(),
+        status: ref.optional(),
+        stacks: between.optional(),
+      })
+      .strict(),
+    z.object({ kind: z.literal('cards'), zone: z.string().min(1), count: between }).strict(),
+    z.object({ kind: z.literal('resource'), resource: id, value: between }).strict(),
+  ]);
+
   // A saved playtest setup (#42): an encounter with a fixed seed and, optionally, a fixed hand and deck order.
   const scenario = z
     .object({
@@ -342,6 +364,10 @@ export function createContentSchemas(ops: OpRegistry, { formatVersion: version =
       hand: z.array(ref).optional(),
       /** The rest of the draw pile, top first. With hand or deck set, the deck is not shuffled. */
       deck: z.array(ref).optional(),
+      /** Actions to play from the start, every side's, in order (as the debugger records them). */
+      actions: z.array(z.object({ type: z.string().min(1), side: z.string().min(1) }).catchall(z.unknown())).optional(),
+      /** Checked after the actions: the scenario passes when all hold. */
+      expect: z.array(expectation).optional(),
     })
     .strict();
 

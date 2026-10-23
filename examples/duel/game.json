@@ -1,0 +1,8 @@
+{
+  "formatVersion": 1,
+  "id": "duel",
+  "name": "Duel",
+  "version": "0.1.0",
+  "engine": "^0.0.0",
+  "description": "A content-only example game: no code, just content, a ruleset and scenario tests."
+}

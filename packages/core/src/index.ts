@@ -101,6 +101,7 @@ export {
   type StandardGameInput,
   type StandardWorld,
 } from './standard.js';
+export { checkExpectations, runScenario, runScenarios, type Expectation, type ScenarioResult } from './scenarios.js';
 export { PackageRegistry, rulesetOf, standardInput, type PackageIssue, type ResolveResult, type ResolvedGame } from './packages/registry.js';
 export { parseVersion, satisfies } from './packages/semver.js';
 export {

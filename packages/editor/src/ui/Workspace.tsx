@@ -17,7 +17,8 @@ import type { EngineClient } from '@ccg/client/engine';
 import { AssetPanel, importAssets } from './AssetPanel.js';
 import { PlaytestPane } from './PlaytestPane.js';
 import { newItem } from '../templates.js';
-import type { ProjectIssue } from '../validate.js';
+import { testProject, type ProjectIssue } from '../validate.js';
+import type { ScenarioResult } from '@ccg/core';
 import { Browser } from './Browser.js';
 import { ItemPanel, ManifestPanel } from './ItemPanel.js';
 import { useStore, type Session } from './session.js';
@@ -41,6 +42,7 @@ export function Workspace({ session, ops, validate, playtestEngine, onClose }: W
   const [status, setStatus] = useState<string | null>(null);
   const [confirmClose, setConfirmClose] = useState(false);
   const [playtest, setPlaytest] = useState(false);
+  const [tests, setTests] = useState<{ running: boolean; results: ScenarioResult[] | null; error: string | null } | null>(null);
   // A card to try in the playtest pane; the counter restarts it on every click.
   const [tryCard, setTryCard] = useState<{ card: string; n: number } | null>(null);
   // The board patterns are previewed on, guessed from the encounters until the author picks one.
@@ -156,6 +158,19 @@ export function Workspace({ session, ops, validate, playtestEngine, onClose }: W
         <button type="button" aria-pressed={playtest} onClick={() => setPlaytest((p) => !p)}>
           Playtest
         </button>
+        <button
+          type="button"
+          title="Run every scenario that has expectations"
+          onClick={() => {
+            setTests({ running: true, results: null, error: null });
+            testProject(project).then(
+              (results) => setTests({ running: false, results, error: null }),
+              (e: Error) => setTests({ running: false, results: null, error: e.message }),
+            );
+          }}
+        >
+          Run tests
+        </button>
         <button type="button" onClick={() => (store.dirty ? setConfirmClose(true) : onClose())}>
           Close
         </button>
@@ -229,6 +244,8 @@ export function Workspace({ session, ops, validate, playtestEngine, onClose }: W
         </div>
       </div>
 
+      {tests && <TestResults tests={tests} project={project} onSelect={setSelection} onClose={() => setTests(null)} />}
+
       {playtest && (
         <PlaytestPane
           project={project}
@@ -279,6 +296,56 @@ function ValidationPanel({ project, issues, onSelect }: { project: Project; issu
           ))}
         </ul>
       )}
+    </section>
+  );
+}
+
+function TestResults({
+  tests,
+  project,
+  onSelect,
+  onClose,
+}: {
+  tests: { running: boolean; results: ScenarioResult[] | null; error: string | null };
+  project: Project;
+  onSelect(s: Selection): void;
+  onClose(): void;
+}) {
+  const failed = tests.results?.filter((r) => !r.passed).length ?? 0;
+  return (
+    <section className="ccg-validation" aria-labelledby="tests-heading">
+      <h2 id="tests-heading">
+        Tests{' '}
+        {tests.results && (
+          <span className={failed > 0 ? 'ccg-badge is-bad' : 'ccg-badge'}>
+            {tests.results.length - failed}/{tests.results.length}
+          </span>
+        )}{' '}
+        <button type="button" onClick={onClose} aria-label="Close tests">
+          ×
+        </button>
+      </h2>
+      {tests.running && <p className="ccg-muted">Running…</p>}
+      {tests.error && <p className="ccg-error">Could not run the tests: {tests.error}</p>}
+      {tests.results?.length === 0 && <p className="ccg-muted">No scenarios have expectations yet. Add some under a scenario's Test section.</p>}
+      <ul aria-label="Test results">
+        {tests.results?.map((r) => {
+          const id = r.id.slice(project.manifest.id.length + 1);
+          return (
+            <li key={r.id} className={r.passed ? 'is-pass' : 'is-fail'}>
+              {r.passed ? '✓' : '✗'}{' '}
+              <button type="button" className="ccg-link" onClick={() => onSelect({ kind: 'item', key: `scenario:${id}` })}>
+                {r.name}
+              </button>
+              {r.failures.map((f, i) => (
+                <div key={i} className="ccg-error">
+                  {f}
+                </div>
+              ))}
+            </li>
+          );
+        })}
+      </ul>
     </section>
   );
 }

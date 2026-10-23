@@ -1,0 +1,18 @@
+{
+  "formatVersion": 1,
+  "kind": "card",
+  "id": "guard",
+  "name": "Guard",
+  "cost": {
+    "energy": 1
+  },
+  "targeting": {
+    "kind": "self"
+  },
+  "effects": [
+    {
+      "op": "gainBlock",
+      "amount": 5
+    }
+  ]
+}

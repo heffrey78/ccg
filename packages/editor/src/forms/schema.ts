@@ -182,6 +182,8 @@ const ITEM_HINTS: Record<ContentKind, [string, WidgetHint][]> = {
     ['/encounter', 'encounterDef'],
     ['/hand/*', 'cardDef'],
     ['/deck/*', 'cardDef'],
+    ['/expect/*/unit', 'unitDef'],
+    ['/expect/*/status', 'status'],
   ],
 };
 

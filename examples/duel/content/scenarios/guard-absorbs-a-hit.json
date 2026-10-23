@@ -1,0 +1,46 @@
+{
+  "formatVersion": 1,
+  "kind": "scenario",
+  "id": "guard-absorbs-a-hit",
+  "name": "Guard absorbs the foe's hit",
+  "encounter": "close-quarters",
+  "seed": 1,
+  "hand": [
+    "guard"
+  ],
+  "deck": [
+    "strike",
+    "strike",
+    "strike",
+    "strike",
+    "strike"
+  ],
+  "actions": [
+    {
+      "type": "playCard",
+      "side": "player",
+      "card": "card1"
+    },
+    {
+      "type": "endTurn",
+      "side": "player"
+    }
+  ],
+  "expect": [
+    {
+      "kind": "unit",
+      "unit": "hero",
+      "hp": {
+        "min": 30,
+        "max": 30
+      },
+      "block": {
+        "max": 0
+      }
+    },
+    {
+      "kind": "outcome",
+      "winner": "none"
+    }
+  ]
+}

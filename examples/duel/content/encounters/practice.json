@@ -1,0 +1,20 @@
+{
+  "formatVersion": 1,
+  "kind": "encounter",
+  "id": "practice",
+  "name": "Practice",
+  "units": [
+    {
+      "unit": "hero",
+      "side": "player",
+      "pos": "0",
+      "facing": "e"
+    },
+    {
+      "unit": "dummy",
+      "side": "enemy",
+      "pos": "1",
+      "facing": "w"
+    }
+  ]
+}

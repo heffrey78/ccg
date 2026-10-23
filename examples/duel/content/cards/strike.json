@@ -1,0 +1,20 @@
+{
+  "formatVersion": 1,
+  "kind": "card",
+  "id": "strike",
+  "name": "Strike",
+  "cost": {
+    "energy": 1
+  },
+  "targeting": {
+    "kind": "unit",
+    "filter": "enemy",
+    "range": 1
+  },
+  "effects": [
+    {
+      "op": "damage",
+      "amount": 6
+    }
+  ]
+}

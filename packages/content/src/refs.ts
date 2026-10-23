@@ -86,6 +86,11 @@ export function mapRefs(item: ContentItem, ops: OpRegistry, visit: RefVisitor): 
         const list = f[field] as string[] | undefined;
         if (list) f[field] = list.map((c, i) => ref('card', c, `/${field}/${i}`));
       }
+      (f.expect as { kind: string; unit?: string; status?: string }[] | undefined)?.forEach((e, i) => {
+        if (e.kind !== 'unit') return;
+        if (e.unit) e.unit = ref('unit', e.unit, `/expect/${i}/unit`);
+        if (e.status) e.status = ref('status', e.status, `/expect/${i}/status`);
+      });
       break;
     }
     case 'ruleset': {

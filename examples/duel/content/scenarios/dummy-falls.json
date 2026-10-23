@@ -1,0 +1,31 @@
+{
+  "formatVersion": 1,
+  "kind": "scenario",
+  "id": "dummy-falls",
+  "name": "A strike fells the training dummy",
+  "encounter": "practice",
+  "seed": 1,
+  "hand": [
+    "strike"
+  ],
+  "deck": [],
+  "actions": [
+    {
+      "type": "playCard",
+      "side": "player",
+      "card": "card1",
+      "target": "enemy1"
+    }
+  ],
+  "expect": [
+    {
+      "kind": "unit",
+      "unit": "dummy",
+      "alive": false
+    },
+    {
+      "kind": "outcome",
+      "winner": "player"
+    }
+  ]
+}

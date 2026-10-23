@@ -36,4 +36,4 @@ export { indexedDbLibrary, type ProjectInfo, type ProjectLibrary } from './store
 export { fileSource, memoryStore, readAll, saveProject, type ProjectStore } from './stores/store.js';
 export { unzipFiles, zipFiles } from './stores/zip.js';
 export { TEMPLATES, blankProject, newItem, type TemplateBoard } from './templates.js';
-export { editorOps, validateProject, type ProjectIssue } from './validate.js';
+export { editorOps, testProject, validateProject, type ProjectIssue } from './validate.js';
