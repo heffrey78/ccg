@@ -9,6 +9,7 @@
 import type { Targeting } from '@ccg/content';
 import { z } from 'zod';
 import { ContentError } from '../kernel/params.js';
+import type { PatternShape } from '../board/topology.js';
 import { canSee, opaqueId, type Visibility } from '../kernel/visibility.js';
 import type { ActionDef, Effect, EffectContext, EventInput, GameState, Prompt, SideId, Step, WindowTiming } from '../kernel/types.js';
 import { defineOp, type RulesModule } from '../rules/compose.js';
@@ -104,7 +105,48 @@ export interface CardPermanent {
   duration?: number;
   /** Where its card goes when it leaves play. Default discard. */
   leaveTo?: string;
+  abilities?: PermanentAbility[];
+  statics?: PermanentStatic[];
 }
+
+/** Which units a permanent's static or trigger cares about, relative to its controller. */
+export type Affects = 'allies' | 'enemies' | 'all' | 'host';
+
+export type PermanentAbility =
+  | {
+      kind: 'triggered';
+      /** Event type, e.g. 'PhaseEnded' or 'UnitEnteredTile'. */
+      on: string;
+      /** `when` interrupts inline (traps); `after` (default) goes on the stack. */
+      timing?: 'when' | 'after';
+      /** Whose event, relative to the permanent's controller: its own (default for phase events), allies', enemies' or anyone's. */
+      scope?: 'self' | 'ally' | 'enemy' | 'any';
+      /** Only events on the permanent's own tile (e.g. a unit stepping onto a trap). */
+      onTile?: boolean;
+      phase?: string;
+      /** Stop the effect that caused the event, e.g. the rest of a push. */
+      halt?: boolean;
+      /** Leaves play after it fires once. */
+      consume?: boolean;
+      effects: Effect[];
+    }
+  | {
+      kind: 'activated';
+      name: string;
+      cost?: Record<string, number>;
+      timing?: 'main' | 'reaction' | 'any';
+      reaction?: ReactionCondition;
+      /** Measured from the permanent's unit (or an attachment's host). */
+      targeting?: Targeting;
+      /** At most once per turn (default true). */
+      oncePerTurn?: boolean;
+      effects: Effect[];
+    };
+
+/** A continuous effect, recalculated after every step (§9.3). */
+export type PermanentStatic =
+  | { kind: 'maxHp'; amount: number; affects?: Affects; area?: PatternShape }
+  | { kind: 'damage'; on: 'damageTaken' | 'damageDealt'; add?: number; multiply?: number; affects?: Affects; area?: PatternShape };
 
 export interface CardDef {
   cost?: Record<string, number>;

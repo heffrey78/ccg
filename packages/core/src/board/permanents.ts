@@ -14,12 +14,22 @@
  * World slice: `permanents`.
  */
 import { z } from 'zod';
-import type { CardDef, CardsWorld, CardPermanent } from '../cards/zones.js';
+import {
+  canAfford,
+  reactionAllowed,
+  type Affects,
+  type CardDef,
+  type CardPermanent,
+  type CardsWorld,
+  type PermanentAbility,
+  type PermanentStatic,
+  type TargetingResolver,
+} from '../cards/zones.js';
 import { ContentError } from '../kernel/params.js';
-import type { EffectContext, GameEvent, GameState, SideId } from '../kernel/types.js';
+import type { Action, ActionDef, Effect, EffectContext, GameEvent, GameState, Listener, SideId, Step } from '../kernel/types.js';
 import { defineOp, type RulesModule } from '../rules/compose.js';
-import type { Pos, Topology } from './topology.js';
-import { unitAt, unitsAt, type BoardWorld, type UnitDef } from './units.js';
+import type { PatternShape, Pos, Topology } from './topology.js';
+import { unitAt, unitsAt, type BoardWorld, type UnitDef, type UnitState } from './units.js';
 
 export interface PermanentState {
   id: string;
@@ -36,6 +46,10 @@ export interface PermanentState {
   turnsLeft?: number;
   leaveTo: string;
   createdAt: number;
+  /** Turn key (`round:side`) it entered play on, for summoning sickness. */
+  enteredOn?: string;
+  /** Activated ability index → turn key it was last used on. */
+  used?: Record<string, string>;
 }
 
 export interface PermanentsWorld {
@@ -48,8 +62,10 @@ export interface PermanentsConfig {
   units: Record<string, UnitDef>;
   /** Most permanents a side may control at once. */
   maxPerSide?: number;
-  /** Units entering play cannot use the basic move action that turn. Default true. */
+  /** Permanents entering play cannot move (basic move action) or activate abilities that turn. Default true. */
   summoningSickness?: boolean;
+  /** Targeting for activated abilities, measured from the permanent's unit; e.g. `(actor) => boardTargeting(board, { actor: () => actor })`. */
+  targeting?: (actor: string) => TargetingResolver<World>;
 }
 
 type World = BoardWorld & CardsWorld & PermanentsWorld;
@@ -68,6 +84,121 @@ export function permanentsPlayable<W extends World>(config: PermanentsConfig) {
 
 export function permanentsModule<W extends World>(config: PermanentsConfig): RulesModule<W> {
   const tileKinds = new Set(['unit', 'structure', 'trap']);
+  const topo = config.topology;
+  const sickness = config.summoningSickness ?? true;
+
+  const specOf = (state: GameState<W>, permanent: PermanentState): CardPermanent | undefined => {
+    const def = state.world.cards.instances[permanent.card]?.def;
+    return def === undefined ? undefined : config.cards[def]?.permanent;
+  };
+  /** The unit a permanent acts as: its own board unit, or an attachment's host. */
+  const actorOf = (permanent: PermanentState) => (permanent.kind === 'aura' ? undefined : permanent.unit);
+  const originOf = (state: GameState<W>, permanent: PermanentState): { pos: Pos; facing: string } | undefined => {
+    if (permanent.kind === 'aura') return permanent.pos === undefined ? undefined : { pos: permanent.pos, facing: topo.directions()[0] as string };
+    const u = permanent.unit ? state.world.board.units[permanent.unit] : undefined;
+    return u ? { pos: u.pos, facing: u.facing } : undefined;
+  };
+  const isHidden = (state: GameState<W>, permanent: PermanentState) => {
+    const u = tileKinds.has(permanent.kind) && permanent.unit ? state.world.board.units[permanent.unit] : undefined;
+    return u?.visibility !== undefined && u.visibility !== 'public';
+  };
+
+  /** Units a static reaches: an attachment's host, or units on the area around the permanent (§9.3). */
+  const affected = (state: GameState<W>, permanent: PermanentState, effect: PermanentStatic): UnitState[] => {
+    const affects: Affects = effect.affects ?? (permanent.kind === 'attachment' ? 'host' : 'allies');
+    if (affects === 'host') {
+      const host = permanent.unit ? state.world.board.units[permanent.unit] : undefined;
+      return host ? [host] : [];
+    }
+    const origin = originOf(state, permanent);
+    if (!origin) return [];
+    const area: PatternShape = effect.area ?? { kind: 'area', radius: 1 };
+    const cells = topo.pattern(origin.pos, origin.facing, area);
+    return cells
+      .flatMap((pos) => unitsAt(state.world.board, pos))
+      .filter((u) => u.id !== permanent.unit)
+      .filter((u) => affects === 'all' || (affects === 'allies') === (u.side === permanent.controller));
+  };
+
+  const statics = (state: GameState<W>) =>
+    Object.values(state.world.permanents).flatMap((permanent) =>
+      (specOf(state, permanent)?.statics ?? []).map((effect) => ({ permanent, effect })),
+    );
+
+  const damageChange = (state: GameState<W>, taker: string, dealer: unknown) => {
+    let add = 0;
+    let multiply = 1;
+    for (const { permanent, effect } of statics(state)) {
+      if (effect.kind !== 'damage') continue;
+      const subject = effect.on === 'damageTaken' ? taker : dealer;
+      if (typeof subject !== 'string' || (effect.on === 'damageDealt' && dealer === taker)) continue;
+      if (!affected(state, permanent, effect).some((u) => u.id === subject)) continue;
+      add += effect.add ?? 0;
+      multiply *= effect.multiply ?? 1;
+    }
+    return { add, multiply, any: add !== 0 || multiply !== 1 };
+  };
+
+  const relatedTo = (event: GameEvent, permanent: PermanentState, scope: NonNullable<Extract<PermanentAbility, { kind: 'triggered' }>['scope']>) => {
+    if (scope === 'any') return true;
+    if (typeof event.unit === 'string') {
+      if (scope === 'self') return event.unit === actorOf(permanent);
+      return scope === 'ally' ? event.side === permanent.controller && event.unit !== actorOf(permanent) : event.side !== permanent.controller;
+    }
+    if ('activeSide' in event) {
+      return scope === 'enemy' ? event.activeSide !== null && event.activeSide !== permanent.controller : event.activeSide === permanent.controller;
+    }
+    return false;
+  };
+
+  const activations = (state: GameState<W>, side: SideId, accept: (ability: Extract<PermanentAbility, { kind: 'activated' }>) => boolean): Action[] => {
+    const out: Action[] = [];
+    const now = turnKey(state);
+    for (const permanent of Object.values(state.world.permanents).sort((a, b) => a.createdAt - b.createdAt)) {
+      // Summoning sickness lasts until its controller's next turn, not just the phase it arrived in.
+      const sick = sickness && permanent.enteredOn === `${state.turn.round}:${permanent.controller}`;
+      if (permanent.controller !== side || sick) continue;
+      (specOf(state, permanent)?.abilities ?? []).forEach((ability, index) => {
+        if (ability.kind !== 'activated' || !accept(ability)) return;
+        if ((ability.oncePerTurn ?? true) && permanent.used?.[index] === now) return;
+        if (!canAfford(state.world.cards, side, ability.cost)) return;
+        const actor = actorOf(permanent);
+        const targeting = ability.targeting ?? { kind: 'none' };
+        const choices = actor && config.targeting ? config.targeting(actor).choices(state as never, side, targeting) : targeting.kind === 'none' ? [null] : [];
+        for (const target of choices) {
+          out.push({ type: 'activate', side, permanent: permanent.id, ability: index, ...(target !== null && { target }) });
+        }
+      });
+    }
+    return out;
+  };
+
+  const activate: ActionDef<W> = {
+    list: (state, side) => activations(state, side, (a) => (a.timing ?? 'main') !== 'reaction'),
+    respond: (state, side, prompt) => activations(state, side, (a) => (a.timing ?? 'main') !== 'main' && reactionAllowed(state, side, prompt, a.reaction)),
+    perform(ctx, action) {
+      const permanent = ctx.state.world.permanents[str(action.permanent)] as PermanentState;
+      const ability = specOf(ctx.state, permanent)?.abilities?.[action.ability as number] as Extract<PermanentAbility, { kind: 'activated' }>;
+      const actor = actorOf(permanent);
+      const targeting = ability.targeting ?? { kind: 'none' };
+      const bound = actor && config.targeting ? config.targeting(actor).bind(ctx.state as never, action.side, targeting, (action.target as string | undefined) ?? null) : {};
+      const costs = Object.entries(ability.cost ?? {}).filter(([, n]) => n > 0);
+      if (costs.length > 0) ctx.step(costs.map(([resource, n]) => ({ kind: 'resource', side: action.side, resource, delta: -n, reason: 'cost' })));
+      ctx.step({ kind: 'useAbility', permanent: permanent.id, ability: action.ability, turn: turnKey(ctx.state) });
+      ctx.announce({
+        kind: 'ability',
+        controller: action.side,
+        source: permanent.id,
+        effects: ability.effects,
+        vars: {
+          ...bound,
+          self: actor ?? null,
+          permanent: permanent.id,
+          ...(ctx.answering && { reaction: true, respondingTo: ctx.answering.item }),
+        },
+      });
+    },
+  };
 
   const byUnit = (state: GameState<W>, unit: string) =>
     Object.values(state.world.permanents).find((p) => p.unit === unit && tileKinds.has(p.kind));
@@ -88,6 +219,7 @@ export function permanentsModule<W extends World>(config: PermanentsConfig): Rul
 
   return {
     name: 'permanents',
+    actions: { activate },
 
     // Runs after the board's view: permanents on units the viewer cannot see (e.g. traps) go too.
     view(world, viewer) {
@@ -119,6 +251,7 @@ export function permanentsModule<W extends World>(config: PermanentsConfig): Rul
             ...(typeof s.sickOn === 'string' && { movedOn: s.sickOn }),
           };
         }
+        permanent.enteredOn = `${state.turn.round}:${state.turn.activeSide}`;
         const instance = state.world.cards.instances[permanent.card];
         // A trap's card is face-down too.
         if (permanent.kind === 'trap' && instance) instance.visibility = 'owner';
@@ -153,6 +286,21 @@ export function permanentsModule<W extends World>(config: PermanentsConfig): Rul
         const unit = tileKinds.has(permanent.kind) && permanent.unit ? state.world.board.units[permanent.unit] : undefined;
         if (unit) unit.side = permanent.controller;
         return [{ type: 'ControlChanged', permanent: permanent.id, controller: permanent.controller, owner: permanent.owner }];
+      },
+      useAbility(state, s) {
+        const permanent = state.world.permanents[str(s.permanent)];
+        if (!permanent) return [];
+        permanent.used = { ...permanent.used, [String(s.ability)]: str(s.turn) };
+        return [{ type: 'AbilityActivated', permanent: permanent.id, ability: s.ability, controller: permanent.controller }];
+      },
+      revealPermanent(state, s) {
+        const permanent = state.world.permanents[str(s.permanent)];
+        if (!permanent) return [];
+        const u = permanent.unit ? state.world.board.units[permanent.unit] : undefined;
+        if (u && tileKinds.has(permanent.kind)) delete u.visibility;
+        const instance = state.world.cards.instances[permanent.card];
+        if (instance) instance.visibility = 'public';
+        return [{ type: 'PermanentRevealed', permanent: permanent.id, card: permanent.card, def: instance?.def ?? null, pos: u?.pos ?? permanent.pos ?? null }];
       },
       tickPermanent(state, s) {
         const permanent = state.world.permanents[str(s.permanent)];
@@ -252,6 +400,10 @@ export function permanentsModule<W extends World>(config: PermanentsConfig): Rul
           if (permanent && side) ctx.step({ kind: 'setController', permanent: permanent.id, side });
         },
       ),
+      // Internal: a hidden permanent reveals itself as the first step of its ability (§7).
+      revealPermanent(ctx, p) {
+        ctx.step({ kind: 'revealPermanent', permanent: p.permanent });
+      },
       // Internal: a permanent's board unit left play (died, removed) — its card follows.
       leavePermanent(ctx, p) {
         const permanent = ctx.state.world.permanents[str(p.permanent)];
@@ -270,7 +422,49 @@ export function permanentsModule<W extends World>(config: PermanentsConfig): Rul
     },
 
     listeners(state) {
-      const out: ReturnType<NonNullable<RulesModule<W>['listeners']>> = [];
+      const out: Listener<W>[] = [];
+      for (const permanent of Object.values(state.world.permanents)) {
+        const actor = actorOf(permanent);
+        (specOf(state, permanent)?.abilities ?? []).forEach((ability, index) => {
+          if (ability.kind !== 'triggered') return;
+          const origin = originOf(state, permanent);
+          const effects: Effect[] = [
+            ...(isHidden(state, permanent) ? [{ op: 'revealPermanent', permanent: permanent.id }] : []),
+            ...ability.effects,
+            ...(ability.consume ? [{ op: 'leavePermanent', permanent: permanent.id, reason: 'consumed' }] : []),
+          ];
+          const base = {
+            id: `permanent:${permanent.id}:${index}`,
+            source: permanent.id,
+            controller: permanent.controller,
+            layer: 'permanent' as const,
+            timestamp: permanent.createdAt,
+            vars: { self: actor ?? null, holder: actor ?? null, permanent: permanent.id },
+            matches: (e: GameEvent) =>
+              e.type === ability.on &&
+              relatedTo(e, permanent, ability.scope ?? 'self') &&
+              (!ability.onTile || (origin !== undefined && e.pos === origin.pos)) &&
+              (ability.phase === undefined || e.phase === ability.phase),
+            effects,
+          };
+          out.push(ability.timing === 'when' ? { ...base, kind: 'interrupt', ...(ability.halt && { halt: true }) } : { ...base, kind: 'trigger' });
+        });
+      }
+      if (statics(state).some(({ effect }) => effect.kind === 'damage')) {
+        out.push({
+          kind: 'modifier',
+          id: 'permanents:damage',
+          source: null,
+          controller: null,
+          layer: 'permanent',
+          timestamp: 0,
+          matches: (s, st) => s.kind === 'damage' && (s.amount as number) > 0 && damageChange(st, str(s.unit), s.by).any,
+          modify(s, st) {
+            const { add, multiply } = damageChange(st, str(s.unit), s.by);
+            return [{ ...s, amount: Math.max(0, Math.floor(((s.amount as number) + add) * multiply)) } as Step];
+          },
+        });
+      }
       for (const permanent of Object.values(state.world.permanents)) {
         if (!tileKinds.has(permanent.kind)) continue;
         out.push({
@@ -300,6 +494,25 @@ export function permanentsModule<W extends World>(config: PermanentsConfig): Rul
     },
 
     stateChecks: [
+      // Statics: max HP from definitions plus every maxHp static that reaches the unit (§9.3).
+      (ctx) => {
+        const bonus = new Map<string, number>();
+        for (const { permanent, effect } of statics(ctx.state)) {
+          if (effect.kind !== 'maxHp') continue;
+          for (const u of affected(ctx.state, permanent, effect)) bonus.set(u.id, (bonus.get(u.id) ?? 0) + effect.amount);
+        }
+        let changed = false;
+        for (const u of Object.values(ctx.state.world.board.units)) {
+          const base = config.units[u.def]?.hp;
+          if (base === undefined) continue;
+          const max = Math.max(1, base + (bonus.get(u.id) ?? 0));
+          if (u.maxHp !== max) {
+            u.maxHp = max;
+            changed = true;
+          }
+        }
+        return changed;
+      },
       // An attachment whose host has left play goes with it (§9.4).
       (ctx) => {
         const orphan = Object.values(ctx.state.world.permanents).find(

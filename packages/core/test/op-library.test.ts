@@ -107,7 +107,7 @@ describe('built-in op metadata', () => {
   it('describes every built-in op with a param schema and a text template', () => {
     const g = game({ cards: {}, hand: [] });
     // Internal ops run engine bookkeeping and are deliberately not usable in content.
-    const internal = ['tickStatuses', 'resolveIntent', 'leavePermanent', 'tickPermanents'];
+    const internal = ['tickStatuses', 'resolveIntent', 'leavePermanent', 'tickPermanents', 'revealPermanent'];
     expect(Object.keys(g.rules.ops).filter((id) => !internal.includes(id)).sort()).toEqual(registry.list().map((m) => m.id));
     for (const meta of registry.list()) {
       expect(meta.params).toBeInstanceOf(z.ZodObject);

@@ -68,6 +68,57 @@ export function createContentSchemas(ops: OpRegistry, { formatVersion: version =
   };
 
   const cost = z.record(id, count);
+  const reactionCondition = z
+    .object({
+      kind: z.array(z.string().min(1)).optional(),
+      from: z.enum(['opponent', 'self', 'any']).optional(),
+      targetsYou: z.boolean().optional(),
+      reaction: z.boolean().optional(),
+      windows: z.array(z.enum(['itemAnnounced', 'itemTop', 'phaseEnd'])).optional(),
+    })
+    .strict();
+  const affects = z.enum(['allies', 'enemies', 'all', 'host']);
+  // Permanent abilities and statics (#58).
+  const ability = z.discriminatedUnion('kind', [
+    z
+      .object({
+        kind: z.literal('triggered'),
+        on: z.string().min(1),
+        timing: z.enum(['when', 'after']).optional(),
+        scope: z.enum(['self', 'ally', 'enemy', 'any']).optional(),
+        onTile: z.boolean().optional(),
+        phase: z.string().min(1).optional(),
+        halt: z.boolean().optional(),
+        consume: z.boolean().optional(),
+        effects,
+      })
+      .strict(),
+    z
+      .object({
+        kind: z.literal('activated'),
+        name: z.string().min(1),
+        cost: cost.optional(),
+        timing: z.enum(['main', 'reaction', 'any']).optional(),
+        reaction: reactionCondition.optional(),
+        targeting: targeting.optional(),
+        oncePerTurn: z.boolean().optional(),
+        effects,
+      })
+      .strict(),
+  ]);
+  const staticEffect = z.discriminatedUnion('kind', [
+    z.object({ kind: z.literal('maxHp'), amount: z.number().int(), affects: affects.optional(), area: patternShape.optional() }).strict(),
+    z
+      .object({
+        kind: z.literal('damage'),
+        on: z.enum(['damageTaken', 'damageDealt']),
+        add: z.number().int().optional(),
+        multiply: z.number().positive().optional(),
+        affects: affects.optional(),
+        area: patternShape.optional(),
+      })
+      .strict(),
+  ]);
 
   const card = z
     .object({
@@ -82,16 +133,7 @@ export function createContentSchemas(ops: OpRegistry, { formatVersion: version =
       exhausts: z.boolean().optional(),
       /** When it can be played (#57). */
       timing: z.enum(['main', 'reaction', 'any']).optional(),
-      reaction: z
-        .object({
-          kind: z.array(z.string().min(1)).optional(),
-          from: z.enum(['opponent', 'self', 'any']).optional(),
-          targetsYou: z.boolean().optional(),
-          reaction: z.boolean().optional(),
-          windows: z.array(z.enum(['itemAnnounced', 'itemTop', 'phaseEnd'])).optional(),
-        })
-        .strict()
-        .optional(),
+      reaction: reactionCondition.optional(),
       faceDown: z.boolean().optional(),
       /** Becomes a permanent when it resolves (#55). */
       permanent: z
@@ -101,6 +143,8 @@ export function createContentSchemas(ops: OpRegistry, { formatVersion: version =
           blocking: z.boolean().optional(),
           duration: z.number().int().min(1).optional(),
           leaveTo: z.string().min(1).optional(),
+          abilities: z.array(ability).optional(),
+          statics: z.array(staticEffect).optional(),
         })
         .strict()
         .optional(),
