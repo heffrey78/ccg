@@ -1,0 +1,19 @@
+{
+  "formatVersion": 1,
+  "kind": "card",
+  "id": "second-wind",
+  "name": "Second Wind",
+  "cost": {
+    "energy": 1
+  },
+  "effects": [
+    {
+      "op": "heal",
+      "amount": 6
+    }
+  ],
+  "exhausts": true,
+  "targeting": {
+    "kind": "self"
+  }
+}

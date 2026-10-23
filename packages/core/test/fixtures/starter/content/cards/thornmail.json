@@ -1,0 +1,22 @@
+{
+  "formatVersion": 1,
+  "kind": "card",
+  "id": "thornmail",
+  "name": "Thornmail",
+  "cost": {
+    "energy": 1
+  },
+  "effects": [
+    {
+      "op": "applyStatus",
+      "stacks": 2,
+      "status": "thorns"
+    }
+  ],
+  "keywords": [
+    "thorns"
+  ],
+  "targeting": {
+    "kind": "self"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "formatVersion": 1,
+  "kind": "status",
+  "id": "poison",
+  "name": "Poison",
+  "description": "At the start of its phase, take damage equal to stacks, then lose a stack.",
+  "hooks": [
+    {
+      "effects": [
+        {
+          "op": "damage",
+          "amount": {
+            "$": "stacks"
+          },
+          "source": "poison",
+          "target": {
+            "$": "holder"
+          }
+        },
+        {
+          "op": "removeStatus",
+          "stacks": 1,
+          "status": "poison"
+        }
+      ],
+      "on": "PhaseStarted"
+    }
+  ],
+  "stacking": "intensity"
+}

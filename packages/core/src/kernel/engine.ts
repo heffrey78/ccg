@@ -390,7 +390,7 @@ class Resolver<W> {
       controller: listener.controller,
       source: listener.source,
       effects: listener.effects,
-      vars: { event },
+      vars: { ...listener.vars, event },
       countered: false,
     };
     this.runEffects(item, listener.id);
@@ -413,7 +413,7 @@ class Resolver<W> {
           controller: listener.controller,
           source: listener.source,
           effects: listener.effects,
-          vars: { event },
+          vars: { ...listener.vars, event },
         }),
       );
     }

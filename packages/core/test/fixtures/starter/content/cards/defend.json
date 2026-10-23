@@ -1,0 +1,19 @@
+{
+  "formatVersion": 1,
+  "kind": "card",
+  "id": "defend",
+  "name": "Defend",
+  "cost": {
+    "energy": 1
+  },
+  "effects": [
+    {
+      "op": "gainBlock",
+      "amount": 5
+    }
+  ],
+  "rarity": "basic",
+  "targeting": {
+    "kind": "self"
+  }
+}

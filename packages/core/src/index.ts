@@ -79,3 +79,5 @@ export {
   type TextOptions,
 } from './cards/text.js';
 export { condition, evaluate, logicModule, type Condition } from './rules/logic.js';
+export { statusesModule, type DamageModifier, type StatusDef, type StatusHook } from './board/statuses.js';
+export { buildDefinitions, type Definitions } from './content.js';

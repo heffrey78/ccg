@@ -1,0 +1,20 @@
+{
+  "formatVersion": 1,
+  "kind": "card",
+  "id": "surge",
+  "name": "Surge",
+  "cost": {
+    "energy": 0
+  },
+  "effects": [
+    {
+      "op": "gainResource",
+      "amount": 2,
+      "resource": "energy"
+    }
+  ],
+  "exhausts": true,
+  "targeting": {
+    "kind": "none"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "formatVersion": 1,
+  "kind": "status",
+  "id": "strength",
+  "name": "Strength",
+  "description": "Deals 1 more damage per stack.",
+  "modifiers": [
+    {
+      "on": "damageDealt",
+      "perStack": 1
+    }
+  ],
+  "stacking": "intensity"
+}

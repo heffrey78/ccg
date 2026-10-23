@@ -1,0 +1,20 @@
+{
+  "formatVersion": 1,
+  "kind": "card",
+  "id": "deploy-turret",
+  "name": "Deploy Turret",
+  "cost": {
+    "energy": 2
+  },
+  "effects": [
+    {
+      "op": "spawn",
+      "def": "turret"
+    }
+  ],
+  "targeting": {
+    "kind": "tile",
+    "empty": true,
+    "range": 1
+  }
+}

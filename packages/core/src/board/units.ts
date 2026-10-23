@@ -317,7 +317,7 @@ export function boardModule<W extends BoardWorld>(config: BoardConfig): RulesMod
         const amount = num(s.amount);
         if (amount <= 0) return [{ type: 'AttackBlocked', unit: u.id, side: u.side, source: s.source ?? null }];
         u.hp -= amount;
-        return [{ type: 'DamageDealt', unit: u.id, side: u.side, amount, source: s.source ?? null }];
+        return [{ type: 'DamageDealt', unit: u.id, side: u.side, amount, source: s.source ?? null, by: s.by ?? null }];
       },
       gainBlock(state, s) {
         const u = boardOf(state).units[str(s.unit)];
@@ -391,7 +391,7 @@ export function boardModule<W extends BoardWorld>(config: BoardConfig): RulesMod
           const steps = targetsOf(ctx, p)
             .filter((id) => unitOf(ctx, id))
             .sort((a, b) => topo.compare(unitOf(ctx, a)?.pos as Pos, unitOf(ctx, b)?.pos as Pos))
-            .map((unit) => ({ kind: 'damage', unit, amount: num(p.amount), source: p.source ?? 'effect' }));
+            .map((unit) => ({ kind: 'damage', unit, amount: num(p.amount), source: p.source ?? 'effect', by: ctx.item.vars.self ?? null }));
           if (steps.length > 0) ctx.step(steps);
         },
       ),

@@ -1,0 +1,24 @@
+{
+  "formatVersion": 1,
+  "kind": "card",
+  "id": "venom-dart",
+  "name": "Venom Dart",
+  "cost": {
+    "energy": 1
+  },
+  "effects": [
+    {
+      "op": "applyStatus",
+      "stacks": 3,
+      "status": "poison"
+    }
+  ],
+  "keywords": [
+    "poison"
+  ],
+  "targeting": {
+    "kind": "unit",
+    "filter": "enemy",
+    "range": 3
+  }
+}

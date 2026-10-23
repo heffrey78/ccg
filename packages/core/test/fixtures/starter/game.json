@@ -1,0 +1,8 @@
+{
+  "formatVersion": 1,
+  "id": "starter",
+  "name": "Starter Set",
+  "description": "Twenty sample cards built only from built-in primitives (#24).",
+  "engine": "^0.0.0",
+  "version": "0.1.0"
+}

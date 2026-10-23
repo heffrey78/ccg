@@ -1,0 +1,19 @@
+{
+  "formatVersion": 1,
+  "kind": "card",
+  "id": "blink",
+  "name": "Blink",
+  "cost": {
+    "energy": 1
+  },
+  "effects": [
+    {
+      "op": "teleport"
+    }
+  ],
+  "targeting": {
+    "kind": "tile",
+    "empty": true,
+    "range": 3
+  }
+}

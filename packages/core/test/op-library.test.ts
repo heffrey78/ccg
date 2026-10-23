@@ -17,6 +17,7 @@ import {
   describeOps,
   legalActions,
   logicModule,
+  statusesModule,
   targetingText,
   zone,
   zonesModule,
@@ -27,6 +28,7 @@ import {
   type CardsWorld,
   type GameState,
   type RulesModule,
+  type StatusDef,
   type UnitPlacement,
 } from '../src/index.js';
 
@@ -39,17 +41,19 @@ interface Setup {
   placements?: UnitPlacement[];
   board?: Partial<BoardConfig>;
   extra?: RulesModule<World>[];
+  statuses?: Record<string, StatusDef>;
 }
 
 const UNITS = { hero: { hp: 20 }, grunt: { hp: 6 }, wisp: { hp: 1 } };
 const HERO = (pos = '0', facing = 'e'): UnitPlacement => ({ id: 'P', def: 'hero', side: 'p', pos, facing });
 const GRUNT = (id: string, pos: string): UnitPlacement => ({ id, def: 'grunt', side: 'e', pos, facing: 'w' });
 
-function game({ cards, hand, deck = [], placements = [HERO(), GRUNT('E1', '2')], board = {}, extra = [] }: Setup) {
+function game({ cards, hand, deck = [], placements = [HERO(), GRUNT('E1', '2')], board = {}, extra = [], statuses = {} }: Setup) {
   const config: BoardConfig = { topology: new LaneTopology(6), units: UNITS, ...board };
   const modules: RulesModule<World>[] = [
     zonesModule<World>(cards, { targeting: boardTargeting<World>(config) }),
     boardModule<World>(config),
+    statusesModule<World>(statuses),
     logicModule<World>(),
     ...extra,
   ];
@@ -93,7 +97,9 @@ describe('built-in op metadata', () => {
 
   it('describes every built-in op with a param schema and a text template', () => {
     const g = game({ cards: {}, hand: [] });
-    expect(Object.keys(g.rules.ops).sort()).toEqual(registry.list().map((m) => m.id));
+    // Internal ops run engine bookkeeping and are deliberately not usable in content.
+    const internal = ['tickStatuses'];
+    expect(Object.keys(g.rules.ops).filter((id) => !internal.includes(id)).sort()).toEqual(registry.list().map((m) => m.id));
     for (const meta of registry.list()) {
       expect(meta.params).toBeInstanceOf(z.ZodObject);
       expect(meta.displayName.length).toBeGreaterThan(0);

@@ -114,6 +114,8 @@ export type ListenerLayer = 'rules' | 'status' | 'permanent' | 'innate' | 'card'
 interface ListenerBase {
   /** Stable id, unique among the listeners active at one moment. */
   id: string;
+  /** Variables its effects see, besides `event` (e.g. a status's holder and stacks). */
+  vars?: Record<string, unknown>;
   source: EntityId | null;
   controller: SideId | null;
   layer: ListenerLayer;

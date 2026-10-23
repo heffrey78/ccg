@@ -1,0 +1,40 @@
+{
+  "formatVersion": 1,
+  "kind": "status",
+  "id": "thorns",
+  "name": "Thorns",
+  "description": "Damages attackers by its stacks.",
+  "hooks": [
+    {
+      "effects": [
+        {
+          "op": "if",
+          "cond": {
+            "kind": "compare",
+            "cmp": "!=",
+            "left": {
+              "$": "event.by"
+            },
+            "right": {
+              "$": "holder"
+            }
+          },
+          "then": [
+            {
+              "op": "damage",
+              "amount": {
+                "$": "stacks"
+              },
+              "source": "thorns",
+              "target": {
+                "$": "event.by"
+              }
+            }
+          ]
+        }
+      ],
+      "on": "DamageDealt"
+    }
+  ],
+  "stacking": "intensity"
+}
