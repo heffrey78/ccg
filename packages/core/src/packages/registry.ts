@@ -12,6 +12,7 @@ import {
   OpRegistry,
   createContentSchemas,
   loadPackage,
+  mapRefs,
   toPointer,
   type ContentItem,
   type FileSource,
@@ -20,8 +21,8 @@ import {
 import { builtinOps } from '../builtins.js';
 import { buildDefinitions, type Definitions } from '../content.js';
 import { clonePlain } from '../clone.js';
-import { ContentError, isVarRef } from '../kernel/params.js';
-import type { Effect, GameRules, GameSetup } from '../kernel/types.js';
+import { ContentError } from '../kernel/params.js';
+import type { GameRules, GameSetup } from '../kernel/types.js';
 import { describeOps, type RulesModule } from '../rules/compose.js';
 import { ENGINE_API_VERSION } from '../version.js';
 import { isGamePackage, qualify, type GamePackage } from './package.js';
@@ -56,9 +57,6 @@ export interface ResolvedGame<W = unknown> {
 }
 
 export type ResolveResult<W> = { ok: true; game: ResolvedGame<W> } | { ok: false; issues: PackageIssue[] };
-
-/** Widgets whose parameter values reference definitions, by content kind. */
-const REF_WIDGETS: Record<string, ContentItem['kind']> = { status: 'status', cardDef: 'card', unitDef: 'unit' };
 
 export class PackageRegistry<W = unknown> {
   readonly #packages = new Map<string, GamePackage<W>>();
@@ -249,71 +247,10 @@ type RefSink = (kind: ContentItem['kind'], ref: string, pointer: string) => void
 
 /** Qualifies an item's id and every reference in it, reporting each reference. */
 function qualifyItem(item: ContentItem, pkg: string, ops: OpRegistry, sink: RefSink): ContentItem {
-  const ref = (kind: ContentItem['kind'], value: string, pointer: string) => {
+  item.id = qualify(item.id, pkg);
+  return mapRefs(item, ops, (kind, value, pointer) => {
     const q = qualify(value, pkg);
     sink(kind, q, pointer);
     return q;
-  };
-  const effects = (list: unknown, pointer: string) => {
-    if (Array.isArray(list)) list.forEach((e, i) => qualifyEffect(e as Effect, `${pointer}/${i}`));
-  };
-  const qualifyEffect = (effect: Effect, pointer: string) => {
-    const meta = ops.get(effect.op);
-    for (const [key, widget] of Object.entries(meta?.widgets ?? {})) {
-      const value = effect[key];
-      if (value === undefined || isVarRef(value)) continue;
-      const kind = REF_WIDGETS[widget];
-      if (kind && typeof value === 'string') effect[key] = ref(kind, value, `${pointer}/${key}`);
-      else if (widget === 'effects') effects(value, `${pointer}/${key}`);
-    }
-  };
-
-  item.id = qualify(item.id, pkg);
-  const f = item as Record<string, unknown> & ContentItem;
-  switch (item.kind) {
-    case 'card': {
-      effects(f.effects, '/effects');
-      effects((f.upgrade as { effects?: unknown } | undefined)?.effects, '/upgrade/effects');
-      const keywords = f.keywords as string[] | undefined;
-      if (keywords) f.keywords = keywords.map((k, i) => ref('status', k, `/keywords/${i}`));
-      const permanent = f.permanent as { unit?: string; abilities?: { effects: unknown }[] } | undefined;
-      if (permanent?.unit) permanent.unit = ref('unit', permanent.unit, '/permanent/unit');
-      permanent?.abilities?.forEach((a, i) => effects(a.effects, `/permanent/abilities/${i}/effects`));
-      break;
-    }
-    case 'unit': {
-      for (const [i, s] of ((f.statuses as { status: string }[] | undefined) ?? []).entries()) {
-        s.status = ref('status', s.status, `/statuses/${i}/status`);
-      }
-      // Behaviour trees hold intents, whose effects reference content too.
-      const walk = (node: unknown, pointer: string): void => {
-        if (typeof node !== 'object' || node === null) return;
-        const n = node as Record<string, unknown>;
-        if (n.kind === 'intent') effects((n.intent as { effects?: unknown }).effects, `${pointer}/intent/effects`);
-        if (Array.isArray(n.steps)) n.steps.forEach((step, i) => walk(step, `${pointer}/steps/${i}`));
-        if (Array.isArray(n.options)) n.options.forEach((o, i) => walk((o as { then: unknown }).then, `${pointer}/options/${i}/then`));
-        if (n.kind === 'if') {
-          walk(n.then, `${pointer}/then`);
-          walk(n.else, `${pointer}/else`);
-        }
-      };
-      walk(f.behavior, '/behavior');
-      break;
-    }
-    case 'status':
-      for (const [i, hook] of ((f.hooks as { effects: unknown }[] | undefined) ?? []).entries()) effects(hook.effects, `/hooks/${i}/effects`);
-      break;
-    case 'tile':
-      effects(f.onEnter, '/onEnter');
-      break;
-    case 'encounter': {
-      for (const [i, u] of (f.units as { unit: string }[]).entries()) u.unit = ref('unit', u.unit, `/units/${i}/unit`);
-      const tiles = f.tiles as Record<string, string> | undefined;
-      if (tiles) for (const pos of Object.keys(tiles)) tiles[pos] = ref('tile', tiles[pos] as string, `/tiles/${pos}`);
-      const rewards = f.rewards as { cards?: string[] } | undefined;
-      if (rewards?.cards) rewards.cards = rewards.cards.map((c, i) => ref('card', c, `/rewards/cards/${i}`));
-      break;
-    }
-  }
-  return item;
+  });
 }
