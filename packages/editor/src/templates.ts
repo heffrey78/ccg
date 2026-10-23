@@ -1,6 +1,6 @@
 /** Starting points for new projects (#39): a small playable shape on a lane or a grid. */
 import { FORMAT_VERSION, type ContentItem } from '@ccg/content';
-import { defaultPath, itemKey, type Project } from './project.js';
+import { defaultPath, itemKey, itemsOfKind, type Project } from './project.js';
 
 export type TemplateBoard = 'lane' | 'grid';
 
@@ -74,8 +74,8 @@ export function blankProject(options: { id: string; name: string; board: Templat
   };
 }
 
-/** The smallest valid item of each kind, for "New …" in the content browser. */
-export function newItem(kind: ContentItem['kind'], id: string, name: string): ContentItem {
+/** The smallest valid item of each kind, for "New …" in the content browser. References point at the project's first match. */
+export function newItem(kind: ContentItem['kind'], id: string, name: string, project?: Project): ContentItem {
   const base = { formatVersion: FORMAT_VERSION, kind, id, name };
   switch (kind) {
     case 'card':
@@ -90,5 +90,9 @@ export function newItem(kind: ContentItem['kind'], id: string, name: string): Co
       return { ...base, units: [] };
     case 'ruleset':
       return { ...base, board: { topology: 'lane', length: 7 }, player: { resources: { energy: 3 }, handSize: 5, deck: [] } };
+    case 'scenario': {
+      const encounter = project ? itemsOfKind(project, 'encounter')[0]?.[1].id : undefined;
+      return { ...base, encounter: encounter ?? 'first-fight', seed: 1 };
+    }
   }
 }

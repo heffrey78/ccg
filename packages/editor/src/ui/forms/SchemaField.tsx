@@ -41,7 +41,7 @@ const escape = (key: string) => key.replace(/~/g, '~0').replace(/\//g, '~1');
 export const childPointer = (pointer: string, key: string | number) => `${pointer}/${escape(String(key))}`;
 
 /** Content kinds referenced by each hint. */
-const REF_HINTS: Partial<Record<WidgetHint, ContentKind>> = { status: 'status', cardDef: 'card', unitDef: 'unit', tileDef: 'tile' };
+const REF_HINTS: Partial<Record<WidgetHint, ContentKind>> = { status: 'status', cardDef: 'card', unitDef: 'unit', tileDef: 'tile', encounterDef: 'encounter' };
 
 export interface FieldProps {
   node: JsonSchema;

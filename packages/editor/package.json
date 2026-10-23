@@ -24,6 +24,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@ccg/client": "workspace:^",
     "@ccg/content": "workspace:^",
     "@ccg/core": "workspace:^"
   },

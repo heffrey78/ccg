@@ -22,6 +22,7 @@ import {
   type GamePackage,
   type GameRules,
   type ResolvedGame,
+  type SetupOptions,
   type SideId,
   type StatePolicy,
 } from '@ccg/core';
@@ -48,6 +49,8 @@ interface Running {
   rules: GameRules<unknown>;
   session: Session<unknown>;
   side: SideId;
+  /** How the game was started, to rebuild it after content changes. */
+  options: SetupOptions;
   catalog: Catalog;
   resolved: ResolvedGame<unknown>;
   topology?: string;
@@ -149,6 +152,76 @@ export function createEngineHost(options: HostOptions = {}): EngineHost {
     };
   };
 
+  const playable = () => registry.list().filter(isPlayable).map(listing);
+  const aiFor = (game: GameListing, seed: string | number) => options.ai?.(game) ?? randomPolicy(`ai:${String(seed)}`);
+  const issuesText = (issues: { package?: string; file?: string; pointer: string; message: string }[]) =>
+    issues.map((i) => `${i.package ? `${i.package} ` : ''}${i.file ?? ''}${i.pointer}: ${i.message}`).join('\n');
+
+  /** Registers a package from its files (replacing one with the same id); assets become object URLs. */
+  const load = async (files: Record<string, Uint8Array>): Promise<{ id: string } | { error: EngineReply }> => {
+    const urls: Record<string, string> = {};
+    for (const [path, data] of Object.entries(files)) {
+      if (path.startsWith('assets/') && typeof URL.createObjectURL === 'function') urls[path] = URL.createObjectURL(new Blob([data as BlobPart]));
+    }
+    const loaded = await registry.loadFiles(filesSource(files), { replace: true, assets: { url: (path) => urls[path] ?? path } });
+    if (!loaded.ok) return { error: { ok: false, error: { code: 'invalid-package', message: issuesText(loaded.issues) } } };
+    return { id: loaded.package.manifest.id };
+  };
+
+  /** Resolves a game and builds its rules and setup. */
+  const build = (game: GameListing, setupOptions: SetupOptions) => {
+    const resolved = registry.resolve(game.id);
+    if (!resolved.ok) return { error: { ok: false, error: { code: 'invalid-package', message: issuesText(resolved.issues) } } as EngineReply };
+    try {
+      const rules = resolved.game.createRules();
+      const setup = resolved.game.createSetup(setupOptions);
+      const topology = (rules.presentation?.board as { kind?: string } | undefined)?.kind;
+      return {
+        rules,
+        setup,
+        versions: Object.fromEntries(resolved.game.packages.map((p) => [p.manifest.id, p.manifest.version])),
+        parts: { game, rules, catalog: catalogOf(resolved.game, topology), resolved: resolved.game, ...(topology && { topology }) },
+      };
+    } catch (e) {
+      return { error: { ok: false, error: { code: 'invalid-package', message: (e as Error).message } } as EngineReply };
+    }
+  };
+
+  /**
+   * Applies new content to the running game (#42). `hot` keeps the current
+   * state and uses the new rules from the next action; `replay` restarts with
+   * the same setup options and replays the action log, stopping at the first
+   * action that is no longer legal.
+   */
+  const rebuild = (game: Running, mode: 'hot' | 'replay'): EngineReply => {
+    const built = build(game.game, game.options);
+    if ('error' in built) return built.error;
+    if (mode === 'hot') {
+      running = { ...game, ...built.parts, session: game.session.rebind(built.rules) };
+      return { ok: true, type: 'snapshot', snapshot: { ...snapshot(running, []), notice: 'Changes applied: the game continues with them.' } };
+    }
+    const started = Session.start(built.rules, built.setup, built.versions);
+    if (!started.ok) return { ok: false, error: started.error };
+    const actions = game.session.log.actions;
+    let replayed = 0;
+    let failure: string | null = null;
+    for (const action of actions) {
+      const result = started.session.apply(action);
+      if (!result.ok) {
+        failure = result.error.message;
+        break;
+      }
+      replayed++;
+    }
+    running = { ...game, ...built.parts, session: started.session };
+    const events = runAi(running);
+    const notice =
+      failure === null
+        ? `Changes applied: replayed all ${actions.length} actions.`
+        : `Replayed ${replayed} of ${actions.length} actions; action ${replayed + 1} is no longer legal (${failure}).`;
+    return { ok: true, type: 'snapshot', snapshot: { ...snapshot(running, events), notice } };
+  };
+
   return {
     async handle(request) {
       if (loading) {
@@ -166,42 +239,37 @@ export function createEngineHost(options: HostOptions = {}): EngineHost {
           } catch (e) {
             return { ok: false, error: { code: 'invalid-package', message: `not a zip file: ${(e as Error).message}` } };
           }
-          // Asset files become object URLs the page can show (they live as long as the engine).
-          const urls: Record<string, string> = {};
-          for (const [path, data] of Object.entries(files)) {
-            if (path.startsWith('assets/') && typeof URL.createObjectURL === 'function') urls[path] = URL.createObjectURL(new Blob([data as BlobPart]));
-          }
-          const loaded = await registry.loadFiles(filesSource(files), { replace: true, assets: { url: (path) => urls[path] ?? path } });
-          if (!loaded.ok) {
-            return { ok: false, error: { code: 'invalid-package', message: loaded.issues.map((i) => `${i.file ?? ''}${i.pointer}: ${i.message}`).join('\n') } };
-          }
-          return { ok: true, type: 'games', games: registry.list().filter(isPlayable).map(listing), loaded: loaded.package.manifest.id };
+          const loaded = await load(files);
+          return 'error' in loaded ? loaded.error : { ok: true, type: 'games', games: playable(), loaded: loaded.id };
+        }
+
+        case 'loadFiles': {
+          const loaded = await load(request.files);
+          return 'error' in loaded ? loaded.error : { ok: true, type: 'games', games: playable(), loaded: loaded.id };
+        }
+
+        case 'reload': {
+          if (!running) return { ok: false, error: { code: 'not-started', message: 'no game is running' } };
+          const loaded = await load(request.files);
+          if ('error' in loaded) return loaded.error;
+          if (loaded.id !== running.game.id) return { ok: false, error: { code: 'unknown-game', message: `the running game is '${running.game.id}', not '${loaded.id}'` } };
+          return rebuild(running, request.mode);
         }
 
         case 'start': {
           const pkg = registry.get(request.game);
           if (!pkg) return { ok: false, error: { code: 'unknown-game', message: `no game '${request.game}'` } };
-          const resolved = registry.resolve(request.game);
-          if (!resolved.ok) {
-            return { ok: false, error: { code: 'invalid-package', message: resolved.issues.map((i) => `${i.package} ${i.file ?? ''}${i.pointer}: ${i.message}`).join('\n') } };
-          }
-          const rules = resolved.game.createRules();
-          const setup = resolved.game.createSetup({ seed: request.seed, ...(request.encounter && { encounter: request.encounter }) });
-          const started = Session.start(rules, setup, Object.fromEntries(resolved.game.packages.map((p) => [p.manifest.id, p.manifest.version])));
-          if (!started.ok) return { ok: false, error: started.error };
-          const side = setup.sides.find((s) => s.controller === 'human')?.id ?? (setup.sides[0]?.id as SideId);
-          const game = listing(pkg);
-          const topology = (rules.presentation?.board as { kind?: string } | undefined)?.kind;
-          running = {
-            game,
-            rules,
-            session: started.session,
-            side,
-            catalog: catalogOf(resolved.game, topology),
-            resolved: resolved.game,
-            ...(topology && { topology }),
-            ai: options.ai?.(game) ?? randomPolicy(`ai:${String(request.seed)}`),
+          const options: SetupOptions = {
+            seed: request.seed,
+            ...(request.encounter && { encounter: request.encounter }),
+            ...(request.scenario && { scenario: request.scenario }),
           };
+          const built = build(listing(pkg), options);
+          if ('error' in built) return built.error;
+          const started = Session.start(built.rules, built.setup, built.versions);
+          if (!started.ok) return { ok: false, error: started.error };
+          const side = built.setup.sides.find((s) => s.controller === 'human')?.id ?? (built.setup.sides[0]?.id as SideId);
+          running = { ...built.parts, session: started.session, side, options, ai: aiFor(built.parts.game, request.seed) };
           return { ok: true, type: 'snapshot', snapshot: snapshot(running, runAi(running)) };
         }
 

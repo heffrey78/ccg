@@ -308,6 +308,9 @@ importers:
 
   packages/editor:
     dependencies:
+      '@ccg/client':
+        specifier: workspace:^
+        version: link:../client
       '@ccg/content':
         specifier: workspace:^
         version: link:../content

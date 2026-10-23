@@ -320,7 +320,21 @@ export function createContentSchemas(ops: OpRegistry, { formatVersion: version =
     })
     .strict();
 
-  const item = z.discriminatedUnion('kind', [card, unit, status, tile, encounter, ruleset]);
+  // A saved playtest setup (#42): an encounter with a fixed seed and, optionally, a fixed hand and deck order.
+  const scenario = z
+    .object({
+      ...common,
+      kind: z.literal('scenario'),
+      encounter: ref,
+      seed: z.union([z.string().min(1), z.number().int()]),
+      /** Drawn first, in order. */
+      hand: z.array(ref).optional(),
+      /** The rest of the draw pile, top first. With hand or deck set, the deck is not shuffled. */
+      deck: z.array(ref).optional(),
+    })
+    .strict();
+
+  const item = z.discriminatedUnion('kind', [card, unit, status, tile, encounter, ruleset, scenario]);
 
   const manifest = z
     .object({
@@ -335,12 +349,12 @@ export function createContentSchemas(ops: OpRegistry, { formatVersion: version =
     })
     .strict();
 
-  return { effect, behavior, card, unit, status, tile, encounter, ruleset, item, manifest };
+  return { effect, behavior, card, unit, status, tile, encounter, ruleset, scenario, item, manifest };
 }
 
 export type ContentSchemas = ReturnType<typeof createContentSchemas>;
-export type ContentKind = 'card' | 'unit' | 'status' | 'tile' | 'encounter' | 'ruleset';
-export const CONTENT_KINDS: readonly ContentKind[] = ['card', 'unit', 'status', 'tile', 'encounter', 'ruleset'];
+export type ContentKind = 'card' | 'unit' | 'status' | 'tile' | 'encounter' | 'ruleset' | 'scenario';
+export const CONTENT_KINDS: readonly ContentKind[] = ['card', 'unit', 'status', 'tile', 'encounter', 'ruleset', 'scenario'];
 
 export interface ContentItem {
   formatVersion: number;

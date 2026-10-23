@@ -13,7 +13,9 @@ import { itemKey, projectFiles, splitKey, type Project } from '../project.js';
 import { guessBoard, type PreviewBoard } from '../forms/patterns.js';
 import { moduleSource } from '../assets.js';
 import { zipFiles } from '../stores/zip.js';
+import type { EngineClient } from '@ccg/client/engine';
 import { AssetPanel, importAssets } from './AssetPanel.js';
+import { PlaytestPane } from './PlaytestPane.js';
 import { newItem } from '../templates.js';
 import type { ProjectIssue } from '../validate.js';
 import { Browser } from './Browser.js';
@@ -26,16 +28,19 @@ export interface WorkspaceProps {
   session: Session;
   ops: OpRegistry;
   validate(project: Project): Promise<ProjectIssue[]>;
+  /** The engine playtests run in (a worker on web). */
+  playtestEngine: EngineClient;
   onClose(): void;
 }
 
-export function Workspace({ session, ops, validate, onClose }: WorkspaceProps) {
+export function Workspace({ session, ops, validate, playtestEngine, onClose }: WorkspaceProps) {
   const store = useStore(session.store);
   const project = store.project;
   const [selection, setSelection] = useState<Selection>({ kind: 'manifest' });
   const [issues, setIssues] = useState<ProjectIssue[] | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [confirmClose, setConfirmClose] = useState(false);
+  const [playtest, setPlaytest] = useState(false);
   // The board patterns are previewed on, guessed from the encounters until the author picks one.
   const [board, setBoard] = useState<PreviewBoard>(() =>
     guessBoard(Object.values(project.items).flatMap((i) => (i.kind === 'encounter' ? ((i.units as { pos: string }[] | undefined) ?? []).map((u) => u.pos) : []))),
@@ -119,7 +124,7 @@ export function Workspace({ session, ops, validate, onClose }: WorkspaceProps) {
   const issueKeys = useMemo(() => new Set((issues ?? []).flatMap((i) => (i.key ? [i.key] : []))), [issues]);
 
   const create = (kind: ContentKind, id: string, name: string) => {
-    const error = run(`New ${kind} ${name}`, createItem(newItem(kind, id, name)));
+    const error = run(`New ${kind} ${name}`, createItem(newItem(kind, id, name, project)));
     if (!error) setSelection({ kind: 'item', key: itemKey(kind, id) });
     return error;
   };
@@ -145,6 +150,9 @@ export function Workspace({ session, ops, validate, onClose }: WorkspaceProps) {
         </button>
         <button type="button" onClick={exportModule} title="One JavaScript file, assets included, that hosts load by URL">
           Export JS module
+        </button>
+        <button type="button" aria-pressed={playtest} onClick={() => setPlaytest((p) => !p)}>
+          Playtest
         </button>
         <button type="button" onClick={() => (store.dirty ? setConfirmClose(true) : onClose())}>
           Close
@@ -214,6 +222,17 @@ export function Workspace({ session, ops, validate, onClose }: WorkspaceProps) {
           )}
         </div>
       </div>
+
+      {playtest && (
+        <PlaytestPane
+          project={project}
+          problems={issues?.length ?? 0}
+          engine={playtestEngine}
+          onSaveScenario={(item) => {
+            if (!run(`Save scenario ${item.name}`, createItem(item))) setSelection({ kind: 'item', key: itemKey('scenario', item.id) });
+          }}
+        />
+      )}
 
       <ValidationPanel project={project} issues={issues} onSelect={setSelection} />
     </section>

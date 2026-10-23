@@ -174,6 +174,11 @@ const ITEM_HINTS: Record<ContentKind, [string, WidgetHint][]> = {
     ['/rewards/cards/*', 'cardDef'],
   ],
   ruleset: [['/player/deck/*', 'cardDef']],
+  scenario: [
+    ['/encounter', 'encounterDef'],
+    ['/hand/*', 'cardDef'],
+    ['/deck/*', 'cardDef'],
+  ],
 };
 
 /** Hints by field name, wherever it appears. */

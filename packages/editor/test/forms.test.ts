@@ -76,9 +76,10 @@ group('item forms', () => {
   });
 
   it('every kind of item can be built from defaults', () => {
-    for (const kind of ['card', 'unit', 'status', 'tile', 'encounter', 'ruleset'] as const) {
+    for (const kind of ['card', 'unit', 'status', 'tile', 'encounter', 'ruleset', 'scenario'] as const) {
       const root = jsonSchemaOf(schemas[kind]);
-      const value = { ...(defaultValue(root, root) as object), id: 'x', name: 'X' };
+      // References can't be guessed from the schema alone; the editor fills them from the project.
+      const value = { ...(defaultValue(root, root) as object), id: 'x', name: 'X', ...(kind === 'scenario' && { encounter: 'somewhere' }) };
       const checked = schemas[kind].safeParse(value);
       expect(checked.success, `${kind}: ${JSON.stringify(checked.error?.issues)}`).toBe(true);
     }

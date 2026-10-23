@@ -132,6 +132,64 @@ describe('engine host', () => {
     await expect(engine.importZip(new Uint8Array([1, 2, 3]))).rejects.toMatchObject({ code: 'invalid-package' });
   });
 
+  describe('playtest: loading live files and applying edits (#42)', () => {
+    const enc = new TextEncoder();
+    const json = (v: object) => enc.encode(`${JSON.stringify(v)}\n`);
+    const files = (damage: number, extra: Record<string, Uint8Array> = {}) => ({
+      'game.json': json({ formatVersion: 1, id: 'live', name: 'Live', version: '0.1.0', engine: '^0.0.0' }),
+      'content/cards/zap.json': json({ formatVersion: 1, kind: 'card', id: 'zap', name: 'Zap', targeting: { kind: 'unit', filter: 'enemy' }, effects: [{ op: 'damage', amount: damage }] }),
+      'content/units/hero.json': json({ formatVersion: 1, kind: 'unit', id: 'hero', name: 'Hero', hp: 30 }),
+      'content/units/dummy.json': json({ formatVersion: 1, kind: 'unit', id: 'dummy', name: 'Dummy', hp: 40 }),
+      'content/encounters/one.json': json({ formatVersion: 1, kind: 'encounter', id: 'one', name: 'One', units: [{ unit: 'hero', side: 'player', pos: '0' }, { unit: 'dummy', side: 'enemy', pos: '3' }] }),
+      'content/rulesets/main.json': json({ formatVersion: 1, kind: 'ruleset', id: 'main', name: 'Main', board: { topology: 'lane', length: 4 }, player: { resources: {}, handSize: 3, deck: ['zap', 'zap', 'zap'] } }),
+      ...extra,
+    });
+    const dummyHp = (snap: { view: { world: unknown } }) => (snap.view.world as World).board.units.enemy1?.hp;
+    const zap = async (engine: EngineClient) => {
+      const snap = await engine.view();
+      const action = snap.legal.find((a) => a.type === 'playCard');
+      if (!action) throw new Error('no zap to play');
+      return engine.act(action);
+    };
+
+    it('edits apply to the next action with hot reload', async () => {
+      const engine = client();
+      expect((await engine.loadFiles(files(5))).loaded).toBe('live');
+      await engine.start('live', 1);
+      expect(dummyHp(await zap(engine))).toBe(35);
+      const reloaded = await engine.reload(files(10), 'hot');
+      expect(dummyHp(reloaded)).toBe(35);
+      expect(reloaded.notice).toMatch(/continues/);
+      expect(dummyHp(await zap(engine))).toBe(25);
+    });
+
+    it('replay reload re-runs the action log under the new content', async () => {
+      const engine = client();
+      await engine.loadFiles(files(5));
+      await engine.start('live', 1);
+      await zap(engine);
+      const reloaded = await engine.reload(files(10), 'replay');
+      expect(dummyHp(reloaded)).toBe(30);
+      expect(reloaded.notice).toBe('Changes applied: replayed all 1 actions.');
+    });
+
+    it('a broken edit is refused and the game keeps going', async () => {
+      const engine = client();
+      await engine.loadFiles(files(5));
+      await engine.start('live', 1);
+      await expect(engine.reload(files(-1), 'hot')).rejects.toMatchObject({ code: 'invalid-package' });
+      expect(dummyHp(await zap(engine))).toBe(35);
+    });
+
+    it('starts a saved scenario', async () => {
+      const engine = client();
+      const scenario = json({ formatVersion: 1, kind: 'scenario', id: 'opening', name: 'Opening', encounter: 'one', seed: 'x', hand: ['zap'], deck: [] });
+      await engine.loadFiles(files(5, { 'content/scenarios/opening.json': scenario }));
+      const snap = await engine.start('live', 99, { scenario: 'live:opening' });
+      expect((snap.view.world as World).cards.zones.player?.hand).toHaveLength(1);
+    });
+  });
+
   it('reports errors instead of throwing', async () => {
     const engine = client();
     await expect(engine.view()).rejects.toMatchObject({ code: 'not-started' });

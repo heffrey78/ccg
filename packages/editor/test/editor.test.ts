@@ -224,7 +224,7 @@ describe('validation and templates', () => {
 
   it('a new item of every kind is valid as created', async () => {
     let p = blankProject({ id: 'fresh', name: 'Fresh', board: 'lane' });
-    for (const kind of ['card', 'unit', 'status', 'tile', 'encounter', 'ruleset'] as const) p = createItem(newItem(kind, `new-${kind}`, `New ${kind}`))(p);
+    for (const kind of ['card', 'unit', 'status', 'tile', 'encounter', 'ruleset', 'scenario'] as const) p = createItem(newItem(kind, `new-${kind}`, `New ${kind}`))(p);
     expect(await validateProject(p)).toEqual([]);
   });
 

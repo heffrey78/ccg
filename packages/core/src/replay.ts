@@ -108,6 +108,14 @@ export class Session<W> {
     return result;
   }
 
+  /**
+   * The same game continuing under new rules, e.g. after content edits in a
+   * playtest (#42). State and log carry over; later actions use the new rules.
+   */
+  rebind(rules: GameRules<W>): Session<W> {
+    return new Session(rules, this.#state, { ...this.#log, actions: this.#log.actions.slice() });
+  }
+
   snapshot(): Snapshot<W> {
     return {
       format: SNAPSHOT_FORMAT,

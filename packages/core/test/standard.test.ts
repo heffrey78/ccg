@@ -7,10 +7,12 @@ import {
   createGame,
   decidingSide,
   greedyPolicy,
+  hashState,
   isPlayable,
   legalActions,
   playTurn,
   randomPolicy,
+  Session,
   topologyOf,
   viewState,
   zone,
@@ -135,6 +137,68 @@ describe('the standard game', () => {
     const resolved = registry.resolve('plain');
     if (!resolved.ok) throw new Error('should resolve');
     expect(() => resolved.game.createRules()).toThrow(ContentError);
+  });
+
+  it('a saved scenario fixes the encounter, seed, hand and deck, and always starts identically', () => {
+    const pkg = contentGame();
+    pkg.content.push(item('scenario', 'opening', { encounter: 'duel', seed: 'fixed', hand: ['guard', 'strike'], deck: ['strike'] }));
+    const registry = new PackageRegistry();
+    registry.register(pkg);
+    const resolved = registry.resolve('plain');
+    if (!resolved.ok) throw new Error(resolved.issues[0]?.message);
+    const rules = resolved.game.createRules();
+    const begin = () => {
+      const created = createGame(rules, resolved.game.createSetup({ seed: 'ignored', scenario: 'plain:opening' }));
+      if (!created.ok) throw new Error(created.error.message);
+      return created.state as GameState<StandardWorld>;
+    };
+    const a = begin();
+    const hand = zone(a.world.cards, 'player', 'hand').map((id) => a.world.cards.instances[id]?.def);
+    // Hand, then deck, are the whole draw pile: all three are drawn.
+    expect(hand.sort()).toEqual(['plain:guard', 'plain:strike', 'plain:strike']);
+    expect(zone(a.world.cards, 'player', 'draw')).toEqual([]);
+    expect(hashState(begin())).toBe(hashState(a));
+    expect(() => resolved.game.createSetup({ seed: 1, scenario: 'plain:nope' })).toThrow(/no scenario/);
+  });
+
+  it('a session can continue under rebuilt rules, so content edits apply to the next action', () => {
+    const edited = contentGame();
+    const strike = edited.content.find((i) => i.id === 'strike') as ContentItem & { effects: { amount: number }[] };
+    const { rules } = start();
+    const started = Session.start(rules, (() => {
+      const registry = new PackageRegistry();
+      registry.register(contentGame());
+      const r = registry.resolve('plain');
+      if (!r.ok) throw new Error('resolve');
+      return r.game.createSetup({ seed: 3 });
+    })());
+    if (!started.ok) throw new Error(started.error.message);
+    strike.effects[0]!.amount = 11;
+    const registry = new PackageRegistry();
+    registry.register(edited);
+    const r = registry.resolve('plain');
+    if (!r.ok) throw new Error('resolve');
+    const session = started.session.rebind(r.game.createRules()) as unknown as Session<StandardWorld>;
+    expect(session.state).toBe(started.session.state);
+    expect(session.log.actions).toEqual(started.session.log.actions);
+    // Walk up to the foe and strike it with the edited card.
+    for (let i = 0; i < 20 && !session.state.outcome; i++) {
+      const strikeAction = legalActions(session.rules, session.state, 'player').find(
+        (a) => a.type === 'playCard' && session.state.world.cards.instances[a.card as string]?.def === 'plain:strike',
+      );
+      if (strikeAction) {
+        const before = session.state.world.board.units.enemy1?.hp as number;
+        const result = session.apply(strikeAction);
+        if (!result.ok) throw new Error(result.error.message);
+        expect(before - (session.state.world.board.units.enemy1?.hp ?? 0)).toBe(11);
+        return;
+      }
+      const side = decidingSide(session.rules, session.state);
+      const action = side === 'player' ? (legalActions(session.rules, session.state, 'player').find((a) => a.type === 'move' && a.to === String(Number(session.state.world.board.units.player1?.pos) + 1)) ?? { type: 'endTurn', side: 'player' }) : null;
+      const result = action ? session.apply(action) : playTurn(session.rules, session.state, side as string, randomPolicy('x'));
+      if (!result.ok) throw new Error(result.error.message);
+    }
+    throw new Error('never got in range to strike');
   });
 
   it('reports a ruleset deck card that does not exist', () => {

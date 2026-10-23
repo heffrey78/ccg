@@ -75,8 +75,21 @@ export class EngineClient {
     return { games: reply.games, loaded: reply.loaded };
   }
 
-  start(game: string, seed: string | number, encounter?: string): Promise<Snapshot> {
-    return this.snapshot({ type: 'start', game, seed, ...(encounter && { encounter }) });
+  /** Loads a game package from its files; returns the updated game list and the id it loaded. */
+  async loadFiles(files: Record<string, Uint8Array>): Promise<{ games: GameListing[]; loaded: string }> {
+    const reply = await this.transport.request({ type: 'loadFiles', files });
+    if (!reply.ok) throw new EngineError(reply.error.code, reply.error.message);
+    if (reply.type !== 'games' || !reply.loaded) throw new EngineError('protocol', 'expected a game list');
+    return { games: reply.games, loaded: reply.loaded };
+  }
+
+  /** Applies new package files to the running game: `hot` keeps the state, `replay` replays the log. */
+  reload(files: Record<string, Uint8Array>, mode: 'hot' | 'replay'): Promise<Snapshot> {
+    return this.snapshot({ type: 'reload', files, mode });
+  }
+
+  start(game: string, seed: string | number, options: { encounter?: string; scenario?: string } = {}): Promise<Snapshot> {
+    return this.snapshot({ type: 'start', game, seed, ...(options.encounter && { encounter: options.encounter }), ...(options.scenario && { scenario: options.scenario }) });
   }
 
   act(action: Action): Promise<Snapshot> {
