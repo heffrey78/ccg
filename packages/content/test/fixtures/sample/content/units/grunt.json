@@ -1,0 +1,14 @@
+{
+  "formatVersion": 1,
+  "kind": "unit",
+  "id": "grunt",
+  "name": "Grunt",
+  "faction": "raiders",
+  "hp": 12,
+  "statuses": [
+    {
+      "stacks": 1,
+      "status": "burn"
+    }
+  ]
+}

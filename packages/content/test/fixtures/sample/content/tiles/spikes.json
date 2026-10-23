@@ -1,0 +1,12 @@
+{
+  "formatVersion": 1,
+  "kind": "tile",
+  "id": "spikes",
+  "name": "Spikes",
+  "onEnter": [
+    {
+      "op": "damage",
+      "amount": 2
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "formatVersion": 1,
+  "kind": "encounter",
+  "id": "first-fight",
+  "name": "First Fight",
+  "rewards": {
+    "cards": [
+      "shove",
+      "fan-of-flames"
+    ]
+  },
+  "tiles": {
+    "2,1": "spikes",
+    "3,3": "wall"
+  },
+  "units": [
+    {
+      "facing": "e",
+      "pos": "0,2",
+      "side": "player",
+      "unit": "hero"
+    },
+    {
+      "facing": "w",
+      "pos": "4,2",
+      "side": "enemy",
+      "unit": "grunt"
+    }
+  ]
+}
