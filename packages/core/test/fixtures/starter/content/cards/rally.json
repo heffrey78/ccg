@@ -1,0 +1,22 @@
+{
+  "formatVersion": 1,
+  "kind": "card",
+  "id": "rally",
+  "name": "Rally",
+  "cost": {
+    "energy": 1
+  },
+  "effects": [
+    {
+      "op": "applyStatus",
+      "stacks": 2,
+      "status": "strength"
+    }
+  ],
+  "keywords": [
+    "strength"
+  ],
+  "targeting": {
+    "kind": "self"
+  }
+}

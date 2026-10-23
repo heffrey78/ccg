@@ -1,0 +1,20 @@
+{
+  "formatVersion": 1,
+  "kind": "card",
+  "id": "grapple",
+  "name": "Grapple",
+  "cost": {
+    "energy": 1
+  },
+  "effects": [
+    {
+      "op": "pull",
+      "distance": 2
+    }
+  ],
+  "targeting": {
+    "kind": "unit",
+    "filter": "enemy",
+    "range": 3
+  }
+}

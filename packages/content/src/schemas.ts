@@ -78,6 +78,8 @@ export function createContentSchemas(ops: OpRegistry, { formatVersion: version =
       keywords: z.array(ref).optional(),
       targeting,
       effects,
+      /** Goes to the exhaust zone instead of discard after it resolves. */
+      exhausts: z.boolean().optional(),
       upgrade: z
         .object({ name: z.string().min(1).optional(), cost: cost.optional(), effects: effects.optional() })
         .strict()
@@ -108,7 +110,25 @@ export function createContentSchemas(ops: OpRegistry, { formatVersion: version =
       hooks: z
         .array(
           z
-            .object({ on: z.string().min(1), timing: z.enum(['when', 'after']).optional(), effects })
+            .object({
+              on: z.string().min(1),
+              timing: z.enum(['when', 'after']).optional(),
+              scope: z.enum(['self', 'ally', 'enemy', 'any']).optional(),
+              phase: z.string().min(1).optional(),
+              effects,
+            })
+            .strict(),
+        )
+        .optional(),
+      modifiers: z
+        .array(
+          z
+            .object({
+              on: z.enum(['damageTaken', 'damageDealt']),
+              add: z.number().int().optional(),
+              perStack: z.number().int().optional(),
+              multiply: z.number().positive().optional(),
+            })
             .strict(),
         )
         .optional(),

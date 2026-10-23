@@ -1,0 +1,7 @@
+{
+  "formatVersion": 1,
+  "kind": "unit",
+  "id": "turret",
+  "name": "Turret",
+  "hp": 6
+}

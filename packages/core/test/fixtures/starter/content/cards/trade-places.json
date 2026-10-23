@@ -1,0 +1,19 @@
+{
+  "formatVersion": 1,
+  "kind": "card",
+  "id": "trade-places",
+  "name": "Trade Places",
+  "cost": {
+    "energy": 1
+  },
+  "effects": [
+    {
+      "op": "swap"
+    }
+  ],
+  "targeting": {
+    "kind": "unit",
+    "filter": "any",
+    "range": 2
+  }
+}

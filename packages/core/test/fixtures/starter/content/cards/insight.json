@@ -1,0 +1,18 @@
+{
+  "formatVersion": 1,
+  "kind": "card",
+  "id": "insight",
+  "name": "Insight",
+  "cost": {
+    "energy": 1
+  },
+  "effects": [
+    {
+      "op": "draw",
+      "n": 2
+    }
+  ],
+  "targeting": {
+    "kind": "none"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "formatVersion": 1,
+  "kind": "card",
+  "id": "bulwark",
+  "name": "Bulwark",
+  "cost": {
+    "energy": 2
+  },
+  "effects": [
+    {
+      "op": "gainBlock",
+      "amount": 12
+    }
+  ],
+  "exhausts": true,
+  "targeting": {
+    "kind": "self"
+  }
+}

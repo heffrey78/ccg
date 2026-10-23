@@ -1,0 +1,44 @@
+{
+  "formatVersion": 1,
+  "kind": "card",
+  "id": "desperate-strike",
+  "name": "Desperate Strike",
+  "cost": {
+    "energy": 1
+  },
+  "effects": [
+    {
+      "op": "countCards",
+      "as": "inHand",
+      "zone": "hand"
+    },
+    {
+      "op": "if",
+      "cond": {
+        "kind": "compare",
+        "cmp": "<=",
+        "left": {
+          "$": "inHand"
+        },
+        "right": 1
+      },
+      "else": [
+        {
+          "op": "damage",
+          "amount": 4
+        }
+      ],
+      "then": [
+        {
+          "op": "damage",
+          "amount": 10
+        }
+      ]
+    }
+  ],
+  "targeting": {
+    "kind": "unit",
+    "filter": "enemy",
+    "range": 1
+  }
+}

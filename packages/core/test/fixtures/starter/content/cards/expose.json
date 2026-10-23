@@ -1,0 +1,24 @@
+{
+  "formatVersion": 1,
+  "kind": "card",
+  "id": "expose",
+  "name": "Expose",
+  "cost": {
+    "energy": 1
+  },
+  "effects": [
+    {
+      "op": "applyStatus",
+      "stacks": 2,
+      "status": "vulnerable"
+    }
+  ],
+  "keywords": [
+    "vulnerable"
+  ],
+  "targeting": {
+    "kind": "unit",
+    "filter": "enemy",
+    "range": 2
+  }
+}
