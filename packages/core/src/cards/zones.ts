@@ -38,7 +38,16 @@ export const ZONE_VISIBILITY: Record<string, Visibility> = {
   inPlay: 'public',
 };
 
-const CARD_EVENTS = new Set(['CardDrawn', 'CardDiscarded', 'CardExhausted', 'CardPlayed', 'CardMoved', 'CardUpgraded']);
+const CARD_EVENTS = new Set([
+  'CardDrawn',
+  'CardDiscarded',
+  'CardExhausted',
+  'CardPlayed',
+  'CardMoved',
+  'CardUpgraded',
+  'CardRevealed',
+  'CardConcealed',
+]);
 
 export interface CardsState {
   instances: Record<string, CardInstance>;
@@ -69,6 +78,8 @@ export interface CardDef {
   cost?: Record<string, number>;
   targeting?: Targeting;
   permanent?: CardPermanent;
+  /** Played face-down: hidden from other sides when played (#56). Traps are face-down by default. */
+  faceDown?: boolean;
   effects: Effect[];
   /** Goes to the exhaust zone instead of discard after it resolves. */
   exhausts?: boolean;
@@ -225,11 +236,14 @@ export function zonesModule<W extends CardsWorld>(defs: Record<string, CardDef>,
       if (costs.length > 0) {
         ctx.step(costs.map(([resource, amount]) => ({ kind: 'resource', side: action.side, resource, delta: -amount, reason: 'cost' })));
       }
+      const faceDown = def.faceDown ?? def.permanent?.kind === 'trap';
+      if (faceDown) ctx.step({ kind: 'setCardVisibility', card: instance.id, visibility: 'owner' });
       ctx.step(move(instance.id, 'resolving', { reason: 'play' }));
       ctx.announce({
         kind: 'card',
         controller: action.side,
         source: instance.id,
+        ...(faceDown && { secret: true }),
         // A permanent enters play first unless the card says where (§9.1).
         effects: def.permanent && !def.effects.some((e) => e.op === 'enterPlay') ? [{ op: 'enterPlay' }, ...def.effects] : def.effects,
         vars: { ...bound, card: instance.id, handAtPlay: zone(cardsOf(ctx.state), action.side, 'hand').length },
@@ -306,10 +320,12 @@ export function zonesModule<W extends CardsWorld>(defs: Record<string, CardDef>,
           throw new ContentError(`orderZone must keep the same cards in '${str(s.zone)}'`);
         }
         ids.splice(0, ids.length, ...order);
-        // Fresh opaque ids, so hidden cards cannot be tracked through the shuffle.
+        // Fresh opaque ids, so hidden cards cannot be tracked through the shuffle,
+        // and whatever was revealed about them is lost.
         for (const id of ids) {
           const instance = cardsOf(state).instances[id] as CardInstance;
           instance.shuffles = (instance.shuffles ?? 0) + 1;
+          delete instance.visibility;
         }
         return [{ type: 'ZoneShuffled', side: s.side, zone: s.zone, count: ids.length }];
       },
@@ -320,6 +336,23 @@ export function zonesModule<W extends CardsWorld>(defs: Record<string, CardDef>,
         pool[str(s.resource)] = after;
         if (after === before) return [];
         return [{ type: 'ResourceChanged', side: s.side, resource: s.resource, delta: after - before, value: after, reason: s.reason ?? null }];
+      },
+      setCardVisibility(state, s) {
+        const instance = cardsOf(state).instances[str(s.card)];
+        if (!instance) return [];
+        const visibility = s.visibility as Visibility | null;
+        if (visibility === null) delete instance.visibility;
+        else instance.visibility = visibility;
+        const revealed = visibility === null || visibility === 'public' || typeof visibility === 'object';
+        return [
+          {
+            type: revealed ? 'CardRevealed' : 'CardConcealed',
+            card: instance.id,
+            def: instance.def,
+            hidden: opaqueId(state, 'card', instance.id, instance.shuffles),
+            visibility: visibility ?? null,
+          },
+        ];
       },
       upgradeCard(state, s) {
         const instance = cardsOf(state).instances[str(s.card)];
@@ -447,6 +480,56 @@ export function zonesModule<W extends CardsWorld>(defs: Record<string, CardDef>,
         },
         (ctx, p) => ctx.step({ kind: 'resource', side: sideOf(ctx, p), resource: p.resource, delta: p.amount, reason: 'effect' }),
       ),
+      reveal: defineOp(
+        {
+          displayName: 'Reveal',
+          description: 'Show a card (the target) to everyone until it is shuffled away.',
+          params: z.object({ card: card.optional() }),
+          text: 'Reveal a card.',
+          widgets: { card: 'card' },
+          category: 'visibility',
+        },
+        (ctx, p) => ctx.step({ kind: 'setCardVisibility', card: cardParam(ctx, p), visibility: 'public' }),
+      ),
+      conceal: defineOp(
+        {
+          displayName: 'Conceal',
+          description: 'Return a card (the target) to its zone’s normal visibility.',
+          params: z.object({ card: card.optional() }),
+          text: 'Conceal a card.',
+          widgets: { card: 'card' },
+          category: 'visibility',
+        },
+        (ctx, p) => ctx.step({ kind: 'setCardVisibility', card: cardParam(ctx, p), visibility: null }),
+      ),
+      peek: defineOp(
+        {
+          displayName: 'Peek',
+          description: 'Look at the top cards of a zone (default your draw pile) without moving them. Sets `peeked.cards`.',
+          params: z.object({ n: count, zone: z.string().min(1).optional(), side }),
+          text: 'Look at the top {n:card|cards}.',
+          widgets: { n: 'number' },
+          category: 'visibility',
+        },
+        (ctx, p) => {
+          const peeker = ctx.item.controller;
+          if (peeker === null) throw new ContentError('peek needs a controlling side');
+          const s = sideOf(ctx, p);
+          const zoneName = str(p.zone ?? 'draw');
+          const top = zone(cardsOf(ctx.state), s, zoneName).slice(0, p.n as number);
+          const sides = ctx.state.sides.map((x) => x.id);
+          const steps: Step[] = [];
+          for (const id of top) {
+            const instance = cardsOf(ctx.state).instances[id];
+            if (visibleTo(instance, s, zoneName, peeker)) continue;
+            // Keep everyone who could already see it, and add the peeker.
+            const already = sides.filter((viewer) => visibleTo(instance, s, zoneName, viewer));
+            steps.push({ kind: 'setCardVisibility', card: id, visibility: { revealedTo: [...new Set([...already, peeker])] } });
+          }
+          if (steps.length > 0) ctx.step(steps);
+          ctx.setVar('peeked', { cards: top });
+        },
+      ),
       countCards: defineOp(
         {
           displayName: 'Count cards',
@@ -465,6 +548,8 @@ export function zonesModule<W extends CardsWorld>(defs: Record<string, CardDef>,
       const where = locateCard(cards, item.source);
       if (where?.zone !== 'resolving') return;
       const def = effectiveDef(defs, cards.instances[item.source] as CardInstance);
+      // A face-down card that resolved (rather than staying in play) is revealed (§7).
+      if (item.secret) ctx.step({ kind: 'setCardVisibility', card: item.source, visibility: null });
       // Not a discard: "whenever you discard" triggers must not fire for a played card.
       ctx.step(move(item.source, def.exhausts ? 'exhaust' : 'discard', { reason: def.exhausts ? 'exhaust' : 'resolved' }));
     },

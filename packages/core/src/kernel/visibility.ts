@@ -59,14 +59,19 @@ export function viewState<W>(rules: GameRules<W>, state: GameState<W>, viewer: S
     actionCount: state.actionCount,
     sides: clonePlain(state.sides),
     turn: clonePlain(state.turn),
-    stack: state.stack.map((item) => ({
-      id: item.id,
-      kind: item.kind,
-      controller: item.controller,
-      source: item.source,
-      countered: item.countered,
-      ...(viewer !== null && item.controller === viewer && { effects: clonePlain(item.effects), vars: clonePlain(item.vars) }),
-    })),
+    stack: state.stack.map((item) => {
+      const own = viewer !== null && item.controller === viewer;
+      // A face-down item shows others only that its controller played something.
+      if (item.secret && !own) return { id: item.id, kind: 'hidden', controller: item.controller, source: null, countered: item.countered };
+      return {
+        id: item.id,
+        kind: item.kind,
+        controller: item.controller,
+        source: item.source,
+        countered: item.countered,
+        ...(own && { effects: clonePlain(item.effects), vars: clonePlain(item.vars) }),
+      };
+    }),
     prompt: clonePlain(state.prompt),
     outcome: clonePlain(state.outcome),
     world,
@@ -75,9 +80,12 @@ export function viewState<W>(rules: GameRules<W>, state: GameState<W>, viewer: S
 
 /** Events as one viewer may see them, given the state after they happened. */
 export function redactEvents<W>(rules: GameRules<W>, events: GameEvent[], viewer: SideId | null, state: GameState<W>): GameEvent[] {
-  if (!rules.redact) return clonePlain(events);
-  return events.flatMap((event) => {
-    const redacted = rules.redact?.(clonePlain(event), viewer, state) ?? null;
+  return events.flatMap((original) => {
+    let event = clonePlain(original);
+    if (event.type === 'ItemAnnounced' && event.secret && (viewer === null || event.controller !== viewer)) {
+      event = { type: event.type, item: event.item, controller: event.controller, secret: true, kind: 'hidden', source: null, cause: event.cause };
+    }
+    const redacted = rules.redact ? rules.redact(event, viewer, state) : event;
     return redacted ? [redacted] : [];
   });
 }

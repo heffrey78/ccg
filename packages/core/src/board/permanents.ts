@@ -89,6 +89,13 @@ export function permanentsModule<W extends World>(config: PermanentsConfig): Rul
   return {
     name: 'permanents',
 
+    // Runs after the board's view: permanents on units the viewer cannot see (e.g. traps) go too.
+    view(world, viewer) {
+      for (const p of Object.values(world.permanents)) {
+        if (p.controller !== viewer && p.unit !== undefined && !world.board.units[p.unit]) delete world.permanents[p.id];
+      }
+    },
+
     steps: {
       enterPermanent(state, s) {
         const permanent = s.permanent as PermanentState;

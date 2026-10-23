@@ -22,7 +22,7 @@ import type {
 } from '../kernel/types.js';
 import { defineOp, type RulesModule } from '../rules/compose.js';
 import type { Behavior } from './intents.js';
-import { findPath, type Dir, type Pos, type Topology } from './topology.js';
+import { findPath, lineOfSight, type Dir, type Pos, type Topology } from './topology.js';
 
 export interface UnitState {
   id: string;
@@ -88,6 +88,12 @@ export interface BoardConfig {
   edge?: 'wall' | 'fall';
   /** Enables the basic `move` action, separate from cards. */
   moveAction?: MoveActionConfig;
+  /**
+   * Fog of war (#56): a side sees other units only near its own units
+   * (`distance`) or in their line of sight (`lineOfSight`, blocked by blocking
+   * tiles and optionally by units). Spectators see what every side sees.
+   */
+  fog?: { kind: 'distance'; range: number } | { kind: 'lineOfSight'; range?: number; unitsBlock?: boolean };
 }
 
 export interface UnitPlacement {
@@ -282,20 +288,60 @@ export function boardModule<W extends BoardWorld>(config: BoardConfig): RulesMod
     },
   };
 
+  /** Units a side's own units can see through the fog. */
+  const sighted = (state: GameState<W>, side: SideId): Set<string> => {
+    const fog = config.fog;
+    const units = Object.values(boardOf(state).units);
+    const own = units.filter((u) => u.side === side);
+    const blocks = (pos: Pos) => blockedTile(state, pos) || (fog?.kind === 'lineOfSight' && fog.unitsBlock === true && !!unitAt(boardOf(state), pos));
+    const seen = new Set<string>();
+    for (const u of units) {
+      if (u.side === side) {
+        seen.add(u.id);
+        continue;
+      }
+      const visible = own.some((o) => {
+        const d = topo.distance(o.pos, u.pos);
+        if (fog?.kind === 'distance') return d <= fog.range;
+        return (fog?.range === undefined || d <= fog.range) && lineOfSight(topo, o.pos, u.pos, blocks);
+      });
+      if (visible) seen.add(u.id);
+    }
+    return seen;
+  };
+  const fogCache = new WeakMap<object, Map<SideId | null, Set<string>>>();
+  /** Units visible to a viewer: their own visibility rule, then fog of war. */
+  const visibleUnits = (state: GameState<W>, viewer: SideId | null): Set<string> => {
+    let perViewer = fogCache.get(state);
+    if (!perViewer) fogCache.set(state, (perViewer = new Map()));
+    const cached = perViewer.get(viewer);
+    if (cached) return cached;
+    const units = Object.values(boardOf(state).units).filter((u) => canSee(u.visibility, viewer, u.side));
+    let ids = new Set(units.map((u) => u.id));
+    if (config.fog) {
+      const sides = viewer === null ? state.sides.map((x) => x.id) : [viewer];
+      for (const side of sides) {
+        const seen = sighted(state, side);
+        ids = new Set([...ids].filter((id) => seen.has(id)));
+      }
+    }
+    perViewer.set(viewer, ids);
+    return ids;
+  };
+
   return {
     name: 'board',
     ...(moveAction && { actions: { move: moveAction } }),
 
-    view(world, viewer) {
-      for (const u of Object.values(world.board.units)) {
-        if (!canSee(u.visibility, viewer, u.side)) delete world.board.units[u.id];
-      }
+    view(world, viewer, state) {
+      const visible = visibleUnits(state, viewer);
+      for (const id of Object.keys(world.board.units)) if (!visible.has(id)) delete world.board.units[id];
     },
 
     redact(event, viewer, state) {
       // Withhold events about a unit the viewer cannot see (it may have left play since).
-      const u = typeof event.unit === 'string' ? state.world.board.units[event.unit] : undefined;
-      return u && !canSee(u.visibility, viewer, u.side) ? null : event;
+      if (typeof event.unit !== 'string' || !boardOf(state).units[event.unit]) return event;
+      return visibleUnits(state, viewer).has(event.unit) ? event : null;
     },
 
     steps: {
