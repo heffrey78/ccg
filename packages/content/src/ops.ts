@@ -19,7 +19,13 @@ export type WidgetHint =
   | 'tile'
   | 'direction'
   | 'pattern'
+  /** A card instance in play. */
   | 'card'
+  /** A card definition id. */
+  | 'cardDef'
+  /** A unit definition id. */
+  | 'unitDef'
+  /** A status definition id. */
   | 'status'
   | 'effects'
   | 'condition'

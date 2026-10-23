@@ -338,7 +338,7 @@ export function zonesModule<W extends CardsWorld>(defs: Record<string, CardDef>,
           description: 'Move the first matching cards from one zone to another. Sets `found.count`.',
           params: z.object({ def: z.string().min(1), from: z.string().min(1).optional(), to: z.string().min(1).optional(), n: count.optional(), side }),
           text: 'Search for {def}.',
-          widgets: { def: 'card' },
+          widgets: { def: 'cardDef' },
           category: 'cards',
         },
         (ctx, p) => {

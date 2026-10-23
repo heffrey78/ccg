@@ -545,7 +545,7 @@ export function boardModule<W extends BoardWorld>(config: BoardConfig): RulesMod
           description: 'Create a unit on an open tile (the target tile). Sets `spawned.unit`.',
           params: z.object({ def: z.string().min(1), pos: z.string().min(1).optional(), side: z.string().min(1).optional(), facing: z.string().min(1).optional() }),
           text: 'Summon a {def}.',
-          widgets: { def: 'unit', pos: 'tile' },
+          widgets: { def: 'unitDef', pos: 'tile' },
           category: 'units',
         },
         (ctx, p) => {
