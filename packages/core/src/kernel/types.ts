@@ -57,10 +57,21 @@ export interface StackItem {
   countered: boolean;
   /** Played face-down: other viewers see only that the controller played something (#56). */
   secret?: boolean;
+  /** Parameter changes responses made to this item (§5.3), applied as its effects run. */
+  mods?: ParamMod[];
   /** Whether the response window for the item's current turn at the top has happened (§5). */
   windowDone?: boolean;
   /** Whether the item has had its first (`itemAnnounced`) window. */
   announced?: boolean;
+}
+
+/** Changes one numeric (or any, with `set`) parameter of an item's effects of one op. */
+export interface ParamMod {
+  op: string;
+  param: string;
+  add?: number;
+  multiply?: number;
+  set?: unknown;
 }
 
 /** Fields the kernel fills in when an item is announced. */
@@ -218,6 +229,8 @@ export type StateCheck<W = unknown> = (ctx: CheckContext<W>) => boolean;
 export interface ActionContext<W = unknown> {
   readonly state: GameState<W>;
   readonly rng: Rng;
+  /** The priority prompt this action answers, if it is a response (§5). */
+  readonly answering: Prompt | null;
   /** Pays a cost or applies an immediate change as a step (§2 step 2). */
   step(steps: Step | Step[]): StepOutcome;
   /** Puts an item on the stack (§2 step 3). */

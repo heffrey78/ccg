@@ -41,6 +41,7 @@ export {
   ZONE_VISIBILITY,
   canAfford,
   createCardsState,
+  reactionAllowed,
   effectiveDef,
   locateCard,
   zone,
@@ -52,6 +53,7 @@ export {
   type CardsSetupOptions,
   type CardsState,
   type CardsWorld,
+  type ReactionCondition,
   type TargetingResolver,
   type ZonesOptions,
 } from './cards/zones.js';
@@ -110,3 +112,4 @@ export {
   type PermanentsConfig,
   type PermanentsWorld,
 } from './board/permanents.js';
+export { stackModule } from './rules/stack.js';

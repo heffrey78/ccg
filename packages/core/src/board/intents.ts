@@ -239,7 +239,14 @@ export function intentsModule<W extends BoardWorld & IntentsWorld>(config: Inten
         ctx.step({ kind: 'undelayIntent', intent: intent.id });
         continue;
       }
-      ctx.announce({ kind: 'intent', controller: side, source: intent.unit, effects: [{ op: 'resolveIntent', intent: intent.id }], vars: {} });
+      // `target` is exposed for reaction conditions ("an attack targeting you") and can be redirected (#57).
+      ctx.announce({
+        kind: 'intent',
+        controller: side,
+        source: intent.unit,
+        effects: [{ op: 'resolveIntent', intent: intent.id }],
+        vars: { intent: intent.id, ...(intent.target !== undefined && { target: intent.target }) },
+      });
     }
   };
 
@@ -325,7 +332,8 @@ export function intentsModule<W extends BoardWorld & IntentsWorld>(config: Inten
           ctx.step({ kind: 'clearIntent', intent: intent.id, outcome: 'cancelled' });
           return;
         }
-        let target = intent.target;
+        // A response may have redirected the intent to a new target.
+        let target = (ctx.item.vars.target as string | undefined) ?? intent.target;
         if (intent.bound === 'unit' && target !== undefined && target !== unit.id) {
           const t = board.units[target];
           const reachable = t && (intent.range === undefined || topo.distance(unit.pos, t.pos) <= intent.range);
@@ -413,6 +421,13 @@ export function intentsModule<W extends BoardWorld & IntentsWorld>(config: Inten
           }
         },
       ),
+    },
+
+    onItemResolved(ctx, item) {
+      // A countered intent is spent, not kept for later.
+      if (item.kind === 'intent' && item.countered && typeof item.vars.intent === 'string') {
+        ctx.step({ kind: 'clearIntent', intent: item.vars.intent, outcome: 'cancelled' });
+      }
     },
 
     stateChecks: [

@@ -107,7 +107,8 @@ describe('resolution-order worked examples', () => {
     expect(play(state, 'Raze').state.world.units.A).toMatchObject({ hp: 3, maxHp: 3 });
   });
 
-  it.todo('E5: a countered reaction, then the player responds again (#54, #57)');
+  // E5 (a countered reaction, then the player responds again) is encoded with
+  // real reaction cards in test/reactions.test.ts.
 
   it('E6: simultaneous deaths resolve their death triggers in board order with last known positions', () => {
     const state = startLane(
