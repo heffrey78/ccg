@@ -3,7 +3,9 @@ import type { ContentItem, Manifest, OpRegistry } from '@ccg/content';
 import { deleteItem, duplicateItem, referencesTo, renameItem, updateItem, updateManifest, type Command } from '../commands.js';
 import type { Project } from '../project.js';
 import type { ProjectIssue } from '../validate.js';
+import type { PreviewBoard } from '../forms/patterns.js';
 import { KIND_SINGULAR } from './Browser.js';
+import { ItemForm } from './forms/ItemForm.js';
 import type { Selection } from './Workspace.js';
 
 export interface PanelProps {
@@ -59,14 +61,30 @@ export function ManifestPanel({ project, run }: Pick<PanelProps, 'project' | 'ru
   );
 }
 
-export function ItemPanel({ project, ops, issues, run, onSelect, itemKey, pointer }: PanelProps & { itemKey: string; pointer?: string | undefined }) {
+export function ItemPanel({
+  project,
+  ops,
+  issues,
+  run,
+  onSelect,
+  itemKey,
+  pointer,
+  board,
+  setBoard,
+}: PanelProps & { itemKey: string; pointer?: string | undefined; board: PreviewBoard; setBoard(board: PreviewBoard): void }) {
   const item = project.items[itemKey];
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const formRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     setConfirmDelete(false);
     setError(null);
   }, [itemKey]);
+  // Jump to the field a problem points at.
+  useEffect(() => {
+    if (pointer === undefined) return;
+    formRef.current?.querySelector(`[data-pointer="${CSS.escape(pointer)}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }, [pointer, itemKey]);
   if (!item) return <p className="ccg-muted">This item no longer exists.</p>;
 
   const refs = referencesTo(project, itemKey, ops);
@@ -159,9 +177,23 @@ export function ItemPanel({ project, ops, issues, run, onSelect, itemKey, pointe
         </ul>
       )}
 
-      <h3>Data</h3>
-      <p className="ccg-muted">Field editors arrive with the card, unit and encounter editors; this view is read-only.</p>
-      <JsonView value={item} highlight={pointer} />
+      <h3>Properties</h3>
+      <div ref={formRef}>
+        <ItemForm
+          project={project}
+          ops={ops}
+          item={item}
+          issues={mine}
+          flagged={pointer}
+          board={board}
+          setBoard={setBoard}
+          onChange={(next) => setError(run(`Edit ${item.name}`, updateItem(itemKey, next)))}
+        />
+      </div>
+      <details className="ccg-raw">
+        <summary>Raw data (read-only)</summary>
+        <JsonView value={item} highlight={pointer} />
+      </details>
 
       <h3>Used by</h3>
       {refs.length === 0 ? (
