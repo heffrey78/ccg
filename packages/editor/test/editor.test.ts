@@ -230,6 +230,16 @@ describe('validation and templates', () => {
       ]),
     );
   });
+
+  it('checks references inside effects, which the loader leaves to the registry', async () => {
+    const p = deleteItem('status:burn')(referenced());
+    const issues = await validateProject(p);
+    expect(issues.filter((i) => i.message === "unknown status 'demo:burn'")).toEqual([
+      { file: 'content/cards/ember.json', key: 'card:ember', pointer: '/effects/0/status', message: "unknown status 'demo:burn'" },
+    ]);
+    // Keywords are checked by the loader too; each problem is listed once.
+    expect(issues.filter((i) => i.pointer === '/keywords/0')).toHaveLength(1);
+  });
 });
 
 describe('stores', () => {

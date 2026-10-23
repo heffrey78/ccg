@@ -10,6 +10,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ContentKind, OpRegistry } from '@ccg/content';
 import { EditorError, createItem, type Command } from '../commands.js';
 import { itemKey, projectFiles, splitKey, type Project } from '../project.js';
+import { guessBoard, type PreviewBoard } from '../forms/patterns.js';
 import { zipFiles } from '../stores/zip.js';
 import { newItem } from '../templates.js';
 import type { ProjectIssue } from '../validate.js';
@@ -33,6 +34,10 @@ export function Workspace({ session, ops, validate, onClose }: WorkspaceProps) {
   const [issues, setIssues] = useState<ProjectIssue[] | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [confirmClose, setConfirmClose] = useState(false);
+  // The board patterns are previewed on, guessed from the encounters until the author picks one.
+  const [board, setBoard] = useState<PreviewBoard>(() =>
+    guessBoard(Object.values(project.items).flatMap((i) => (i.kind === 'encounter' ? ((i.units as { pos: string }[] | undefined) ?? []).map((u) => u.pos) : []))),
+  );
 
   // ---- validation, debounced ----
   useEffect(() => {
@@ -169,7 +174,17 @@ export function Workspace({ session, ops, validate, onClose }: WorkspaceProps) {
         <Browser project={project} selection={shown} issues={issueKeys} onSelect={setSelection} onCreate={create} />
         <div className="ccg-editor-center">
           {shown?.kind === 'item' ? (
-            <ItemPanel project={project} ops={ops} issues={issues ?? []} run={run} onSelect={setSelection} itemKey={shown.key} pointer={shown.pointer} />
+            <ItemPanel
+              project={project}
+              ops={ops}
+              issues={issues ?? []}
+              run={run}
+              onSelect={setSelection}
+              itemKey={shown.key}
+              pointer={shown.pointer}
+              board={board}
+              setBoard={setBoard}
+            />
           ) : shown?.kind === 'manifest' ? (
             <ManifestPanel project={project} run={run} />
           ) : (

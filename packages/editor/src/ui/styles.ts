@@ -70,4 +70,47 @@ export const CSS = `
 .ccg-badge.is-bad { background: var(--warn); color: #fff; }
 .ccg-confirm { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .ccg-confirm p { margin: 0; }
+/* generated forms (#40) */
+.ccg-editor select, .ccg-editor textarea, .ccg-editor input[type="number"], .ccg-editor input:not([type]) { font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; }
+.ccg-editor input[type="number"] { width: 6em; }
+.ccg-editor textarea { width: 100%; min-height: 4em; font-family: ui-monospace, monospace; }
+.ccg-card-preview { background: var(--select); border-radius: 8px; padding: 8px 12px; font-style: italic; }
+.ccg-form-object { display: flex; flex-direction: column; gap: 6px; }
+.ccg-form-row { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 8px; align-items: start; padding: 2px 4px; border-radius: 6px; }
+.ccg-form-row.is-block { grid-template-columns: 1fr; }
+.ccg-form-row.is-block > .ccg-form-control { padding-left: 12px; border-left: 2px solid var(--line); }
+.ccg-form-row.has-error { background: color-mix(in srgb, var(--warn) 8%, transparent); }
+.ccg-form-row.is-flagged, .ccg-effect.is-flagged { outline: 2px solid var(--warn); background: var(--hl); }
+.ccg-form-label { display: flex; gap: 6px; align-items: center; font-size: .9rem; font-weight: 600; min-height: 28px; }
+.ccg-form-actions { display: inline-flex; gap: 2px; }
+.ccg-editor .ccg-form-actions button, .ccg-editor .ccg-form-remove, .ccg-editor .ccg-var-toggle { padding: 0 6px; font-size: .8rem; }
+.ccg-editor .ccg-var-toggle[aria-pressed="true"] { background: var(--accent); color: #fff; border-color: var(--accent); }
+.ccg-form-optional { display: flex; gap: 4px; flex-wrap: wrap; }
+.ccg-editor .ccg-form-add { border-style: dashed; color: var(--muted); padding: 2px 8px; font-size: .85rem; }
+.ccg-form-union { display: flex; flex-direction: column; gap: 6px; }
+.ccg-form-union > select { align-self: flex-start; }
+.ccg-form-list { display: flex; flex-direction: column; gap: 4px; }
+.ccg-effects ol { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.ccg-effect { border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; background: var(--bg); }
+.ccg-effect.has-error { border-color: var(--warn); }
+.ccg-effect-head { display: flex; gap: 6px; align-items: center; margin-bottom: 4px; }
+.ccg-editor .ccg-effect-head button { padding: 0 6px; }
+.ccg-effect-text { font-size: .85rem; }
+.ccg-palette { border: 1px solid var(--line); border-radius: 8px; padding: 8px; background: var(--panel); box-shadow: var(--shadow); }
+.ccg-palette-groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; max-height: 300px; overflow: auto; margin-top: 6px; }
+.ccg-palette h4 { margin: 0 0 4px; font-size: .8rem; text-transform: uppercase; color: var(--muted); }
+.ccg-editor .ccg-palette-groups button { display: block; width: 100%; text-align: left; border-color: transparent; padding: 2px 6px; }
+.ccg-editor .ccg-palette-groups button:hover { background: var(--select); }
+.ccg-cost { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.ccg-cost-pool { display: inline-flex; gap: 4px; align-items: center; }
+.ccg-pattern { display: flex; flex-direction: column; gap: 6px; }
+.ccg-pattern-board { width: 100%; max-width: 280px; }
+.ccg-pattern-cell { fill: var(--bg); stroke: var(--line); }
+.ccg-pattern-cell.is-on { fill: color-mix(in srgb, var(--warn) 55%, var(--bg)); }
+.ccg-pattern-cell.is-origin { fill: var(--accent); }
+.ccg-pattern-facing { fill: #fff; pointer-events: none; }
+.ccg-board-switch { display: inline-flex; }
+.ccg-editor .ccg-board-switch button { border-radius: 0; padding: 2px 8px; font-size: .8rem; }
+.ccg-editor .ccg-board-switch button[aria-checked="true"] { background: var(--accent); color: #fff; border-color: var(--accent); }
+.ccg-raw summary { cursor: pointer; color: var(--muted); margin: 8px 0; }
 `;
