@@ -16,6 +16,7 @@ export {
   type LoadedItem,
   type LoadedPackage,
 } from './package.js';
+export { REF_WIDGETS, mapRefs, type RefVisitor } from './refs.js';
 export {
   CONTENT_KINDS,
   createContentSchemas,
