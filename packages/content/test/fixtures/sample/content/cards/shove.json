@@ -1,0 +1,30 @@
+{
+  "formatVersion": 1,
+  "kind": "card",
+  "id": "shove",
+  "name": "Shove",
+  "cost": {
+    "energy": 1
+  },
+  "effects": [
+    {
+      "op": "push",
+      "distance": 2
+    },
+    {
+      "op": "applyStatus",
+      "stacks": {
+        "$": "event.amount"
+      },
+      "status": "burn"
+    }
+  ],
+  "keywords": [
+    "burn"
+  ],
+  "rarity": "common",
+  "targeting": {
+    "kind": "unit",
+    "range": 1
+  }
+}

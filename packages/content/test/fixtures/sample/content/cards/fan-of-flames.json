@@ -1,0 +1,30 @@
+{
+  "formatVersion": 1,
+  "kind": "card",
+  "id": "fan-of-flames",
+  "name": "Fan of Flames",
+  "cost": {
+    "energy": 2
+  },
+  "effects": [
+    {
+      "op": "damage",
+      "amount": 4
+    },
+    {
+      "op": "draw",
+      "n": 1
+    }
+  ],
+  "tags": [
+    "fire"
+  ],
+  "targeting": {
+    "kind": "pattern",
+    "range": 0,
+    "shape": {
+      "kind": "cone",
+      "length": 2
+    }
+  }
+}

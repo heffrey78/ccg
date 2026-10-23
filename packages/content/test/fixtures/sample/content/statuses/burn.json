@@ -1,0 +1,22 @@
+{
+  "formatVersion": 1,
+  "kind": "status",
+  "id": "burn",
+  "name": "Burn",
+  "description": "Takes damage at the start of its turn.",
+  "hooks": [
+    {
+      "effects": [
+        {
+          "op": "damage",
+          "amount": {
+            "$": "stacks"
+          }
+        }
+      ],
+      "on": "TurnStarted",
+      "timing": "after"
+    }
+  ],
+  "stacking": "intensity"
+}
