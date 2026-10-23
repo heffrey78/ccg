@@ -84,3 +84,17 @@ export { buildDefinitions, type Definitions } from './content.js';
 export { isGamePackage, qualify, type AssetResolver, type GamePackage } from './packages/package.js';
 export { PackageRegistry, type PackageIssue, type ResolveResult, type ResolvedGame } from './packages/registry.js';
 export { parseVersion, satisfies } from './packages/semver.js';
+export {
+  createIntentsState,
+  intentsModule,
+  type Behavior,
+  type BehaviorCondition,
+  type DeclaredIntent,
+  type IntentDef,
+  type IntentTarget,
+  type IntentsConfig,
+  type IntentsState,
+  type IntentsWorld,
+  type Selector,
+} from './board/intents.js';
+export { greedyPolicy, playTurn, randomPolicy, type AiPolicy } from './ai.js';

@@ -90,6 +90,53 @@ export function createContentSchemas(ops: OpRegistry, { formatVersion: version =
     })
     .strict();
 
+  // Enemy behaviour (#27): a tree choosing which intent a unit declares each round.
+  const selector = z.enum(['nearestEnemy', 'weakestEnemy', 'strongestEnemy']);
+  const intentTarget = z.discriminatedUnion('kind', [
+    z.object({ kind: z.literal('none') }).strict(),
+    z.object({ kind: z.literal('self') }).strict(),
+    z
+      .object({ kind: z.literal('unit'), select: selector, range: count.optional(), bound: z.enum(['unit', 'tile']).optional() })
+      .strict(),
+    z.object({ kind: z.literal('pattern'), shape: patternShape, aim: z.enum(['nearestEnemy', 'facing']) }).strict(),
+  ]);
+  const intent = z
+    .object({
+      name: z.string().min(1),
+      icon: assetPath.optional(),
+      target: intentTarget,
+      effects,
+      visibility: z.enum(['full', 'partial', 'hidden']).optional(),
+      onInvalidTarget: z.enum(['skip', 'retarget']).optional(),
+    })
+    .strict();
+  type BehaviorCondition =
+    | { kind: 'always' }
+    | { kind: 'enemyWithin'; range: number }
+    | { kind: 'hpAtMost'; fraction: number }
+    | { kind: 'not'; cond: BehaviorCondition }
+    | { kind: 'all' | 'any'; of: BehaviorCondition[] };
+  const behaviorCondition: z.ZodType<BehaviorCondition> = z.lazy(() =>
+    z.discriminatedUnion('kind', [
+      z.object({ kind: z.literal('always') }).strict(),
+      z.object({ kind: z.literal('enemyWithin'), range: count }).strict(),
+      z.object({ kind: z.literal('hpAtMost'), fraction: z.number().min(0).max(1) }).strict(),
+      z.object({ kind: z.literal('not'), cond: behaviorCondition }).strict(),
+      z.object({ kind: z.literal('all'), of: z.array(behaviorCondition) }).strict(),
+      z.object({ kind: z.literal('any'), of: z.array(behaviorCondition) }).strict(),
+    ]),
+  ) as z.ZodType<BehaviorCondition>;
+  const behavior: z.ZodType = z.lazy(() =>
+    z.discriminatedUnion('kind', [
+      z.object({ kind: z.literal('intent'), intent }).strict(),
+      z.object({ kind: z.literal('sequence'), steps: z.array(behavior).min(1) }).strict(),
+      z
+        .object({ kind: z.literal('weighted'), options: z.array(z.object({ weight: z.number().positive(), then: behavior }).strict()).min(1) })
+        .strict(),
+      z.object({ kind: z.literal('if'), cond: behaviorCondition, then: behavior, else: behavior }).strict(),
+    ]),
+  );
+
   const unit = z
     .object({
       ...common,
@@ -97,6 +144,7 @@ export function createContentSchemas(ops: OpRegistry, { formatVersion: version =
       hp: z.number().int().min(1),
       faction: id.optional(),
       statuses: z.array(z.object({ status: ref, stacks: z.number().int().min(1) }).strict()).optional(),
+      behavior: behavior.optional(),
       art: assetPath.optional(),
     })
     .strict();
@@ -175,7 +223,7 @@ export function createContentSchemas(ops: OpRegistry, { formatVersion: version =
     })
     .strict();
 
-  return { effect, card, unit, status, tile, encounter, item, manifest };
+  return { effect, behavior, card, unit, status, tile, encounter, item, manifest };
 }
 
 export type ContentSchemas = ReturnType<typeof createContentSchemas>;

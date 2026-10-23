@@ -205,6 +205,7 @@ export interface PhaseContext<W = unknown> {
   readonly rng: Rng;
   step(steps: Step | Step[]): StepOutcome;
   announce(item: Omit<StackItem, 'id' | 'countered'>): StackItem;
+  newId(prefix: string): string;
 }
 
 export interface PhaseDef<W = unknown> {

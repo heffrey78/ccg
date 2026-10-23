@@ -5,6 +5,7 @@
  */
 import type { OpRegistry } from '@ccg/content';
 import { LaneTopology } from './board/lane.js';
+import { intentsModule } from './board/intents.js';
 import { statusesModule } from './board/statuses.js';
 import { boardModule } from './board/units.js';
 import { zonesModule } from './cards/zones.js';
@@ -17,6 +18,7 @@ export function builtinOps(): OpRegistry {
     zonesModule({}) as never,
     boardModule({ topology: new LaneTopology(1) }) as never,
     statusesModule({}) as never,
+    intentsModule({ topology: new LaneTopology(1), behaviors: {} }) as never,
     logicModule(),
   ]);
 }

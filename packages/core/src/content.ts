@@ -3,6 +3,7 @@
  * engine modules take. The content schemas have already validated them.
  */
 import type { ContentItem } from '@ccg/content';
+import type { Behavior } from './board/intents.js';
 import type { StatusDef } from './board/statuses.js';
 import type { TileDef, UnitDef } from './board/units.js';
 import type { CardDef } from './cards/zones.js';
@@ -23,8 +24,12 @@ export function buildDefinitions(items: Iterable<ContentItem>): Definitions {
         defs.cards[id] = fields as unknown as CardDef;
         break;
       case 'unit': {
-        const { hp, statuses } = fields as { hp: number; statuses?: { status: string; stacks: number }[] };
-        defs.units[id] = { hp, ...(statuses && { statuses: Object.fromEntries(statuses.map((s) => [s.status, s.stacks])) }) };
+        const { hp, statuses, behavior } = fields as { hp: number; statuses?: { status: string; stacks: number }[]; behavior?: Behavior };
+        defs.units[id] = {
+          hp,
+          ...(statuses && { statuses: Object.fromEntries(statuses.map((s) => [s.status, s.stacks])) }),
+          ...(behavior && { behavior }),
+        };
         break;
       }
       case 'status':
