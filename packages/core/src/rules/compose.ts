@@ -91,6 +91,7 @@ export function composeRules<W>(base: BaseRules<W>, modules: RulesModule<W>[]): 
   };
   if (base.outcome) rules.outcome = base.outcome;
   if (base.limits) rules.limits = base.limits;
+  if (base.windows) rules.windows = base.windows;
   return rules;
 }
 
