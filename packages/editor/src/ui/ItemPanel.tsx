@@ -3,7 +3,8 @@ import type { ContentItem, Manifest, OpRegistry } from '@ccg/content';
 import { deleteItem, duplicateItem, referencesTo, renameItem, updateItem, updateManifest, type Command } from '../commands.js';
 import type { Project } from '../project.js';
 import type { ProjectIssue } from '../validate.js';
-import type { PreviewBoard } from '../forms/patterns.js';
+import { boardIssues, describeBoard, moveEncounters, projectBoard } from '../encounters.js';
+import { guessBoard, type PreviewBoard } from '../forms/patterns.js';
 import { KIND_SINGULAR } from './Browser.js';
 import { ItemForm } from './forms/ItemForm.js';
 import type { Selection } from './Workspace.js';
@@ -144,6 +145,7 @@ export function ItemPanel({
         </div>
       )}
       {error && <p role="alert" className="ccg-error">{error}</p>}
+      {item.kind === 'ruleset' && <BoardFit project={project} run={run} />}
 
       <div className="ccg-fields">
         <Field label="Name" value={item.name} onCommit={(name) => update(`Rename ${item.name} to ${name}`, { name })} />
@@ -281,3 +283,23 @@ export function JsonView({ value, highlight }: { value: unknown; highlight?: str
   );
 }
 
+
+/** On a ruleset: offers to move encounters onto the board when its shape changed under them (#45). */
+function BoardFit({ project, run }: { project: Project; run(label: string, command: Command): string | null }) {
+  const board = projectBoard(project);
+  if (!board) return null;
+  const off = boardIssues(project, board).filter((i) => i.message.includes('not on the board'));
+  if (off.length === 0) return null;
+  const positions = Object.values(project.items).flatMap((i) => (i.kind === 'encounter' ? ((i.units as { pos: string }[] | undefined) ?? []).map((u) => u.pos) : []));
+  const from = guessBoard(positions);
+  return (
+    <div className="ccg-confirm" role="region" aria-label="Encounters off the board">
+      <p>
+        {off.length} encounter position{off.length === 1 ? ' is' : 's are'} off {describeBoard(board.def)}.
+      </p>
+      <button type="button" className="ccg-primary" onClick={() => run(`Move encounters onto ${describeBoard(board.def)}`, moveEncounters(from, board.def))}>
+        Move encounters onto this board
+      </button>
+    </div>
+  );
+}

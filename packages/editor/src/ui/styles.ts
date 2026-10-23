@@ -142,5 +142,19 @@ export const CSS = `
 .ccg-behavior-child { display: flex; flex-direction: column; gap: 4px; }
 .ccg-preview-rounds { margin: 4px 0; padding-left: 20px; font-size: .9rem; }
 .ccg-preview-target { fill: var(--accent); opacity: .55; pointer-events: none; }
+.ccg-encounter-board { display: flex; flex-direction: column; gap: 6px; }
+.ccg-paint-board { width: 100%; max-width: 520px; }
+.ccg-paint-cell-group { cursor: pointer; }
+.ccg-paint-cell-group:focus-visible { outline: none; }
+.ccg-paint-cell-group:focus-visible .ccg-paint-cell { stroke: var(--accent); stroke-width: 3; }
+.ccg-paint-cell { fill: var(--bg); stroke: var(--line); }
+.ccg-paint-cell-group:hover .ccg-paint-cell { stroke: var(--accent); }
+.ccg-paint-cell.has-tile { fill: color-mix(in srgb, #3c8a4f 30%, var(--bg)); }
+.ccg-paint-cell.is-blocking { fill: var(--muted); }
+.ccg-paint-tile { font-size: 9px; fill: var(--ink); pointer-events: none; }
+.ccg-paint-unit.is-player { fill: var(--accent); }
+.ccg-paint-unit.is-enemy { fill: var(--danger); }
+.ccg-paint-label { font-size: 9px; font-weight: 700; fill: #fff; pointer-events: none; }
+.ccg-paint-facing { fill: var(--ink); opacity: .7; pointer-events: none; }
 .ccg-raw summary { cursor: pointer; color: var(--muted); margin: 8px 0; }
 `;

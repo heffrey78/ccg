@@ -5,6 +5,7 @@
  */
 import { createContentSchemas, loadPackage, mapRefs, parseRef, REF_PATTERN, type OpRegistry } from '@ccg/content';
 import { builtinOps } from '@ccg/core';
+import { boardIssues, projectBoard } from './encounters.js';
 import { projectFiles, type Project } from './project.js';
 import { fileSource } from './stores/store.js';
 
@@ -44,5 +45,8 @@ export async function validateProject(project: Project, ops: OpRegistry = editor
       seen.add(id);
     });
   }
+  // Encounters must fit the board the ruleset describes.
+  const board = projectBoard(project);
+  if (board) for (const issue of boardIssues(project, board)) issues.push({ ...issue, file: project.paths[issue.key] as string });
   return issues;
 }
