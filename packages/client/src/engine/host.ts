@@ -6,6 +6,8 @@
 import {
   PackageRegistry,
   Session,
+  apply,
+  createGame,
   decidingSide,
   effectsText,
   isPlayable,
@@ -16,10 +18,12 @@ import {
   runRewards,
   standardInput,
   viewState,
+  type Action,
   type DeclaredIntent,
   type GameEvent,
   type GamePackage,
   type GameRules,
+  type GameState,
   type ResolvedGame,
   type SetupOptions,
   type SideId,
@@ -38,6 +42,8 @@ export interface HostOptions {
   ai?: (game: GameListing) => StatePolicy<unknown>;
   /** Stop an AI that keeps acting without handing the decision back. */
   maxAiActions?: number;
+  /** Allow `debug` and `branch` requests, which reveal everything (#46). For editors' playtests, never for players. */
+  debug?: boolean;
 }
 
 export interface EngineHost {
@@ -356,6 +362,54 @@ export function createEngineHost(options: HostOptions = {}): EngineHost {
           const events = [...result.events, ...runAi(running)];
           advanceRun(running);
           return { ok: true, type: 'snapshot', snapshot: snapshot(running, events) };
+        }
+
+        case 'debug':
+        case 'branch': {
+          if (!options.debug) return { ok: false, error: { code: 'illegal-action', message: 'this engine does not allow debugging' } };
+          if (!running) return { ok: false, error: { code: 'not-started', message: 'no game is running' } };
+          const log = running.session.log;
+          const at = request.type === 'branch' ? request.at : (request.at ?? log.actions.length);
+          if (!Number.isInteger(at) || at < 0 || at > log.actions.length) {
+            return { ok: false, error: { code: 'illegal-action', message: `there is no step ${at}` } };
+          }
+          if (request.type === 'branch') {
+            const started = Session.start(running.rules, log.setup, log.packages);
+            if (!started.ok) return { ok: false, error: started.error };
+            for (const action of log.actions.slice(0, at)) {
+              const result = started.session.apply(action);
+              if (!result.ok) return { ok: false, error: result.error };
+            }
+            running = { ...running, session: started.session };
+            if (running.run) running.run = { ...running.run, status: 'playing' };
+            const events = runAi(running);
+            advanceRun(running);
+            return { ok: true, type: 'snapshot', snapshot: { ...snapshot(running, events), notice: `Rewound to step ${at}; play on from here.` } };
+          }
+          // Replay from the setup, keeping each action's events and the states around `at`.
+          const created = createGame(running.rules, log.setup);
+          if (!created.ok) return { ok: false, error: created.error };
+          let state = created.state;
+          let previous: GameState<unknown> | null = null;
+          let shown = state;
+          const actions: { action: Action; events: GameEvent[] }[] = [];
+          for (const [i, action] of log.actions.entries()) {
+            const result = apply(running.rules, state, action);
+            if (!result.ok) return { ok: false, error: result.error };
+            actions.push({ action, events: result.events });
+            if (i + 1 === at) {
+              previous = state;
+              shown = result.state;
+            }
+            state = result.state;
+          }
+          const sides = shown.sides.map((s) => s.id);
+          const rules = running.rules;
+          return {
+            ok: true,
+            type: 'debug',
+            debug: { actions, at, state: shown, previous, views: Object.fromEntries(sides.map((side) => [side, viewState(rules, shown, side)])) },
+          };
         }
 
         case 'chooseReward': {

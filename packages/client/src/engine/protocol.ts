@@ -3,7 +3,7 @@
  * behind it (in a Web Worker on web) and only ever sends the human side's
  * view and redacted events (requirement #48: clients never see full state).
  */
-import type { Action, ApplyError, GameEvent, GameView, SideId } from '@ccg/core';
+import type { Action, ApplyError, GameEvent, GameState, GameView, SideId } from '@ccg/core';
 
 export interface GameListing {
   id: string;
@@ -24,6 +24,10 @@ export type EngineRequest =
   | { type: 'reload'; files: Record<string, Uint8Array>; mode: 'hot' | 'replay' }
   /** In a run, between encounters: take one of the offered cards (or none) and go on. */
   | { type: 'chooseReward'; card: string | null }
+  /** Debug hosts only (#46): the authoritative state after `at` actions (default: now), with every action's events. */
+  | { type: 'debug'; at?: number }
+  /** Debug hosts only: rewind to after `at` actions and play on from there, dropping the later ones. */
+  | { type: 'branch'; at: number }
   | { type: 'view' };
 
 /** A card as the UI shows it: text is generated from its effects (decision #12). */
@@ -87,7 +91,21 @@ export interface RunProgress {
   rewards?: string[];
 }
 
+/** What the debugger sees (#46): the full game, not one side's view. */
+export interface DebugInfo {
+  /** Every action so far with the events it caused, unredacted. */
+  actions: { action: Action; events: GameEvent[] }[];
+  /** The state shown is the one after this many actions (0: the starting state). */
+  at: number;
+  state: GameState<unknown>;
+  /** The state one action earlier, for diffs; null at the start. */
+  previous: GameState<unknown> | null;
+  /** Each side's view of `state`. */
+  views: Record<SideId, GameView<unknown>>;
+}
+
 export type EngineReply =
   | { ok: true; type: 'games'; games: GameListing[]; /** The package a zip import loaded. */ loaded?: string }
   | { ok: true; type: 'snapshot'; snapshot: Snapshot }
+  | { ok: true; type: 'debug'; debug: DebugInfo }
   | { ok: false; error: ApplyError | { code: 'not-started' | 'unknown-game' | 'invalid-package'; message: string } };

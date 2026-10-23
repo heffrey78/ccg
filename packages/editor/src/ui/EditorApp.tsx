@@ -26,7 +26,7 @@ export interface EditorAppProps {
 
 export function EditorApp({ library, pickDirectory, validate, ops, playtestEngine }: EditorAppProps) {
   const [session, setSession] = useState<Session | null>(null);
-  const engine = useMemo(() => playtestEngine ?? new EngineClient(localTransport(createEngineHost())), [playtestEngine]);
+  const engine = useMemo(() => playtestEngine ?? new EngineClient(localTransport(createEngineHost({ debug: true }))), [playtestEngine]);
   const registry = useMemo(() => ops ?? editorOps(), [ops]);
   const check = useMemo(() => validate ?? ((p: Project) => validateProject(p, registry)), [validate, registry]);
   return (
