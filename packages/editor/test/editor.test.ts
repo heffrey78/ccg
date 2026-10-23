@@ -26,6 +26,7 @@ import {
   renameItem,
   saveProject,
   unzipFiles,
+  newItem,
   updateItem,
   updateManifest,
   validateProject,
@@ -209,6 +210,12 @@ describe('validation and templates', () => {
     expect(await validateProject(blankProject({ id: 'lane-game', name: 'Lane', board: 'lane' }))).toEqual([]);
     expect(await validateProject(blankProject({ id: 'grid-game', name: 'Grid', board: 'grid' }))).toEqual([]);
     expect(await validateProject(open(readDir(FIXTURE)))).toEqual([]);
+  });
+
+  it('a new item of every kind is valid as created', async () => {
+    let p = blankProject({ id: 'fresh', name: 'Fresh', board: 'lane' });
+    for (const kind of ['card', 'unit', 'status', 'tile', 'encounter'] as const) p = createItem(newItem(kind, `new-${kind}`, `New ${kind}`))(p);
+    expect(await validateProject(p)).toEqual([]);
   });
 
   it('ties issues to the item and field they are in', async () => {

@@ -205,6 +205,9 @@ importers:
       '@ccg/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@ccg/editor':
+        specifier: workspace:*
+        version: link:../../packages/editor
       '@ccg/game-sandbox':
         specifier: workspace:*
         version: link:../../games/sandbox
@@ -312,9 +315,15 @@ importers:
         specifier: ^0.8.2
         version: 0.8.3
     devDependencies:
+      '@types/react':
+        specifier: ^19.3.0
+        version: 19.3.0
       fake-indexeddb:
         specifier: ^6.0.0
         version: 6.2.6
+      react:
+        specifier: ^19.3.1
+        version: 19.3.1
       zod:
         specifier: ^4.6.7
         version: 4.6.7

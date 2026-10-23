@@ -53,3 +53,20 @@ export function blankProject(options: { id: string; name: string; board: Templat
     other: {},
   };
 }
+
+/** The smallest valid item of each kind, for "New …" in the content browser. */
+export function newItem(kind: ContentItem['kind'], id: string, name: string): ContentItem {
+  const base = { formatVersion: FORMAT_VERSION, kind, id, name };
+  switch (kind) {
+    case 'card':
+      return { ...base, targeting: { kind: 'none' }, effects: [] };
+    case 'unit':
+      return { ...base, hp: 10 };
+    case 'status':
+      return { ...base, stacking: 'intensity' };
+    case 'tile':
+      return base;
+    case 'encounter':
+      return { ...base, units: [] };
+  }
+}

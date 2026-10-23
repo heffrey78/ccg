@@ -1,13 +1,18 @@
 {
   "name": "@ccg/editor",
   "version": "0.0.0",
-  "description": "The ccg game editor: project model, undo/redo, storage adapters and validation.",
+  "description": "The ccg game editor: project model, undo/redo, storage adapters, validation and the editor UI.",
   "type": "module",
   "exports": {
     ".": {
       "@ccg/source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./ui": {
+      "@ccg/source": "./src/ui/index.ts",
+      "types": "./dist/ui/index.d.ts",
+      "default": "./dist/ui/index.js"
     }
   },
   "files": [
@@ -24,10 +29,15 @@
     "fflate": "^0.8.2"
   },
   "devDependencies": {
+    "@types/react": "^19.3.0",
     "fake-indexeddb": "^6.0.0",
+    "react": "^19.3.1",
     "zod": "^4.6.7"
   },
   "publishConfig": {
     "access": "public"
+  },
+  "peerDependencies": {
+    "react": "^19.3.1"
   }
 }
