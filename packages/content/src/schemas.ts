@@ -80,6 +80,17 @@ export function createContentSchemas(ops: OpRegistry, { formatVersion: version =
       effects,
       /** Goes to the exhaust zone instead of discard after it resolves. */
       exhausts: z.boolean().optional(),
+      /** Becomes a permanent when it resolves (#55). */
+      permanent: z
+        .object({
+          kind: z.enum(['unit', 'structure', 'trap', 'aura', 'attachment']),
+          unit: ref.optional(),
+          blocking: z.boolean().optional(),
+          duration: z.number().int().min(1).optional(),
+          leaveTo: z.string().min(1).optional(),
+        })
+        .strict()
+        .optional(),
       upgrade: z
         .object({ name: z.string().min(1).optional(), cost: cost.optional(), effects: effects.optional() })
         .strict()

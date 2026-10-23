@@ -47,6 +47,7 @@ export {
   zonesModule,
   type CardDef,
   type CardInstance,
+  type CardPermanent,
   type CardLocation,
   type CardsSetupOptions,
   type CardsState,
@@ -59,6 +60,7 @@ export {
   boardTargeting,
   createBoardState,
   unitAt,
+  unitsAt,
   type BoardConfig,
   type BoardState,
   type BoardTargetingOptions,
@@ -100,3 +102,11 @@ export {
 } from './board/intents.js';
 export { greedyPolicy, playTurn, randomPolicy, type AiPolicy } from './ai.js';
 export { canSee, opaqueId, redactEvents, viewState, type GameView, type ViewItem, type Visibility } from './kernel/visibility.js';
+export {
+  controlledBy,
+  permanentsModule,
+  permanentsPlayable,
+  type PermanentState,
+  type PermanentsConfig,
+  type PermanentsWorld,
+} from './board/permanents.js';

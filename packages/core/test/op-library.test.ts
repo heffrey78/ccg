@@ -19,6 +19,7 @@ import {
   createIntentsState,
   intentsModule,
   logicModule,
+  permanentsModule,
   statusesModule,
   targetingText,
   zone,
@@ -30,12 +31,13 @@ import {
   type CardsWorld,
   type GameState,
   type IntentsWorld,
+  type PermanentsWorld,
   type RulesModule,
   type StatusDef,
   type UnitPlacement,
 } from '../src/index.js';
 
-type World = BoardWorld & CardsWorld & IntentsWorld;
+type World = BoardWorld & CardsWorld & IntentsWorld & PermanentsWorld;
 
 interface Setup {
   cards: Record<string, CardDef>;
@@ -58,6 +60,7 @@ function game({ cards, hand, deck = [], placements = [HERO(), GRUNT('E1', '2')],
     boardModule<World>(config),
     statusesModule<World>(statuses),
     intentsModule<World>({ topology: config.topology, behaviors: {} }),
+    permanentsModule<World>({ topology: config.topology, cards, units: UNITS }),
     logicModule<World>(),
     ...extra,
   ];
@@ -71,7 +74,7 @@ function game({ cards, hand, deck = [], placements = [HERO(), GRUNT('E1', '2')],
       { id: 'p', controller: 'human' },
       { id: 'e', controller: 'ai' },
     ],
-    world: { board: createBoardState(UNITS, placements), cards: cardState, intents: createIntentsState() },
+    world: { board: createBoardState(UNITS, placements), cards: cardState, intents: createIntentsState(), permanents: {} },
   });
   if (!created.ok) throw new Error(created.error.message);
   let state = created.state;
@@ -102,7 +105,7 @@ describe('built-in op metadata', () => {
   it('describes every built-in op with a param schema and a text template', () => {
     const g = game({ cards: {}, hand: [] });
     // Internal ops run engine bookkeeping and are deliberately not usable in content.
-    const internal = ['tickStatuses', 'resolveIntent'];
+    const internal = ['tickStatuses', 'resolveIntent', 'leavePermanent', 'tickPermanents'];
     expect(Object.keys(g.rules.ops).filter((id) => !internal.includes(id)).sort()).toEqual(registry.list().map((m) => m.id));
     for (const meta of registry.list()) {
       expect(meta.params).toBeInstanceOf(z.ZodObject);

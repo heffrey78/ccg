@@ -14,7 +14,7 @@ import type { ActionDef, Effect, EffectContext, EventInput, GameState, SideId, S
 import { defineOp, type RulesModule } from '../rules/compose.js';
 
 /** Zones every side has. Packages may add more by name. */
-export const ZONES = ['draw', 'hand', 'discard', 'exhaust', 'resolving'] as const;
+export const ZONES = ['draw', 'hand', 'discard', 'exhaust', 'resolving', 'inPlay'] as const;
 
 export interface CardInstance {
   id: string;
@@ -35,6 +35,7 @@ export const ZONE_VISIBILITY: Record<string, Visibility> = {
   discard: 'public',
   exhaust: 'public',
   resolving: 'public',
+  inPlay: 'public',
 };
 
 const CARD_EVENTS = new Set(['CardDrawn', 'CardDiscarded', 'CardExhausted', 'CardPlayed', 'CardMoved', 'CardUpgraded']);
@@ -51,9 +52,23 @@ export interface CardsWorld {
   cards: CardsState;
 }
 
+/** Makes a card a permanent when it resolves (#55, requirement #50). */
+export interface CardPermanent {
+  kind: 'unit' | 'structure' | 'trap' | 'aura' | 'attachment';
+  /** Unit definition for kinds that occupy a tile (unit, structure, trap). */
+  unit?: string;
+  /** Whether it blocks movement; structures do by default, traps never do. */
+  blocking?: boolean;
+  /** Leaves play at the end of its controller's Nth phase, counting the one it entered in. */
+  duration?: number;
+  /** Where its card goes when it leaves play. Default discard. */
+  leaveTo?: string;
+}
+
 export interface CardDef {
   cost?: Record<string, number>;
   targeting?: Targeting;
+  permanent?: CardPermanent;
   effects: Effect[];
   /** Goes to the exhaust zone instead of discard after it resolves. */
   exhausts?: boolean;
@@ -73,6 +88,8 @@ export interface TargetingResolver<W> {
 
 export interface ZonesOptions<W> {
   targeting?: TargetingResolver<W>;
+  /** Extra rule for whether a card can be played now, e.g. a permanents limit. */
+  playable?(state: GameState<W>, side: SideId, def: CardDef): boolean;
   /** Visibility of zones by name; package zones default to public. */
   zoneVisibility?: Record<string, Visibility>;
 }
@@ -191,6 +208,7 @@ export function zonesModule<W extends CardsWorld>(defs: Record<string, CardDef>,
       return zone(cards, s, 'hand').flatMap((id) => {
         const def = effectiveDef(defs, cards.instances[id] as CardInstance);
         if (!canAfford(cards, s, def.cost)) return [];
+        if (options.playable && !options.playable(state, s, def)) return [];
         return choices(state, s, def).map((target) =>
           target === null ? { type: 'playCard', side: s, card: id } : { type: 'playCard', side: s, card: id, target },
         );
@@ -212,7 +230,8 @@ export function zonesModule<W extends CardsWorld>(defs: Record<string, CardDef>,
         kind: 'card',
         controller: action.side,
         source: instance.id,
-        effects: def.effects,
+        // A permanent enters play first unless the card says where (§9.1).
+        effects: def.permanent && !def.effects.some((e) => e.op === 'enterPlay') ? [{ op: 'enterPlay' }, ...def.effects] : def.effects,
         vars: { ...bound, card: instance.id, handAtPlay: zone(cardsOf(ctx.state), action.side, 'hand').length },
       });
     },

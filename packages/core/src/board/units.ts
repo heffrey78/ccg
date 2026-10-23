@@ -42,6 +42,8 @@ export interface UnitState {
   movedOn?: string;
   /** Who can see the unit, e.g. a hidden trap or a unit in fog (#53, #56). Default public. */
   visibility?: Visibility;
+  /** Other units can stand on its tile and it never blocks, e.g. a trap (#55). */
+  passable?: boolean;
 }
 
 export interface BoardState {
@@ -123,8 +125,14 @@ export function createBoardState(
   return board;
 }
 
+/** The unit occupying a tile (passable units such as traps don't occupy it). */
 export function unitAt(board: BoardState, pos: Pos): UnitState | undefined {
-  return Object.values(board.units).find((u) => u.pos === pos);
+  return Object.values(board.units).find((u) => u.pos === pos && !u.passable);
+}
+
+/** Every unit on a tile, including passable ones. */
+export function unitsAt(board: BoardState, pos: Pos): UnitState[] {
+  return Object.values(board.units).filter((u) => u.pos === pos);
 }
 
 const str = (v: unknown) => v as string;
