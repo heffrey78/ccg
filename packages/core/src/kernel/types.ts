@@ -28,6 +28,10 @@ export interface TurnState {
   phase: string;
   /** The side whose phase this is, or null for phases that belong to no side. */
   activeSide: SideId | null;
+  /** The active side has ended its interactive phase; set only while a phase-end window is pending. */
+  ending?: boolean;
+  /** This phase's phase-end window has happened; set only when such windows are enabled. */
+  endWindowDone?: boolean;
 }
 
 /**
@@ -51,15 +55,38 @@ export interface StackItem {
   /** Variables visible to the item's effects (§3.1). */
   vars: Record<string, unknown>;
   countered: boolean;
+  /** Whether the response window for the item's current turn at the top has happened (§5). */
+  windowDone?: boolean;
+  /** Whether the item has had its first (`itemAnnounced`) window. */
+  announced?: boolean;
 }
+
+/** Fields the kernel fills in when an item is announced. */
+export type NewItem = Omit<StackItem, 'id' | 'countered' | 'windowDone' | 'announced'>;
 
 export interface Outcome {
   winners: SideId[];
   reason: string;
 }
 
-/** Reserved for response windows and other choices (#54). Always null for now. */
-export type Prompt = never;
+/** Timing points at which a response window may open (resolution-order §5.1). */
+export type WindowTiming = 'itemAnnounced' | 'itemTop' | 'phaseEnd';
+
+/**
+ * The game is paused for a side's decision. `priority`: a response window is
+ * open and `side` may respond or pass (§5.2).
+ */
+export interface Prompt {
+  kind: 'priority';
+  window: WindowTiming;
+  /** The item being responded to; null for a phase-end window. */
+  item: ItemId | null;
+  side: SideId;
+  /** Priority order for this window. */
+  order: SideId[];
+  /** Sides that have passed (or had nothing to play) in this window. */
+  passed: SideId[];
+}
 
 export interface GameState<W = unknown> {
   format: 1;
@@ -190,11 +217,13 @@ export interface ActionContext<W = unknown> {
   /** Pays a cost or applies an immediate change as a step (§2 step 2). */
   step(steps: Step | Step[]): StepOutcome;
   /** Puts an item on the stack (§2 step 3). */
-  announce(item: Omit<StackItem, 'id' | 'countered'>): StackItem;
+  announce(item: NewItem): StackItem;
   newId(prefix: string): string;
 }
 
 export interface ActionDef<W = unknown> {
+  /** Legal responses for the side while a response window is open (`state.prompt`). */
+  respond?(state: GameState<W>, side: SideId, prompt: Prompt): Action[];
   /** Every legal instance of this action for the side right now. */
   list(state: GameState<W>, side: SideId): Action[];
   perform(ctx: ActionContext<W>, action: Action): void;
@@ -204,7 +233,7 @@ export interface PhaseContext<W = unknown> {
   readonly state: GameState<W>;
   readonly rng: Rng;
   step(steps: Step | Step[]): StepOutcome;
-  announce(item: Omit<StackItem, 'id' | 'countered'>): StackItem;
+  announce(item: NewItem): StackItem;
   newId(prefix: string): string;
 }
 
@@ -223,6 +252,16 @@ export interface PhaseDef<W = unknown> {
 export interface Limits {
   maxStepsPerAction: number;
   maxInterruptDepth: number;
+  /** No responses are legal once the stack is this deep (§5.2). */
+  maxStackDepth: number;
+}
+
+/** Which response windows open (§5.1). None by default, so games without reactions never pause. */
+export interface WindowConfig {
+  itemAnnounced?: boolean;
+  itemTop?: boolean;
+  /** Every phase, or only the listed phase ids. */
+  phaseEnd?: boolean | string[];
 }
 
 export interface GameRules<W = unknown> {
@@ -239,6 +278,7 @@ export interface GameRules<W = unknown> {
   /** Called after an item resolves, e.g. to move its card to discard (§3 step 4). */
   onItemResolved?(ctx: PhaseContext<W>, item: StackItem): void;
   limits?: Partial<Limits>;
+  windows?: WindowConfig;
 }
 
 export interface GameSetup<W> {

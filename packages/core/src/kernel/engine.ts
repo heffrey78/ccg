@@ -5,8 +5,7 @@
  * Each call works on a private copy of the state, so a rejected action leaves
  * the caller's state untouched (§2).
  *
- * Not yet implemented, with extension points marked: response windows and
- * priority (#54), per-viewer views (#53).
+ * Not yet implemented: per-viewer views (#53).
  */
 import { clonePlain } from '../clone.js';
 import { canonicalJson } from '../hash.js';
@@ -29,23 +28,29 @@ import type {
   Interrupt,
   Limits,
   Listener,
+  NewItem,
   Modifier,
   PhaseContext,
   PhaseDef,
+  Prompt,
   SideId,
   StackItem,
   Step,
   StepOutcome,
   Trigger,
+  WindowTiming,
 } from './types.js';
 
 const DEFAULT_LIMITS: Limits = {
   maxStepsPerAction: 10_000,
   maxInterruptDepth: 16,
+  maxStackDepth: 8,
 };
 
 /** The built-in action that ends the active side's interactive phase. */
 export const END_TURN = 'endTurn';
+/** The built-in action that declines to respond in an open window (§5.2). */
+export const PASS = 'pass';
 
 export interface ScheduledPhase<W> {
   def: PhaseDef<W>;
@@ -112,7 +117,12 @@ export function apply<W>(rules: GameRules<W>, state: GameState<W>, action: Actio
 
 /** Every action the side may take now (§2 step 1). */
 export function legalActions<W>(rules: GameRules<W>, state: GameState<W>, side: SideId): Action[] {
-  if (state.outcome || state.prompt || state.stack.length > 0) return [];
+  if (state.outcome) return [];
+  if (state.prompt) {
+    if (state.prompt.side !== side) return [];
+    return [...responses(rules, state, side, state.prompt), { type: PASS, side }];
+  }
+  if (state.stack.length > 0) return [];
   const current = schedule(rules, state.sides)[state.turn.slot];
   if (!current?.def.interactive || current.activeSide !== side) return [];
 
@@ -120,6 +130,13 @@ export function legalActions<W>(rules: GameRules<W>, state: GameState<W>, side: 
   for (const def of Object.values(rules.actions ?? {})) out.push(...def.list(state, side));
   out.push({ type: END_TURN, side });
   return out;
+}
+
+/** The responses a side may make in the open window (§5.2). */
+function responses<W>(rules: GameRules<W>, state: GameState<W>, side: SideId, prompt: Prompt): Action[] {
+  const maxDepth = rules.limits?.maxStackDepth ?? DEFAULT_LIMITS.maxStackDepth;
+  if (state.stack.length >= maxDepth) return [];
+  return Object.values(rules.actions ?? {}).flatMap((def) => def.respond?.(state, side, prompt) ?? []);
 }
 
 function run<W>(state: GameState<W>, rules: GameRules<W>, start: (r: Resolver<W>) => void): ApplyResult<W> {
@@ -199,9 +216,16 @@ class Resolver<W> {
   // ---- actions and the main loop (§2) ----
 
   perform(action: Action): void {
+    if (action.type === PASS) {
+      this.pass(action.side);
+      return;
+    }
+    // A response (or any action) answers the prompt; the new item gets its own window.
+    this.state.prompt = null;
     if (action.type === END_TURN) {
       this.emit({ type: 'TurnEnded', side: action.side });
-      this.advancePhase();
+      if (this.phaseEndWindow()) this.state.turn.ending = true;
+      else this.advancePhase();
       return;
     }
     const def = this.rules.actions?.[action.type];
@@ -219,9 +243,16 @@ class Resolver<W> {
   /** Resolves until the game needs a decision or ends. */
   drain(): void {
     for (;;) {
-      if (this.state.stack.length > 0) {
-        // Extension point (#54): open an itemAnnounced/itemTop window here and
-        // return with a prompt if anyone may respond.
+      if (this.state.prompt) return;
+      const top = this.state.stack.at(-1);
+      if (top) {
+        if (this.itemWindows() && !top.windowDone) {
+          top.windowDone = true;
+          const timing = top.announced ? 'itemTop' : 'itemAnnounced';
+          top.announced = true;
+          if (this.openWindow(timing, top)) return;
+          continue;
+        }
         this.resolveTop();
         continue;
       }
@@ -229,9 +260,66 @@ class Resolver<W> {
         this.flushTriggers();
         continue;
       }
-      if (this.currentPhase()?.def.interactive) return;
+      const turn = this.state.turn;
+      if (this.currentPhase()?.def.interactive && !turn.ending) return;
+      if (this.phaseEndWindow() && !turn.endWindowDone) {
+        turn.endWindowDone = true;
+        if (this.openWindow('phaseEnd', null)) return;
+        continue;
+      }
       this.advancePhase();
     }
+  }
+
+  // ---- response windows and priority (§5) ----
+
+  private itemWindows(): boolean {
+    const w = this.rules.windows;
+    return Boolean(w?.itemAnnounced || w?.itemTop);
+  }
+
+  private phaseEndWindow(): boolean {
+    const setting = this.rules.windows?.phaseEnd;
+    return Array.isArray(setting) ? setting.includes(this.state.turn.phase) : Boolean(setting);
+  }
+
+  /**
+   * Opens a window if the game enables this timing point. Priority goes to
+   * sides in turn order starting after the item's controller (or after the
+   * active side); sides with nothing to play pass automatically. Returns true
+   * if the game is now waiting on a prompt.
+   */
+  private openWindow(window: WindowTiming, item: StackItem | null): boolean {
+    if (!this.rules.windows?.[window]) return false;
+    const sides = this.state.sides.map((s) => s.id);
+    const after = item ? item.controller : this.state.turn.activeSide;
+    const start = after === null ? 0 : (sides.indexOf(after) + 1) % sides.length;
+    const order = [...sides.slice(start), ...sides.slice(0, start)];
+    this.emit({ type: 'WindowOpened', window, item: item?.id ?? null });
+    return this.offerPriority({ kind: 'priority', window, item: item?.id ?? null, side: order[0] as SideId, order, passed: [] });
+  }
+
+  /** Gives priority to the next side in order that can respond; closes the window if none can. */
+  private offerPriority(prompt: Prompt): boolean {
+    for (const side of prompt.order) {
+      if (prompt.passed.includes(side)) continue;
+      const candidate: Prompt = { ...prompt, side };
+      if (responses(this.rules, { ...this.state, prompt: candidate }, side, candidate).length > 0) {
+        this.state.prompt = candidate;
+        this.emit({ type: 'PriorityGiven', side, window: prompt.window, item: prompt.item });
+        return true;
+      }
+      prompt.passed.push(side);
+    }
+    this.state.prompt = null;
+    this.emit({ type: 'WindowClosed', window: prompt.window, item: prompt.item });
+    return false;
+  }
+
+  private pass(side: SideId): void {
+    const prompt = this.state.prompt as Prompt;
+    this.emit({ type: 'Passed', side, window: prompt.window, item: prompt.item });
+    this.offerPriority({ ...prompt, passed: [...prompt.passed, side] });
   }
 
   // ---- phases (§8) ----
@@ -252,6 +340,8 @@ class Resolver<W> {
     turn.slot = slot;
     turn.phase = next.def.id;
     turn.activeSide = next.activeSide;
+    delete turn.ending;
+    delete turn.endWindowDone;
     this.emit({ type: 'PhaseStarted', phase: next.def.id, activeSide: next.activeSide, round: turn.round });
     next.def.enter?.(this.phaseContext());
   }
@@ -272,7 +362,7 @@ class Resolver<W> {
 
   // ---- the stack (§2, §3) ----
 
-  private announce(input: Omit<StackItem, 'id' | 'countered'>): StackItem {
+  private announce(input: NewItem): StackItem {
     const item: StackItem = { ...input, id: this.newId('item'), countered: false };
     this.state.stack.push(item);
     this.emit({
@@ -287,6 +377,9 @@ class Resolver<W> {
 
   private resolveTop(): void {
     const item = this.state.stack.pop() as StackItem;
+    // The item below becomes the top again and gets an itemTop window (§5.1).
+    const below = this.state.stack.at(-1);
+    if (below && this.itemWindows()) below.windowDone = false;
     this.countStep();
     this.withCause({ item: item.id }, () => {
       this.emit({ type: 'ItemResolving', item: item.id });
