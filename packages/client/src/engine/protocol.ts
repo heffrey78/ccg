@@ -22,6 +22,8 @@ export type EngineRequest =
   | { type: 'loadFiles'; files: Record<string, Uint8Array> }
   /** Loads new files for the running game's package and applies them to the game in progress (#42). */
   | { type: 'reload'; files: Record<string, Uint8Array>; mode: 'hot' | 'replay' }
+  /** In a run, between encounters: take one of the offered cards (or none) and go on. */
+  | { type: 'chooseReward'; card: string | null }
   | { type: 'view' };
 
 /** A card as the UI shows it: text is generated from its effects (decision #12). */
@@ -71,6 +73,18 @@ export interface Snapshot {
   intents: Record<string, IntentSummary>;
   /** A message about what the request did, e.g. how a reload applied changes. */
   notice?: string;
+  /** Progress through a run (#45). */
+  run?: RunProgress;
+}
+
+export interface RunProgress {
+  /** The current encounter, from 1. */
+  stage: number;
+  total: number;
+  /** `reward`: the encounter is won and a card can be chosen; `won`/`lost`: the run is over. */
+  status: 'playing' | 'reward' | 'won' | 'lost';
+  /** Card ids on offer when `status` is `reward`. */
+  rewards?: string[];
 }
 
 export type EngineReply =

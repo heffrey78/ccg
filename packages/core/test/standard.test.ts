@@ -12,7 +12,10 @@ import {
   legalActions,
   playTurn,
   randomPolicy,
+  rulesetOf,
+  runRewards,
   Session,
+  standardInput,
   topologyOf,
   viewState,
   zone,
@@ -171,6 +174,23 @@ describe('the standard game', () => {
     const world = created.state.world as StandardWorld;
     expect(zone(world.cards, 'player', 'hand').map((id) => world.cards.instances[id]?.def)).toEqual(Array(5).fill('plain:guard'));
     expect(zone(world.cards, 'player', 'draw')).toHaveLength(10);
+  });
+
+  it('a run carries the deck and player HP into the next encounter, and rewards come from the pool by seed', () => {
+    const pkg = contentGame({ run: { encounters: ['duel'], rewards: { pool: ['strike', 'guard'], choices: 1 } } });
+    const registry = new PackageRegistry();
+    registry.register(pkg);
+    const resolved = registry.resolve('plain');
+    if (!resolved.ok) throw new Error('resolve');
+    const created = createGame(resolved.game.createRules(), resolved.game.createSetup({ seed: 1, deck: ['plain:guard'], hp: { 'plain:hero': 12 } }));
+    if (!created.ok) throw new Error(created.error.message);
+    const world = created.state.world as StandardWorld;
+    expect(world.board.units.player1?.hp).toBe(12);
+    expect(world.board.units.enemy1?.hp).toBe(20);
+    expect(Object.values(world.cards.instances).map((c) => c.def)).toEqual(['plain:guard']);
+    const offer = runRewards(rulesetOf(resolved.game), standardInput(resolved.game), 'plain:duel', 1, 0);
+    expect(offer).toHaveLength(1);
+    expect(runRewards(rulesetOf(resolved.game), standardInput(resolved.game), 'plain:duel', 1, 0)).toEqual(offer);
   });
 
   it('a session can continue under rebuilt rules, so content edits apply to the next action', () => {

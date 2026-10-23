@@ -317,6 +317,17 @@ export function createContentSchemas(ops: OpRegistry, { formatVersion: version =
       /** Response windows (#57): when the other side may answer an item on the stack. */
       responses: z.object({ itemAnnounced: z.boolean().optional(), itemTop: z.boolean().optional() }).strict().optional(),
       permanents: z.object({ maxPerSide: count.optional(), summoningSickness: z.boolean().optional() }).strict().optional(),
+      /** A run (#45): encounters played in order, with a card reward after each win. */
+      run: z
+        .object({
+          encounters: z.array(ref).min(1),
+          /** Cards offered after a win; an encounter's own `rewards.cards` replace this pool. */
+          rewards: z.object({ pool: z.array(ref), choices: z.number().int().min(1).optional() }).strict().optional(),
+          /** Player units keep their HP between encounters (default true). */
+          carryHp: z.boolean().optional(),
+        })
+        .strict()
+        .optional(),
     })
     .strict();
 

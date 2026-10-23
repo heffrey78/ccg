@@ -36,13 +36,14 @@ export interface RulesetDef {
   enemy?: { side?: string };
   responses?: { itemAnnounced?: boolean; itemTop?: boolean };
   permanents?: { maxPerSide?: number; summoningSickness?: boolean };
+  run?: { encounters: string[]; rewards?: { pool: string[]; choices?: number }; carryHp?: boolean };
 }
 
 /** What the standard game needs from a resolved game. */
 export interface StandardGameInput {
   definitions: Definitions;
   /** Encounter items, in package order, with qualified ids. */
-  encounters: { id: string; units: { unit: string; side: string; pos: string; facing?: string }[]; tiles?: Record<string, string> }[];
+  encounters: { id: string; units: { unit: string; side: string; pos: string; facing?: string }[]; tiles?: Record<string, string>; rewards?: { cards?: string[] } }[];
   /** Saved playtest setups (#42), with qualified ids. */
   scenarios?: { id: string; encounter: string; seed: string | number; hand?: string[]; deck?: string[] }[];
   modules?: RulesModule<StandardWorld>[];
@@ -144,6 +145,10 @@ export interface SetupOptions {
   scenario?: string;
   /** Cards drawn first (qualified ids), ahead of the shuffled deck, e.g. to try a card out. */
   hand?: string[];
+  /** The player's deck, replacing the ruleset's (e.g. a run's deck with its rewards). */
+  deck?: string[];
+  /** Player units' HP by unit definition, e.g. carried between a run's encounters. */
+  hp?: Record<string, number>;
 }
 
 export function standardSetup(ruleset: RulesetDef, input: StandardGameInput, options: SetupOptions): GameSetup<StandardWorld> {
@@ -158,7 +163,7 @@ export function standardSetup(ruleset: RulesetDef, input: StandardGameInput, opt
   const deck =
     scenario && (scenario.hand || scenario.deck)
       ? [...(scenario.hand ?? []), ...(scenario.deck ?? [])]
-      : [...(options.hand ?? []), ...new Rng(seedRng(`deck:${seed}`)).shuffle([...ruleset.player.deck])];
+      : [...(options.hand ?? []), ...new Rng(seedRng(`deck:${seed}`)).shuffle([...(options.deck ?? ruleset.player.deck)])];
   const counts: Record<string, number> = {};
   return {
     seed,
@@ -171,7 +176,8 @@ export function standardSetup(ruleset: RulesetDef, input: StandardGameInput, opt
         input.definitions.units,
         encounter.units.map((u) => {
           counts[u.side] = (counts[u.side] ?? 0) + 1;
-          return { id: `${u.side}${counts[u.side]}`, def: u.unit, side: u.side, pos: u.pos, facing: u.facing ?? (u.side === player ? 'e' : 'w') };
+          const hp = u.side === player ? options.hp?.[u.unit] : undefined;
+          return { id: `${u.side}${counts[u.side]}`, def: u.unit, side: u.side, pos: u.pos, facing: u.facing ?? (u.side === player ? 'e' : 'w'), ...(hp !== undefined && { hp }) };
         }),
         encounter.tiles ?? {},
       ),
@@ -180,4 +186,11 @@ export function standardSetup(ruleset: RulesetDef, input: StandardGameInput, opt
       permanents: {},
     },
   };
+}
+
+/** The cards offered after winning an encounter of a run: its own reward cards, else the run's pool, drawn by seed. */
+export function runRewards(ruleset: RulesetDef, input: StandardGameInput, encounter: string, seed: string | number, stage: number): string[] {
+  const own = input.encounters.find((e) => e.id === encounter)?.rewards?.cards;
+  const pool = [...new Set(own && own.length > 0 ? own : (ruleset.run?.rewards?.pool ?? []))];
+  return new Rng(seedRng(`reward:${seed}:${stage}`)).shuffle(pool).slice(0, ruleset.run?.rewards?.choices ?? 3);
 }

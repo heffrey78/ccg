@@ -11,6 +11,7 @@ import type { Action, GameEvent } from '@ccg/core';
 import type { Snapshot } from '../engine/protocol.js';
 import { describeAction, describeEvent, type EventContext } from './describe.js';
 import { Board, type BoardEffect, type BoardRenderer, type BoardTarget } from './play/Board.js';
+import { CardPreview } from './play/CardFace.js';
 import { Hand } from './play/Hand.js';
 import { Inspector, Piles, Resources, StackPanel } from './play/Panels.js';
 import { Playback, unitsAfter, type PlaybackState } from './play/playback.js';
@@ -36,13 +37,15 @@ export interface EncounterProps {
   onDebug(): void;
   /** Custom board renderers by topology kind (e.g. from a game's companion UI package). */
   renderers?: Record<string, BoardRenderer>;
+  /** In a run, after a win: take a reward card, or null to skip. */
+  onChooseReward?(card: string | null): void;
 }
 
 const isTyping = (target: EventTarget | null) => target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
 const isControl = (target: EventTarget | null) => target instanceof Element && (target.tagName === 'BUTTON' || target.getAttribute('role') === 'button');
 
-export function Encounter({ snapshot, log, busy, speed, onSpeed, onAct, onQuit, onDebug, renderers }: EncounterProps) {
-  const { view, side, legal, deciding, catalog } = snapshot;
+export function Encounter({ snapshot, log, busy, speed, onSpeed, onAct, onQuit, onDebug, renderers, onChooseReward }: EncounterProps) {
+  const { view, side, legal, deciding, catalog, run } = snapshot;
   const world = view.world as WorldView;
   const layout = layoutOf(snapshot.presentation);
   const o = useMemo(() => offers(legal), [legal]);
@@ -213,6 +216,11 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, onAct, onQuit, 
     <section className="ccg-encounter" aria-labelledby="encounter-heading">
       <header className="ccg-topbar">
         <h1 id="encounter-heading">{snapshot.game.name}</h1>
+        {run && (
+          <span className="ccg-run-progress">
+            Encounter {run.stage} of {run.total}
+          </span>
+        )}
         <span>Round {view.turn.round}</span>
         <span className="ccg-muted">{view.turn.phase}</span>
         <span role="status" className="ccg-turn-status">
@@ -335,13 +343,40 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, onAct, onQuit, 
         </div>
       </div>
 
-      {view.outcome && (
+      {view.outcome && !playing && (
         <div className="ccg-outcome" role="dialog" aria-labelledby="outcome-heading">
-          <h2 id="outcome-heading">{view.outcome.winners.includes(side) ? 'Victory' : 'Defeat'}</h2>
-          <p>{view.outcome.reason}</p>
-          <button type="button" onClick={onQuit}>
-            Back to games
-          </button>
+          {run?.status === 'reward' ? (
+            <>
+              <h2 id="outcome-heading">Victory</h2>
+              <p>Choose a card to add to your deck.</p>
+              <div className="ccg-rewards">
+                {(run.rewards ?? []).map((card) => {
+                  const face = catalog.cards[card];
+                  return (
+                    <button key={card} type="button" className="ccg-reward" aria-label={`Take ${face?.name ?? card}`} disabled={busy} onClick={() => onChooseReward?.(card)}>
+                      {face ? <CardPreview face={face} /> : card}
+                    </button>
+                  );
+                })}
+              </div>
+              <button type="button" disabled={busy} onClick={() => onChooseReward?.(null)}>
+                Skip
+              </button>
+            </>
+          ) : (
+            <>
+              <h2 id="outcome-heading">
+                {run?.status === 'won' ? 'Run complete' : run?.status === 'lost' ? 'Run over' : view.outcome.winners.includes(side) ? 'Victory' : 'Defeat'}
+              </h2>
+              <p>
+                {view.outcome.reason}
+                {run && ` · encounter ${run.stage} of ${run.total}`}
+              </p>
+              <button type="button" onClick={onQuit}>
+                Back to games
+              </button>
+            </>
+          )}
         </div>
       )}
     </section>

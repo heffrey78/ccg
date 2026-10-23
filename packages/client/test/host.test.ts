@@ -181,6 +181,48 @@ describe('engine host', () => {
       expect(dummyHp(await zap(engine))).toBe(35);
     });
 
+    it('plays a three-encounter run with a reward choice after each win', async () => {
+      const encounter = (id: string) =>
+        json({ formatVersion: 1, kind: 'encounter', id, name: id, units: [{ unit: 'hero', side: 'player', pos: '0' }, { unit: 'weak', side: 'enemy', pos: '3' }] });
+      const runFiles = {
+        ...files(5),
+        'content/units/weak.json': json({ formatVersion: 1, kind: 'unit', id: 'weak', name: 'Weak', hp: 3 }),
+        'content/cards/bolt.json': json({ formatVersion: 1, kind: 'card', id: 'bolt', name: 'Bolt', targeting: { kind: 'unit', filter: 'enemy' }, effects: [{ op: 'damage', amount: 9 }] }),
+        'content/encounters/one.json': encounter('one'),
+        'content/encounters/two.json': encounter('two'),
+        'content/encounters/three.json': encounter('three'),
+        'content/rulesets/main.json': json({
+          formatVersion: 1,
+          kind: 'ruleset',
+          id: 'main',
+          name: 'Main',
+          board: { topology: 'lane', length: 4 },
+          player: { resources: {}, handSize: 3, deck: ['zap', 'zap', 'zap'] },
+          run: { encounters: ['one', 'two', 'three'], rewards: { pool: ['zap', 'bolt'], choices: 2 } },
+        }),
+      };
+      const engine = client();
+      await engine.loadFiles(runFiles);
+      let snap = await engine.start('live', 4);
+      expect(snap.run).toEqual({ stage: 1, total: 3, status: 'playing' });
+      snap = await zap(engine);
+      expect(snap.run).toMatchObject({ stage: 1, status: 'reward' });
+      expect([...(snap.run?.rewards ?? [])].sort()).toEqual(['live:bolt', 'live:zap']);
+      await expect(engine.chooseReward('live:nope')).rejects.toMatchObject({ code: 'illegal-action' });
+
+      snap = await engine.chooseReward('live:bolt');
+      expect(snap.run).toEqual({ stage: 2, total: 3, status: 'playing' });
+      const cards = (snap.view.world as World).cards.zones.player as Record<string, string[]>;
+      expect(Object.values(cards).flat()).toHaveLength(4);
+      expect((await zap(engine)).run?.status).toBe('reward');
+      snap = await engine.chooseReward(null);
+      expect(snap.run).toMatchObject({ stage: 3, status: 'playing' });
+      snap = await zap(engine);
+      expect(snap.run).toEqual({ stage: 3, total: 3, status: 'won' });
+      // Asking for one encounter plays just that one.
+      expect((await engine.start('live', 4, { encounter: 'live:two' })).run).toBeUndefined();
+    });
+
     it('starts a saved scenario', async () => {
       const engine = client();
       const scenario = json({ formatVersion: 1, kind: 'scenario', id: 'opening', name: 'Opening', encounter: 'one', seed: 'x', hand: ['zap'], deck: [] });

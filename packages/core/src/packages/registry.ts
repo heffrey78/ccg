@@ -250,7 +250,7 @@ export class PackageRegistry<W = unknown> {
 }
 
 /** The root package's first ruleset, for content-only games (decision #87). */
-function rulesetOf<W>(game: ResolvedGame<W>): RulesetDef {
+export function rulesetOf<W>(game: ResolvedGame<W>): RulesetDef {
   const prefix = `${game.root.id}:`;
   const id = game.items.find((i) => i.kind === 'ruleset' && i.id.startsWith(prefix))?.id;
   const ruleset = id === undefined ? undefined : game.definitions.rulesets[id];
@@ -258,7 +258,8 @@ function rulesetOf<W>(game: ResolvedGame<W>): RulesetDef {
   return ruleset;
 }
 
-function standardInput<W>(game: ResolvedGame<W>): StandardGameInput {
+/** What the standard game reads from a resolved game. */
+export function standardInput<W>(game: ResolvedGame<W>): StandardGameInput {
   const prefix = `${game.root.id}:`;
   return {
     definitions: game.definitions,

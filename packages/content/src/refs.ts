@@ -91,6 +91,11 @@ export function mapRefs(item: ContentItem, ops: OpRegistry, visit: RefVisitor): 
     case 'ruleset': {
       const player = f.player as { deck: string[] };
       player.deck = player.deck.map((c, i) => ref('card', c, `/player/deck/${i}`));
+      const run = f.run as { encounters: string[]; rewards?: { pool: string[] } } | undefined;
+      if (run) {
+        run.encounters = run.encounters.map((e, i) => ref('encounter', e, `/run/encounters/${i}`));
+        if (run.rewards) run.rewards.pool = run.rewards.pool.map((c, i) => ref('card', c, `/run/rewards/pool/${i}`));
+      }
       break;
     }
   }
