@@ -13,6 +13,7 @@
   "dependencies": {
     "@ccg/client": "workspace:*",
     "@ccg/core": "workspace:*",
+    "@ccg/editor": "workspace:*",
     "@ccg/game-sandbox": "workspace:*",
     "@ccg/sdk": "workspace:*",
     "react": "^19.3.1",

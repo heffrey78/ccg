@@ -32,5 +32,5 @@ export { directoryStore, type DirectoryHandleLike, type FileHandleLike } from '.
 export { indexedDbLibrary, type ProjectInfo, type ProjectLibrary } from './stores/indexeddb.js';
 export { fileSource, memoryStore, readAll, saveProject, type ProjectStore } from './stores/store.js';
 export { unzipFiles, zipFiles } from './stores/zip.js';
-export { TEMPLATES, blankProject, type TemplateBoard } from './templates.js';
+export { TEMPLATES, blankProject, newItem, type TemplateBoard } from './templates.js';
 export { editorOps, validateProject, type ProjectIssue } from './validate.js';
