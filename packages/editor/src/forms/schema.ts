@@ -192,6 +192,7 @@ const NAME_HINTS: Record<string, WidgetHint> = {
   area: 'pattern',
   art: 'asset',
   icon: 'asset',
+  behavior: 'behavior',
 };
 
 export function itemHint(kind: ContentKind, pointer: string): WidgetHint | undefined {

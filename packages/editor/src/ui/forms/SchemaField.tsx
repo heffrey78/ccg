@@ -11,6 +11,8 @@ import { itemsOfKind } from '../../project.js';
 import { defaultValue, describe, itemHint, matchOption, type JsonSchema } from '../../forms/schema.js';
 import type { PreviewBoard } from '../../forms/patterns.js';
 import { AssetPreview } from '../AssetPanel.js';
+import type { Behavior } from '@ccg/core';
+import { BehaviorEditor } from './BehaviorEditor.js';
 import { CostEditor } from './CostEditor.js';
 import { EffectList } from './EffectComposer.js';
 import { humanize, NumberInput, Row, TextInput } from './inputs.js';
@@ -73,6 +75,9 @@ export function SchemaField({ node, root, value, onChange, pointer, label, hint:
   }
   if (hint === 'cost' && (typeof value === 'object' || value === undefined)) {
     return row(<CostEditor value={(value as Record<string, number> | undefined) ?? {}} onChange={onChange} label={label} />);
+  }
+  if (hint === 'behavior' && typeof value === 'object' && value !== null) {
+    return row(<BehaviorEditor node={node} root={root} value={value as Behavior} onChange={onChange} pointer={pointer} />, true);
   }
   if (hint === 'pattern' && typeof value === 'object' && value !== null) {
     return row(<PatternPicker value={value as never} onChange={onChange} label={label} />, true);
