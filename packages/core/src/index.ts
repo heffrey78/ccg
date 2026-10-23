@@ -96,6 +96,7 @@ export {
   standardSetup,
   topologyOf,
   type RulesetDef,
+  type SetupOptions,
   type StandardGameInput,
   type StandardWorld,
 } from './standard.js';

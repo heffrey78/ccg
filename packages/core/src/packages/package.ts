@@ -8,6 +8,7 @@ import type { ContentItem, Manifest } from '@ccg/content';
 import type { GameRules, GameSetup } from '../kernel/types.js';
 import type { RulesModule } from '../rules/compose.js';
 import type { ResolvedGame } from './registry.js';
+import type { SetupOptions } from '../standard.js';
 
 /** Turns a package-relative asset path (e.g. `assets/cards/strike.png`) into a URL. */
 export interface AssetResolver {
@@ -25,7 +26,7 @@ export interface GamePackage<W = unknown> {
   /** For the game being played (not expansions): build its rules from the resolved packages. */
   createRules?(game: ResolvedGame<W>): GameRules<W>;
   /** For the game being played: the starting setup, e.g. for one encounter. */
-  createSetup?(game: ResolvedGame<W>, options: { seed: string | number; encounter?: string }): GameSetup<W>;
+  createSetup?(game: ResolvedGame<W>, options: SetupOptions): GameSetup<W>;
 }
 
 /** `packageId:id` for local references; references that already name a package are unchanged. */

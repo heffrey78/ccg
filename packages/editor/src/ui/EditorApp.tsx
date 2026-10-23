@@ -1,6 +1,7 @@
 /** The editor's top level: pick or create a project, then edit it. */
 import { useMemo, useState } from 'react';
 import type { OpRegistry } from '@ccg/content';
+import { EngineClient, createEngineHost, localTransport } from '@ccg/client/engine';
 import type { Project } from '../project.js';
 import type { DirectoryHandleLike } from '../stores/fsa.js';
 import type { ProjectLibrary } from '../stores/indexeddb.js';
@@ -18,17 +19,20 @@ export interface EditorAppProps {
   /** Validation, e.g. in a worker. Defaults to validating on the main thread. */
   validate?: (project: Project) => Promise<ProjectIssue[]>;
   ops?: OpRegistry;
+  /** The engine for playtests, e.g. in a worker. Defaults to one running in this thread. */
+  playtestEngine?: EngineClient;
 }
 
-export function EditorApp({ library, pickDirectory, validate, ops }: EditorAppProps) {
+export function EditorApp({ library, pickDirectory, validate, ops, playtestEngine }: EditorAppProps) {
   const [session, setSession] = useState<Session | null>(null);
+  const engine = useMemo(() => playtestEngine ?? new EngineClient(localTransport(createEngineHost())), [playtestEngine]);
   const registry = useMemo(() => ops ?? editorOps(), [ops]);
   const check = useMemo(() => validate ?? ((p: Project) => validateProject(p, registry)), [validate, registry]);
   return (
     <div className="ccg-editor">
       <style>{CSS}</style>
       {session ? (
-        <Workspace key={session.id} session={session} ops={registry} validate={check} onClose={() => setSession(null)} />
+        <Workspace key={session.id} session={session} ops={registry} validate={check} playtestEngine={engine} onClose={() => setSession(null)} />
       ) : (
         <ProjectPicker library={library} {...(pickDirectory && { pickDirectory })} onOpen={setSession} />
       )}

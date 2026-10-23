@@ -24,7 +24,7 @@ import { clonePlain } from '../clone.js';
 import { ContentError } from '../kernel/params.js';
 import type { GameRules, GameSetup } from '../kernel/types.js';
 import { describeOps, type RulesModule } from '../rules/compose.js';
-import { standardRules, standardSetup, type RulesetDef, type StandardGameInput, type StandardWorld } from '../standard.js';
+import { standardRules, standardSetup, type RulesetDef, type SetupOptions, type StandardGameInput, type StandardWorld } from '../standard.js';
 import { ENGINE_API_VERSION } from '../version.js';
 import { isGamePackage, qualify, type AssetResolver, type GamePackage } from './package.js';
 import { satisfies } from './semver.js';
@@ -54,7 +54,7 @@ export interface ResolvedGame<W = unknown> {
   /** URL for a package-relative asset path. */
   assetUrl(packageId: string, path: string): string;
   createRules(): GameRules<W>;
-  createSetup(options: { seed: string | number; encounter?: string }): GameSetup<W>;
+  createSetup(options: SetupOptions): GameSetup<W>;
 }
 
 export type ResolveResult<W> = { ok: true; game: ResolvedGame<W> } | { ok: false; issues: PackageIssue[] };
@@ -263,6 +263,7 @@ function standardInput<W>(game: ResolvedGame<W>): StandardGameInput {
   return {
     definitions: game.definitions,
     encounters: game.items.filter((i) => i.kind === 'encounter' && i.id.startsWith(prefix)) as unknown as StandardGameInput['encounters'],
+    scenarios: game.items.filter((i) => i.kind === 'scenario' && i.id.startsWith(prefix)) as unknown as NonNullable<StandardGameInput['scenarios']>,
     modules: game.modules as unknown as RulesModule<StandardWorld>[],
   };
 }

@@ -43,6 +43,8 @@ export interface StandardGameInput {
   definitions: Definitions;
   /** Encounter items, in package order, with qualified ids. */
   encounters: { id: string; units: { unit: string; side: string; pos: string; facing?: string }[]; tiles?: Record<string, string> }[];
+  /** Saved playtest setups (#42), with qualified ids. */
+  scenarios?: { id: string; encounter: string; seed: string | number; hand?: string[]; deck?: string[] }[];
   modules?: RulesModule<StandardWorld>[];
 }
 
@@ -135,14 +137,29 @@ export function standardRules(ruleset: RulesetDef, input: StandardGameInput): Ga
   );
 }
 
-export function standardSetup(ruleset: RulesetDef, input: StandardGameInput, options: { seed: string | number; encounter?: string }): GameSetup<StandardWorld> {
+export interface SetupOptions {
+  seed: string | number;
+  encounter?: string;
+  /** A saved scenario: its encounter, seed, hand and deck order replace the others. */
+  scenario?: string;
+}
+
+export function standardSetup(ruleset: RulesetDef, input: StandardGameInput, options: SetupOptions): GameSetup<StandardWorld> {
   const { player, enemy } = sidesOf(ruleset);
-  const encounter = options.encounter ? input.encounters.find((e) => e.id === options.encounter) : input.encounters[0];
-  if (!encounter) throw new ContentError(options.encounter ? `no encounter '${options.encounter}'` : 'the game has no encounters');
-  const deck = new Rng(seedRng(`deck:${options.seed}`)).shuffle([...ruleset.player.deck]);
+  const scenario = options.scenario === undefined ? undefined : input.scenarios?.find((s) => s.id === options.scenario);
+  if (options.scenario !== undefined && !scenario) throw new ContentError(`no scenario '${options.scenario}'`);
+  const encounterId = scenario?.encounter ?? options.encounter;
+  const seed = scenario?.seed ?? options.seed;
+  const encounter = encounterId ? input.encounters.find((e) => e.id === encounterId) : input.encounters[0];
+  if (!encounter) throw new ContentError(encounterId ? `no encounter '${encounterId}'` : 'the game has no encounters');
+  // A scenario that fixes the hand or deck sets the draw pile exactly; otherwise the ruleset's deck is shuffled.
+  const deck =
+    scenario && (scenario.hand || scenario.deck)
+      ? [...(scenario.hand ?? []), ...(scenario.deck ?? [])]
+      : new Rng(seedRng(`deck:${seed}`)).shuffle([...ruleset.player.deck]);
   const counts: Record<string, number> = {};
   return {
-    seed: options.seed,
+    seed,
     sides: [
       { id: player, controller: 'human' },
       { id: enemy, controller: 'ai' },

@@ -167,6 +167,10 @@ function checkReferences(items: LoadedItem[], assets: Set<string>): ContentIssue
         expect('status', s.status, `/statuses/${i}/status`),
       );
     }
+    if (item.kind === 'scenario') {
+      expect('encounter', item.encounter, '/encounter');
+      for (const field of ['hand', 'deck']) (item[field] as string[] | undefined)?.forEach((c, i) => expect('card', c, `/${field}/${i}`));
+    }
     if (item.kind === 'ruleset') {
       (item.player as { deck: string[] }).deck.forEach((c, i) => expect('card', c, `/player/deck/${i}`));
     }

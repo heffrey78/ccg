@@ -14,10 +14,14 @@ export interface GameListing {
 
 export type EngineRequest =
   | { type: 'listGames' }
-  | { type: 'start'; game: string; seed: string | number; encounter?: string }
+  | { type: 'start'; game: string; seed: string | number; encounter?: string; scenario?: string }
   | { type: 'act'; action: Action }
   /** Loads a game package from a zip (as the editor exports), replacing one with the same id. */
   | { type: 'importZip'; data: Uint8Array }
+  /** Loads a game package from its files (e.g. the editor's live project), replacing one with the same id. */
+  | { type: 'loadFiles'; files: Record<string, Uint8Array> }
+  /** Loads new files for the running game's package and applies them to the game in progress (#42). */
+  | { type: 'reload'; files: Record<string, Uint8Array>; mode: 'hot' | 'replay' }
   | { type: 'view' };
 
 /** A card as the UI shows it: text is generated from its effects (decision #12). */
@@ -65,6 +69,8 @@ export interface Snapshot {
   presentation: Record<string, unknown>;
   /** Summaries of the intents in `view`, by intent id. */
   intents: Record<string, IntentSummary>;
+  /** A message about what the request did, e.g. how a reload applied changes. */
+  notice?: string;
 }
 
 export type EngineReply =

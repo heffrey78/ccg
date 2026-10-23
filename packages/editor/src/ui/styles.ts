@@ -117,5 +117,8 @@ export const CSS = `
 .ccg-asset-missing, .ccg-asset-icon { display: inline-grid; place-items: center; border: 1px dashed var(--warn); border-radius: 4px; color: var(--muted); }
 .ccg-asset-icon { border-color: var(--line); }
 .ccg-asset-preview { margin: 8px 0; }
+.ccg-playtest { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; box-shadow: var(--shadow); }
+.ccg-playtest h2 { margin: 0; font-size: 1.1rem; }
+.ccg-playtest .ccg-app { min-height: 0; margin-top: 8px; padding: 8px; border-radius: 8px; }
 .ccg-raw summary { cursor: pointer; color: var(--muted); margin: 8px 0; }
 `;

@@ -44,6 +44,7 @@ export function buildDefinitions(items: Iterable<ContentItem>): Definitions {
         defs.rulesets[id] = fields as unknown as RulesetDef;
         break;
       case 'encounter':
+      case 'scenario':
         break;
     }
   }

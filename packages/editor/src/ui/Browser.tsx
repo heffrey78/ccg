@@ -6,8 +6,8 @@ import { AssetPreview } from './AssetPanel.js';
 import { slug } from './ProjectPicker.js';
 import type { Selection } from './Workspace.js';
 
-const KIND_LABELS: Record<ContentKind, string> = { card: 'Cards', unit: 'Units', status: 'Statuses', tile: 'Tiles', encounter: 'Encounters', ruleset: 'Rulesets' };
-export const KIND_SINGULAR: Record<ContentKind, string> = { card: 'card', unit: 'unit', status: 'status', tile: 'tile', encounter: 'encounter', ruleset: 'ruleset' };
+const KIND_LABELS: Record<ContentKind, string> = { card: 'Cards', unit: 'Units', status: 'Statuses', tile: 'Tiles', encounter: 'Encounters', ruleset: 'Rulesets', scenario: 'Scenarios' };
+export const KIND_SINGULAR: Record<ContentKind, string> = { card: 'card', unit: 'unit', status: 'status', tile: 'tile', encounter: 'encounter', ruleset: 'ruleset', scenario: 'scenario' };
 
 export interface BrowserProps {
   project: Project;
