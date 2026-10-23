@@ -1,0 +1,30 @@
+{
+  "name": "@ccg/sdk",
+  "version": "0.0.0",
+  "description": "Authoring API for ccg game packages.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "@ccg/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "@ccg/core": "workspace:^"
+  },
+  "devDependencies": {
+    "@ccg/core": "workspace:*"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
