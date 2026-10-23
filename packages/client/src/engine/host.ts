@@ -6,18 +6,25 @@
 import {
   PackageRegistry,
   Session,
+  cardText,
   decidingSide,
+  effectsText,
   legalActions,
   randomPolicy,
   redactEvents,
+  targetingText,
   viewState,
+  type CardDef,
+  type DeclaredIntent,
+  type Effect,
   type GameEvent,
   type GamePackage,
   type GameRules,
+  type ResolvedGame,
   type SideId,
   type StatePolicy,
 } from '@ccg/core';
-import type { EngineReply, EngineRequest, GameListing, Snapshot } from './protocol.js';
+import type { CardFace, Catalog, EngineReply, EngineRequest, GameListing, IntentSummary, Snapshot } from './protocol.js';
 
 export interface HostOptions {
   /** Packages bundled with the app. */
@@ -39,8 +46,57 @@ interface Running {
   rules: GameRules<unknown>;
   session: Session<unknown>;
   side: SideId;
-  names: Record<string, string>;
+  catalog: Catalog;
+  resolved: ResolvedGame<unknown>;
+  topology?: string;
   ai: StatePolicy<unknown>;
+}
+
+function catalogOf(game: ResolvedGame<unknown>, topology: string | undefined): Catalog {
+  const name = (ref: string) => game.name(ref);
+  const catalog: Catalog = { names: {}, cards: {}, statuses: {} };
+  for (const item of game.items) {
+    catalog.names[item.id] = item.name;
+    if (item.kind === 'card') {
+      const def = game.definitions.cards[item.id] as CardDef;
+      const abilities: Record<string, string> = {};
+      def.permanent?.abilities?.forEach((a, i) => {
+        if (a.kind === 'activated') abilities[i] = a.name;
+      });
+      const face: CardFace = {
+        name: item.name,
+        text: cardText(item as unknown as { text?: string; effects: Effect[] }, game.ops, { ...(topology && { topology }), name }),
+        targeting: targetingText(def.targeting, topology ? { topology } : {}),
+        cost: def.cost ?? {},
+        timing: def.timing ?? 'main',
+        keywords: ((item.keywords as string[] | undefined) ?? []).map((k) => game.name(k) ?? k),
+        abilities,
+      };
+      if (typeof item.art === 'string') face.art = game.assetUrl(item.id.split(':')[0] as string, item.art);
+      catalog.cards[item.id] = face;
+    } else if (item.kind === 'status') {
+      catalog.statuses[item.id] = {
+        name: item.name,
+        stacking: String(item.stacking),
+        ...(typeof item.description === 'string' && { description: item.description }),
+      };
+    }
+  }
+  return catalog;
+}
+
+/** Text and damage for the intents a viewer can see (hidden ones have no effects in the view). */
+function intentSummaries(game: Running, declared: Partial<DeclaredIntent>[]): Record<string, IntentSummary> {
+  const out: Record<string, IntentSummary> = {};
+  for (const intent of declared) {
+    if (!intent.id || !intent.effects) continue;
+    const damages = intent.effects.filter((e) => e.op === 'damage').map((e) => e.amount);
+    out[intent.id] = {
+      text: effectsText(intent.effects, game.resolved.ops, { ...(game.topology && { topology: game.topology }), name: (r) => game.resolved.name(r) }),
+      ...(damages.length > 0 && damages.every((d) => typeof d === 'number') && { damage: (damages as number[]).reduce((a, b) => a + b, 0) }),
+    };
+  }
+  return out;
 }
 
 export function createEngineHost(options: HostOptions = {}): EngineHost {
@@ -76,14 +132,18 @@ export function createEngineHost(options: HostOptions = {}): EngineHost {
   const snapshot = (game: Running, events: GameEvent[]): Snapshot => {
     const state = game.session.state;
     const deciding = decidingSide(game.rules, state);
+    const view = viewState(game.rules, state, game.side);
+    const declared = (view.world as { intents?: { declared: Partial<DeclaredIntent>[] } }).intents?.declared ?? [];
     return {
       game: game.game,
       side: game.side,
-      view: viewState(game.rules, state, game.side),
+      view,
       events: redactEvents(game.rules, events, game.side, state),
       deciding,
       legal: deciding === game.side ? legalActions(game.rules, state, game.side) : [],
-      names: game.names,
+      catalog: game.catalog,
+      presentation: game.rules.presentation ?? {},
+      intents: intentSummaries(game, declared),
     };
   };
 
@@ -110,12 +170,15 @@ export function createEngineHost(options: HostOptions = {}): EngineHost {
           if (!started.ok) return { ok: false, error: started.error };
           const side = setup.sides.find((s) => s.controller === 'human')?.id ?? (setup.sides[0]?.id as SideId);
           const game = listing(pkg);
+          const topology = (rules.presentation?.board as { kind?: string } | undefined)?.kind;
           running = {
             game,
             rules,
             session: started.session,
             side,
-            names: Object.fromEntries(resolved.game.items.map((i) => [i.id, i.name])),
+            catalog: catalogOf(resolved.game, topology),
+            resolved: resolved.game,
+            ...(topology && { topology }),
             ai: options.ai?.(game) ?? randomPolicy(`ai:${String(request.seed)}`),
           };
           return { ok: true, type: 'snapshot', snapshot: snapshot(running, runAi(running)) };

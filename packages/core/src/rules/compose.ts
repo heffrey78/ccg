@@ -34,6 +34,7 @@ export interface RulesModule<W> {
   onItemResolved?(ctx: PhaseContext<W>, item: StackItem): void;
   view?: GameRules<W>['view'];
   redact?: GameRules<W>['redact'];
+  presentation?: GameRules<W>['presentation'];
 }
 
 export type BaseRules<W> = Omit<GameRules<W>, 'ops' | 'steps'> & {
@@ -54,6 +55,7 @@ function asModule<W>(base: BaseRules<W>): RulesModule<W> {
     ...(base.onItemResolved && { onItemResolved: base.onItemResolved }),
     ...(base.view && { view: base.view }),
     ...(base.redact && { redact: base.redact }),
+    ...(base.presentation && { presentation: base.presentation }),
   };
 }
 
@@ -65,12 +67,12 @@ function asModule<W>(base: BaseRules<W>): RulesModule<W> {
 export function composeRules<W>(base: BaseRules<W>, modules: RulesModule<W>[]): GameRules<W> {
   const all: RulesModule<W>[] = [...modules, asModule(base)];
 
-  const merge = <T>(field: 'ops' | 'steps' | 'actions'): Record<string, T> => {
+  const merge = <T>(field: 'ops' | 'steps' | 'actions' | 'presentation'): Record<string, T> => {
     const out: Record<string, T> = {};
     const owner: Record<string, string> = {};
     for (const m of all) {
       for (const [key, value] of Object.entries((m[field] ?? {}) as Record<string, T>)) {
-        if (key in out) throw new ContentError(`${field.slice(0, -1)} '${key}' is defined by both ${owner[key]} and ${m.name}`);
+        if (key in out) throw new ContentError(`${field === 'presentation' ? 'presentation' : field.slice(0, -1)} '${key}' is defined by both ${owner[key]} and ${m.name}`);
         out[key] = value;
         owner[key] = m.name;
       }
@@ -96,6 +98,8 @@ export function composeRules<W>(base: BaseRules<W>, modules: RulesModule<W>[]): 
   if (base.outcome) rules.outcome = base.outcome;
   if (base.limits) rules.limits = base.limits;
   if (base.windows) rules.windows = base.windows;
+  const presentation = merge<unknown>('presentation');
+  if (Object.keys(presentation).length > 0) rules.presentation = presentation;
   const views = all.flatMap((m) => (m.view ? [m.view] : []));
   if (views.length > 0) {
     rules.view = (world, viewer, state) => {

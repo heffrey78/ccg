@@ -18,6 +18,34 @@ export type EngineRequest =
   | { type: 'act'; action: Action }
   | { type: 'view' };
 
+/** A card as the UI shows it: text is generated from its effects (decision #12). */
+export interface CardFace {
+  name: string;
+  text: string;
+  /** What the card asks for, e.g. "Target an enemy within 1." */
+  targeting: string;
+  cost: Record<string, number>;
+  timing: 'main' | 'reaction' | 'any';
+  keywords: string[];
+  /** Activated ability names by ability index, for a permanent card. */
+  abilities: Record<string, string>;
+  art?: string;
+}
+
+/** Static display data for a game's content, keyed by qualified content id. */
+export interface Catalog {
+  names: Record<string, string>;
+  cards: Record<string, CardFace>;
+  statuses: Record<string, { name: string; description?: string; stacking: string }>;
+}
+
+/** What a visible enemy intent will do, for the telegraph. */
+export interface IntentSummary {
+  text: string;
+  /** Total direct damage, when the intent's damage amounts are fixed numbers. */
+  damage?: number;
+}
+
 /** What the UI knows after each request. */
 export interface Snapshot {
   game: GameListing;
@@ -30,8 +58,11 @@ export interface Snapshot {
   deciding: SideId | null;
   /** The UI side's legal actions, when it is deciding. */
   legal: Action[];
-  /** Display names for content ids (cards, units, statuses). */
-  names: Record<string, string>;
+  catalog: Catalog;
+  /** The rules' static presentation data, e.g. `board` (a BoardPresentation). */
+  presentation: Record<string, unknown>;
+  /** Summaries of the intents in `view`, by intent id. */
+  intents: Record<string, IntentSummary>;
 }
 
 export type EngineReply =

@@ -24,8 +24,22 @@ export type PatternShape =
    */
   | { kind: 'offsets'; offsets: number[][] };
 
+/**
+ * Where a topology's cells sit on screen, for clients (#29). Coordinates are
+ * in cell units: neighbouring cell centres are about 1 apart, y grows down.
+ */
+export interface TopologyLayout {
+  kind: string;
+  cell: 'square' | 'hex';
+  cells: { pos: Pos; x: number; y: number }[];
+  /** Offset from a cell's centre to its neighbour's in each direction. */
+  directions: Record<Dir, { x: number; y: number }>;
+}
+
 export interface Topology {
   readonly kind: string;
+  /** Screen layout; topologies without one need a custom board renderer. */
+  layout?(): TopologyLayout;
   /** All positions in canonical board order (resolution-order §3.2). */
   positions(): readonly Pos[];
   contains(pos: Pos): boolean;

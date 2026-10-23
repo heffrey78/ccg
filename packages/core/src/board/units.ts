@@ -22,7 +22,7 @@ import type {
 } from '../kernel/types.js';
 import { defineOp, type RulesModule } from '../rules/compose.js';
 import type { Behavior } from './intents.js';
-import { findPath, lineOfSight, type Dir, type Pos, type Topology } from './topology.js';
+import { findPath, lineOfSight, type Dir, type Pos, type Topology, type TopologyLayout } from './topology.js';
 
 export interface UnitState {
   id: string;
@@ -94,6 +94,17 @@ export interface BoardConfig {
    * tiles and optionally by units). Spectators see what every side sees.
    */
   fog?: { kind: 'distance'; range: number } | { kind: 'lineOfSight'; range?: number; unitsBlock?: boolean };
+}
+
+/** What clients need to draw the board: its layout and which tiles block. */
+export interface BoardPresentation extends TopologyLayout {
+  tiles: Record<string, { blocking: boolean }>;
+}
+
+export function boardPresentation(config: BoardConfig): BoardPresentation | null {
+  const layout = config.topology.layout?.();
+  if (!layout) return null;
+  return { ...layout, tiles: Object.fromEntries(Object.entries(config.tiles ?? {}).map(([id, t]) => [id, { blocking: t.blocking === true }])) };
 }
 
 export interface UnitPlacement {
@@ -329,9 +340,11 @@ export function boardModule<W extends BoardWorld>(config: BoardConfig): RulesMod
     return ids;
   };
 
+  const presentation = boardPresentation(config);
   return {
     name: 'board',
     ...(moveAction && { actions: { move: moveAction } }),
+    ...(presentation && { presentation: { board: presentation } }),
 
     view(world, viewer, state) {
       const visible = visibleUnits(state, viewer);

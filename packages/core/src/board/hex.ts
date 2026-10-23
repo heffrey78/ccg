@@ -1,4 +1,4 @@
-import { BaseTopology, type Dir, type Pos } from './topology.js';
+import { BaseTopology, type Dir, type Pos, type TopologyLayout } from './topology.js';
 
 type Axial = readonly [number, number];
 
@@ -41,6 +41,15 @@ export class HexTopology extends BaseTopology {
 
   positions(): readonly Pos[] {
     return this.#positions;
+  }
+
+  layout(): TopologyLayout {
+    return {
+      kind: this.kind,
+      cell: 'hex',
+      cells: this.#positions.map((pos) => ({ pos, ...screen(coords(pos)) })),
+      directions: Object.fromEntries(DIRS.map((d) => [d, screen(VECTORS[d] as Axial)])),
+    };
   }
 
   contains(pos: Pos): boolean {
@@ -115,6 +124,9 @@ export class HexTopology extends BaseTopology {
 }
 
 const key = (q: number, r: number): Pos => `${q + 0},${r + 0}`;
+
+/** Pointy-top screen position with neighbouring centres 1 apart. */
+const screen = ([q, r]: Axial) => ({ x: q + r / 2, y: (r * Math.sqrt(3)) / 2 });
 
 function coords(pos: Pos): Axial {
   const m = /^(-?\d+),(-?\d+)$/.exec(pos);
