@@ -27,3 +27,19 @@ export {
   type Pos,
   type Topology,
 } from './board/topology.js';
+export { composeRules, type BaseRules, type RulesModule } from './rules/compose.js';
+export {
+  ZONES,
+  canAfford,
+  createCardsState,
+  effectiveDef,
+  locateCard,
+  zone,
+  zonesModule,
+  type CardDef,
+  type CardInstance,
+  type CardLocation,
+  type CardsSetupOptions,
+  type CardsState,
+  type CardsWorld,
+} from './cards/zones.js';
