@@ -19,10 +19,13 @@
     "test": "vitest run"
   },
   "peerDependencies": {
+    "@ccg/content": "workspace:^",
     "@ccg/core": "workspace:^"
   },
   "devDependencies": {
-    "@ccg/core": "workspace:*"
+    "@ccg/content": "workspace:*",
+    "@ccg/core": "workspace:*",
+    "zod": "^4.6.7"
   },
   "publishConfig": {
     "access": "public"

@@ -10,7 +10,12 @@ import type { Condition } from '../rules/logic.js';
 export interface TextOptions {
   /** Topology kind, for direction and area wording. */
   topology?: string;
+  /** Display name for a content reference (a status, card or unit definition). */
+  name?(ref: string): string | undefined;
 }
+
+/** Widgets whose values are references to content definitions. */
+const REF_WIDGETS = new Set(['status', 'cardDef', 'unitDef']);
 
 const COMPASS: Record<string, string> = {
   n: 'north',
@@ -56,6 +61,7 @@ function effectText(effect: Effect, registry: OpRegistry, options: TextOptions):
     if (widget === 'effects') shown[key] = effectsText(value as Effect[], registry, options);
     else if (widget === 'condition') shown[key] = conditionText(value as Condition);
     else if (widget === 'direction') shown[key] = directionText(String(value), options);
+    else if (REF_WIDGETS.has(widget) && typeof value === 'string') shown[key] = options.name?.(value) ?? value;
   }
   return renderText(meta, shown).trim();
 }
