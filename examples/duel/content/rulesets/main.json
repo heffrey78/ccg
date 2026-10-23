@@ -20,12 +20,13 @@
       "strike",
       "strike",
       "strike",
-      "strike",
       "guard",
       "guard",
-      "guard",
-      "guard",
-      "guard"
+      "brace",
+      "brace",
+      "snare",
+      "war-banner",
+      "iron-skin"
     ]
   },
   "run": {
@@ -41,5 +42,12 @@
       ],
       "choices": 2
     }
+  },
+  "fog": {
+    "kind": "distance",
+    "range": 4
+  },
+  "responses": {
+    "itemAnnounced": true
   }
 }

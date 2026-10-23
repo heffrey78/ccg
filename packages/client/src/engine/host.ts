@@ -38,6 +38,8 @@ export interface HostOptions {
   packages?: GamePackage<unknown>[];
   /** ES module URLs of packages to import at startup. */
   urls?: string[];
+  /** Content-only packages to load at startup, as their files (e.g. bundled examples). */
+  files?: Record<string, Uint8Array>[];
   /** Policy for AI-controlled sides. Default: random, seeded per game. */
   ai?: (game: GameListing) => StatePolicy<unknown>;
   /** Stop an AI that keeps acting without handing the decision back. */
@@ -118,6 +120,10 @@ export function createEngineHost(options: HostOptions = {}): EngineHost {
   for (const pkg of options.packages ?? []) registry.register(pkg);
   let loading: Promise<void> | null = (async () => {
     for (const url of options.urls ?? []) await registry.import(url);
+    for (const files of options.files ?? []) {
+      const loaded = await registry.loadFiles(filesSource(files));
+      if (!loaded.ok) console.warn(`a bundled package failed to load: ${loaded.issues.map((i) => i.message).join('; ')}`);
+    }
   })();
   let running: Running | null = null;
 

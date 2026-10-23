@@ -1,0 +1,32 @@
+{
+  "formatVersion": 1,
+  "kind": "card",
+  "id": "war-banner",
+  "name": "War Banner",
+  "cost": {
+    "energy": 1
+  },
+  "targeting": {
+    "kind": "tile",
+    "range": 2,
+    "empty": true
+  },
+  "effects": [],
+  "permanent": {
+    "kind": "aura",
+    "duration": 2,
+    "statics": [
+      {
+        "kind": "damage",
+        "on": "damageDealt",
+        "add": 2,
+        "affects": "allies",
+        "area": {
+          "kind": "area",
+          "radius": 1,
+          "includeOrigin": true
+        }
+      }
+    ]
+  }
+}

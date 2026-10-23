@@ -53,7 +53,7 @@ export function describeEvent(e: GameEvent, ctx: EventContext): string | null {
       return null;
     }
     case 'CardRevealed':
-      return `Revealed ${name(e.def as string)}`;
+      return `Revealed: ${name(e.def as string)}`;
     case 'DamageDealt':
       return `${unit(e.unit)} takes ${String(e.amount)} damage`;
     case 'AttackBlocked':
@@ -79,9 +79,9 @@ export function describeEvent(e: GameEvent, ctx: EventContext): string | null {
     case 'IntentDeclared':
       return `${unit(e.unit)} intends ${typeof e.name === 'string' ? e.name : 'something'}`;
     case 'PermanentEntered':
-      return `A permanent enters play`;
+      return typeof e.card === 'string' && ctx.cardDefs[e.card] ? `${name(ctx.cardDefs[e.card])} enters play` : 'A permanent enters play';
     case 'PermanentRevealed':
-      return `A hidden permanent is revealed`;
+      return typeof e.def === 'string' ? `Revealed: ${name(e.def)}` : 'A hidden permanent is revealed';
     case 'ItemCountered':
       return 'Countered';
     case 'RoundStarted':

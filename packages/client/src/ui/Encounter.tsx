@@ -10,7 +10,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { Action, GameEvent } from '@ccg/core';
 import type { Snapshot } from '../engine/protocol.js';
 import { describeAction, describeEvent, type EventContext } from './describe.js';
-import { Board, type BoardEffect, type BoardRenderer, type BoardTarget } from './play/Board.js';
+import { Board, type BoardEffect, type BoardMarker, type BoardRenderer, type BoardTarget } from './play/Board.js';
 import { CardPreview } from './play/CardFace.js';
 import { Hand } from './play/Hand.js';
 import { Inspector, Piles, Resources, StackPanel } from './play/Panels.js';
@@ -39,12 +39,15 @@ export interface EncounterProps {
   renderers?: Record<string, BoardRenderer>;
   /** In a run, after a win: take a reward card, or null to skip. */
   onChooseReward?(card: string | null): void;
+  /** Seconds before an unanswered response prompt passes on its own; 0 waits for the player. */
+  autoPass?: number;
+  onAutoPass?(seconds: number): void;
 }
 
 const isTyping = (target: EventTarget | null) => target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
 const isControl = (target: EventTarget | null) => target instanceof Element && (target.tagName === 'BUTTON' || target.getAttribute('role') === 'button');
 
-export function Encounter({ snapshot, log, busy, speed, onSpeed, onAct, onQuit, onDebug, renderers, onChooseReward }: EncounterProps) {
+export function Encounter({ snapshot, log, busy, speed, onSpeed, onAct, onQuit, onDebug, renderers, onChooseReward, autoPass = 0, onAutoPass }: EncounterProps) {
   const { view, side, legal, deciding, catalog, run } = snapshot;
   const world = view.world as WorldView;
   const layout = layoutOf(snapshot.presentation);
@@ -97,7 +100,7 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, onAct, onQuit, 
 
   const beat = playing ? play.beats[play.shown - 1] : undefined;
   const effect = beat ? effectOf(beat.event, (id) => catalog.names[id] ?? id) : null;
-  const banner = beat?.event.type === 'ItemAnnounced' ? describeEvent(beat.event, eventContext) : null;
+  const banner = beat && ['ItemAnnounced', 'CardRevealed', 'PermanentRevealed', 'PermanentEntered'].includes(beat.event.type) ? describeEvent(beat.event, eventContext) : null;
 
   // ---- selection and targeting ----
   const [selection, setSelection] = useState<Selection>(null);
@@ -149,6 +152,22 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, onAct, onQuit, 
     if (o.units.has(unit)) choose({ kind: 'unit', unit });
   };
 
+  // ---- responses: a prompt the player answers, optionally on a timer ----
+  const prompted = canAct && view.prompt?.side === side && o.pass !== null;
+  const [countdown, setCountdown] = useState<number | null>(null);
+  useEffect(() => {
+    if (!prompted || autoPass <= 0 || playing) {
+      setCountdown(null);
+      return;
+    }
+    setCountdown(autoPass);
+    const timer = setInterval(() => setCountdown((n) => (n === null ? null : n - 1)), 1000);
+    return () => clearInterval(timer);
+  }, [prompted, autoPass, playing, snapshot]);
+  useEffect(() => {
+    if (countdown === 0 && o.pass) act(o.pass);
+  }, [countdown, o.pass, act]);
+
   // ---- keyboard ----
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -198,6 +217,19 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, onAct, onQuit, 
         }))
       : [];
   const Renderer = (layout && renderers?.[layout.kind]) ?? Board;
+  const cardName = (instance: string) => {
+    const def = world.cards?.instances[instance]?.def;
+    return def ? (catalog.names[def] ?? def) : 'Face-down card';
+  };
+  const permanents = Object.values(world.permanents ?? {});
+  const markers: BoardMarker[] = permanents.flatMap((p): BoardMarker[] =>
+    p.kind === 'aura' && p.pos
+      ? [{ id: p.id, label: cardName(p.card), kind: p.kind, pos: p.pos, mine: p.controller === side }]
+      : p.kind === 'attachment' && p.unit
+        ? [{ id: p.id, label: cardName(p.card), kind: p.kind, host: p.unit, mine: p.controller === side }]
+        : [],
+  );
+  const theirs = Object.entries(world.cards?.zones ?? {}).filter(([s]) => s !== side);
   const status = view.outcome
     ? view.outcome.winners.includes(side)
       ? `You win — ${view.outcome.reason}`
@@ -237,6 +269,16 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, onAct, onQuit, 
             ))}
           </select>
         </label>
+        {onAutoPass && (
+          <label className="ccg-speed">
+            Auto-pass{' '}
+            <select value={autoPass} onChange={(e) => onAutoPass(Number(e.target.value))}>
+              <option value={0}>off</option>
+              <option value={5}>5 s</option>
+              <option value={10}>10 s</option>
+            </select>
+          </label>
+        )}
         <button type="button" onClick={onDebug}>
           Debug view
         </button>
@@ -250,6 +292,12 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, onAct, onQuit, 
           {banner && (
             <p className="ccg-banner" aria-hidden="true">
               {banner}
+            </p>
+          )}
+          {prompted && !playing && (
+            <p className="ccg-respond" role="alert">
+              {respondText(view, side, eventContext)}
+              {countdown !== null && <span className="ccg-countdown"> Passing in {countdown}s…</span>}
             </p>
           )}
           {layout ? (
@@ -268,6 +316,8 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, onAct, onQuit, 
               onUnit={onUnit}
               onInspect={setHovered}
               speed={speed}
+              vision={shownWorld.board?.vision}
+              markers={markers}
             />
           ) : (
             <p className="ccg-muted">This game has no board layout; use the debug view.</p>
@@ -281,6 +331,28 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, onAct, onQuit, 
 
         <aside className="ccg-side">
           <StackPanel view={view} side={side} catalog={catalog} pass={canAct ? o.pass : null} onAct={act} />
+          {permanents.length > 0 && (
+            <section className="ccg-permanents" aria-label="Permanents">
+              <h2>Permanents</h2>
+              <ul>
+                {permanents.map((p) => {
+                  const def = world.cards?.instances[p.card]?.def;
+                  const abilities = def ? Object.entries(catalog.cards[def]?.abilities ?? {}) : [];
+                  return (
+                    <li key={p.id}>
+                      <strong>{cardName(p.card)}</strong> <span className="ccg-muted">{p.kind}{p.controller === side ? '' : ' · enemy'}{p.turnsLeft !== undefined ? ` · ${p.turnsLeft} turns left` : ''}</span>
+                      {p.controller === side &&
+                        abilities.map(([index, name]) => (
+                          <button key={index} type="button" disabled={!canAct || !o.abilities.has(`${p.id}:${index}`)} onClick={() => choose({ kind: 'ability', permanent: p.id, ability: Number(index) })}>
+                            {name}
+                          </button>
+                        ))}
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          )}
           <Inspector
             unit={inspected}
             intent={inspectedIntent}
@@ -306,6 +378,13 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, onAct, onQuit, 
         <div className="ccg-tray-info">
           <Resources world={world} side={side} />
           <Piles world={world} side={side} catalog={catalog} />
+          {theirs.map(([other, zones]) =>
+            Object.values(zones).some((z) => z.length > 0) ? (
+              <span key={other} className="ccg-muted" aria-label={`${other} cards`}>
+                {other}: {zones.hand?.length ?? 0} in hand, {zones.draw?.length ?? 0} in deck
+              </span>
+            ) : null,
+          )}
         </div>
         <Hand
           cards={hand.map((id) => {
@@ -315,6 +394,7 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, onAct, onQuit, 
           })}
           selected={selection?.kind === 'card' ? selection.card : null}
           onSelect={(card) => choose({ kind: 'card', card })}
+          responding={prompted}
         />
         <div className="ccg-actions">
           {selection && (
@@ -404,4 +484,22 @@ function effectOf(e: GameEvent, name: (id: string) => string): BoardEffect | nul
     default:
       return null;
   }
+}
+
+/** What a response prompt is about, e.g. "Foe: Hit targets you. Respond with a reaction, or pass." */
+function respondText(view: Snapshot['view'], side: string, ctx: EventContext): string {
+  const prompt = view.prompt;
+  if (!prompt) return '';
+  if (prompt.window === 'phaseEnd') return 'The phase is ending. Respond, or pass.';
+  const item = view.stack.find((i) => i.id === prompt.item) ?? view.stack.at(-1);
+  if (!item) return 'Respond with a reaction, or pass.';
+  const what =
+    item.kind === 'hidden'
+      ? 'A face-down card is played'
+      : item.kind === 'intent' && item.source
+        ? `${ctx.names[ctx.unitDefs[item.source] ?? ''] ?? 'An enemy'}: ${ctx.intentNames[item.source] ?? 'an intent'}`
+        : item.source && ctx.cardDefs[item.source]
+          ? `${item.controller === side ? 'You play' : 'They play'} ${ctx.names[ctx.cardDefs[item.source] as string] ?? 'a card'}`
+          : 'Something happens';
+  return `${what}. Respond with a reaction, or pass.`;
 }

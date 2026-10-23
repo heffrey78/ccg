@@ -1,3 +1,6 @@
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { join, relative, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { zipFiles } from '@ccg/content';
 import {
@@ -296,6 +299,49 @@ describe('engine host', () => {
     const engine = new EngineClient(workerTransport({ ...toPage.port, postMessage: (data) => deliver(toWorker.listeners, data) }));
     expect((await engine.listGames()).map((g) => g.id)).toEqual(['fixture']);
     expect((await engine.start('fixture', 4)).deciding).toBe('p');
+  });
+});
+
+describe('hidden information in the example game (#59)', () => {
+  const root = fileURLToPath(new URL('../../../examples/duel', import.meta.url));
+  const files = () => {
+    const out: Record<string, Uint8Array> = {};
+    const walk = (dir: string) => {
+      for (const name of readdirSync(dir)) {
+        const path = join(dir, name);
+        if (statSync(path).isDirectory()) walk(path);
+        else out[relative(root, path).split(sep).join('/')] = new Uint8Array(readFileSync(path));
+      }
+    };
+    walk(root);
+    return out;
+  };
+
+  it('fog keeps out-of-sight units out of everything the player receives', async () => {
+    const engine = new EngineClient(localTransport(createEngineHost({ files: [files()] })));
+    const snap = await engine.start('duel', 3, { encounter: 'duel:first-fight' });
+    const world = snap.view.world as World & { board: { vision?: string[] } };
+    expect(Object.values(world.board.units).map((u) => u.def)).toEqual(['duel:hero']);
+    expect(world.board.vision).toEqual(['0', '1', '2', '3', '4']);
+    const text = JSON.stringify(snap);
+    expect(text).not.toContain('"secret"');
+    expect(text).not.toContain('"rng"');
+    expect(text).not.toContain('enemy1');
+  });
+
+  it('a trap placed face-down shows only to its owner', async () => {
+    const engine = new EngineClient(localTransport(createEngineHost({ files: [files()], debug: true })));
+    const snap = await engine.start('duel', 3, { encounter: 'duel:first-fight' });
+    const world = snap.view.world as World;
+    const snare = snap.legal.find((a) => a.type === 'playCard' && world.cards.instances[a.card as string]?.def === 'duel:snare' && a.target === '3');
+    if (!snare) throw new Error('no snare to place on 3');
+    const after = await engine.act(snare);
+    expect(Object.values((after.view.world as World).board.units).some((u) => u.def === 'duel:snare-trap')).toBe(true);
+    const debug = await engine.debug();
+    const enemy = JSON.stringify(debug.views.enemy);
+    expect(enemy).not.toContain('snare');
+    expect(Object.keys((debug.views.enemy?.world as { permanents: object }).permanents)).toEqual([]);
+    expect(Object.keys((debug.views.player?.world as { permanents: object }).permanents)).toHaveLength(1);
   });
 });
 

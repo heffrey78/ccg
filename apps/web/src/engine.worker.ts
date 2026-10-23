@@ -4,4 +4,9 @@
 import { createEngineHost, serveEngine } from '@ccg/client/engine';
 import sandbox from '@ccg/game-sandbox';
 
-serveEngine(createEngineHost({ packages: [sandbox as never] }), self as unknown as DedicatedWorkerGlobalScope);
+// The content-only example game ships as its files, loaded like an editor export.
+const duel = import.meta.glob('../../../examples/duel/**/*.json', { eager: true, query: '?raw', import: 'default' }) as Record<string, string>;
+const encoder = new TextEncoder();
+const duelFiles = Object.fromEntries(Object.entries(duel).map(([path, text]) => [path.replace('../../../examples/duel/', ''), encoder.encode(text)]));
+
+serveEngine(createEngineHost({ packages: [sandbox as never], files: [duelFiles] }), self as unknown as DedicatedWorkerGlobalScope);

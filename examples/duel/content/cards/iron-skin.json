@@ -1,0 +1,22 @@
+{
+  "formatVersion": 1,
+  "kind": "card",
+  "id": "iron-skin",
+  "name": "Iron Skin",
+  "cost": {
+    "energy": 1
+  },
+  "targeting": {
+    "kind": "self"
+  },
+  "effects": [],
+  "permanent": {
+    "kind": "attachment",
+    "statics": [
+      {
+        "kind": "maxHp",
+        "amount": 5
+      }
+    ]
+  }
+}

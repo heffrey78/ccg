@@ -1,0 +1,25 @@
+{
+  "formatVersion": 1,
+  "kind": "card",
+  "id": "brace",
+  "name": "Brace",
+  "cost": {
+    "energy": 1
+  },
+  "timing": "reaction",
+  "reaction": {
+    "kind": [
+      "intent"
+    ],
+    "targetsYou": true
+  },
+  "targeting": {
+    "kind": "self"
+  },
+  "effects": [
+    {
+      "op": "gainBlock",
+      "amount": 4
+    }
+  ]
+}

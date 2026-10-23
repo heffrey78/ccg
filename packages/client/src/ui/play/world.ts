@@ -24,6 +24,8 @@ export interface UnitView {
 export interface BoardView {
   units: Record<string, UnitView>;
   tiles: Record<string, string>;
+  /** Under fog of war: the tiles the viewer can see. */
+  vision?: string[];
 }
 
 export interface CardsView {
