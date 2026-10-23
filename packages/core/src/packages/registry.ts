@@ -24,6 +24,7 @@ import { clonePlain } from '../clone.js';
 import { ContentError } from '../kernel/params.js';
 import type { GameRules, GameSetup } from '../kernel/types.js';
 import { describeOps, type RulesModule } from '../rules/compose.js';
+import { standardRules, standardSetup, type RulesetDef, type StandardGameInput, type StandardWorld } from '../standard.js';
 import { ENGINE_API_VERSION } from '../version.js';
 import { isGamePackage, qualify, type GamePackage } from './package.js';
 import { satisfies } from './semver.js';
@@ -199,12 +200,12 @@ export class PackageRegistry<W = unknown> {
       name: (ref) => names.get(ref),
       assetUrl: (packageId, path) => this.#packages.get(packageId)?.assets?.url(path) ?? path,
       createRules: () => {
-        if (!root.createRules) throw new ContentError(`package '${root.manifest.id}' does not define createRules`);
-        return root.createRules(game);
+        if (root.createRules) return root.createRules(game);
+        return standardRules(rulesetOf(game), standardInput(game)) as GameRules<W>;
       },
       createSetup: (options) => {
-        if (!root.createSetup) throw new ContentError(`package '${root.manifest.id}' does not define createSetup`);
-        return root.createSetup(game, options);
+        if (root.createSetup) return root.createSetup(game, options);
+        return standardSetup(rulesetOf(game), standardInput(game), options) as GameSetup<W>;
       },
     };
     return { ok: true, game };
@@ -241,6 +242,24 @@ export class PackageRegistry<W = unknown> {
     visit(rootId, null, null);
     return out;
   }
+}
+
+/** The root package's first ruleset, for content-only games (decision #87). */
+function rulesetOf<W>(game: ResolvedGame<W>): RulesetDef {
+  const prefix = `${game.root.id}:`;
+  const id = game.items.find((i) => i.kind === 'ruleset' && i.id.startsWith(prefix))?.id;
+  const ruleset = id === undefined ? undefined : game.definitions.rulesets[id];
+  if (!ruleset) throw new ContentError(`package '${game.root.id}' has no createRules and no ruleset`);
+  return ruleset;
+}
+
+function standardInput<W>(game: ResolvedGame<W>): StandardGameInput {
+  const prefix = `${game.root.id}:`;
+  return {
+    definitions: game.definitions,
+    encounters: game.items.filter((i) => i.kind === 'encounter' && i.id.startsWith(prefix)) as unknown as StandardGameInput['encounters'],
+    modules: game.modules as unknown as RulesModule<StandardWorld>[],
+  };
 }
 
 type RefSink = (kind: ContentItem['kind'], ref: string, pointer: string) => void;
