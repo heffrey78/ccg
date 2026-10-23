@@ -82,7 +82,8 @@ export class PackageRegistry<W = unknown> {
 
   /** Imports an ES module (URL or path) whose default export is a game package, and registers it. */
   async import(specifier: string): Promise<GamePackage<W>> {
-    const mod = (await import(specifier)) as { default?: unknown };
+    // The URL is only known at run time; bundlers must leave this import alone.
+    const mod = (await import(/* @vite-ignore */ specifier)) as { default?: unknown };
     if (!isGamePackage(mod.default)) {
       throw new ContentError(`'${specifier}' does not default-export a game package`);
     }
