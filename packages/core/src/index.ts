@@ -1,9 +1,15 @@
-/**
- * Version of the engine API that game packages declare compatibility with
- * (see decision #14). Bumped independently of the npm package version.
- */
-export const ENGINE_API_VERSION = '0.0.0';
-
+export { ENGINE_API_VERSION, isEngineCompatible } from './version.js';
+export {
+  REPLAY_FORMAT,
+  SNAPSHOT_FORMAT,
+  Session,
+  parseSnapshot,
+  replay,
+  serializeSnapshot,
+  type ReplayLog,
+  type ReplayResult,
+  type Snapshot,
+} from './replay.js';
 export { canonicalJson, hashState } from './hash.js';
 export { Rng, seedRng, type RngState } from './rng.js';
 export { END_TURN, apply, createGame, legalActions, schedule, type ScheduledPhase } from './kernel/engine.js';
