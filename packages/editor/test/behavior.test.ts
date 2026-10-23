@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ContentItem } from '@ccg/content';
-import { behaviorSummary, blankProject, createItem, editorOps, previewIntents } from '../src/index.js';
+import { behaviorSummary, blankProject, createItem, editorOps, moveEncounters, previewIntents, updateItem, validateProject } from '../src/index.js';
 
 const ops = editorOps();
 const hit = (name: string, damage: number, range = 1) => ({
@@ -41,5 +41,38 @@ describe('behaviour preview', () => {
     const project = blankProject({ id: 'b', name: 'B', board: 'lane' });
     expect(previewIntents(project, ops, 'unit:hero', 'lane', '1')).toMatchObject({ rounds: [] });
     expect(behaviorSummary(undefined)).toBe('No behaviour: it never acts.');
+  });
+});
+
+describe('encounters on the board', () => {
+  const setBoard = (project: ReturnType<typeof blankProject>, board: object) => updateItem('ruleset:main', { ...(project.items['ruleset:main'] as ContentItem), board } as ContentItem)(project);
+
+  it('flags positions off the ruleset board and units sharing a tile', async () => {
+    let project = blankProject({ id: 'b', name: 'B', board: 'lane' });
+    expect(await validateProject(project)).toEqual([]);
+    project = setBoard(project, { topology: 'lane', length: 5 });
+    const issues = await validateProject(project);
+    expect(issues).toEqual([
+      { file: 'content/encounters/first-fight.json', key: 'encounter:first-fight', pointer: '/units/1/pos', message: "'6' is not on the board (a lane of 5)" },
+    ]);
+    const crowded = updateItem('encounter:first-fight', {
+      ...(project.items['encounter:first-fight'] as ContentItem),
+      units: [
+        { unit: 'hero', side: 'player', pos: '1' },
+        { unit: 'foe', side: 'enemy', pos: '1' },
+      ],
+    } as ContentItem)(project);
+    expect((await validateProject(crowded)).map((i) => i.message)).toEqual(["two units start on '1' (see unit 1)"]);
+  });
+
+  it('switching lane → square moves encounters onto the middle row, and back', async () => {
+    let project = setBoard(blankProject({ id: 'b', name: 'B', board: 'lane' }), { topology: 'square', width: 7, height: 7 });
+    expect((await validateProject(project)).map((i) => i.pointer)).toEqual(['/units/0/pos', '/units/1/pos']);
+    project = moveEncounters('lane', { topology: 'square', width: 7, height: 7 })(project);
+    expect((project.items['encounter:first-fight'] as unknown as { units: { pos: string }[] }).units.map((u) => u.pos)).toEqual(['0,3', '6,3']);
+    expect(await validateProject(project)).toEqual([]);
+    project = setBoard(project, { topology: 'lane', length: 7 });
+    project = moveEncounters('square', { topology: 'lane', length: 7 })(project);
+    expect((project.items['encounter:first-fight'] as unknown as { units: { pos: string }[] }).units.map((u) => u.pos)).toEqual(['0', '6']);
   });
 });

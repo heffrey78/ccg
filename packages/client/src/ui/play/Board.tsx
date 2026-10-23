@@ -139,6 +139,7 @@ export function Board(props: BoardProps) {
               {...(canSelect && { role: 'button', tabIndex: 0, onKeyDown: activate(() => props.onUnit(u.id)) })}
               aria-label={label}
               data-unit={u.id}
+              data-pos={u.pos}
             >
               <circle className="ccg-unit-body" cy={-6} r={radius * 0.5} />
               {dir && (

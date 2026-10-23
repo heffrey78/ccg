@@ -14,6 +14,7 @@ import type { PreviewBoard } from '../../forms/patterns.js';
 import type { Project } from '../../project.js';
 import type { ProjectIssue } from '../../validate.js';
 import { AssetPreview, useAssetUrl } from '../AssetPanel.js';
+import { EncounterBoard } from './EncounterBoard.js';
 import { Form, ObjectFields, type FormContext } from './SchemaField.js';
 
 const HEADER_FIELDS = ['formatVersion', 'kind', 'id', 'name', 'tags', 'extensions'];
@@ -30,6 +31,21 @@ const SECTIONS: Partial<Record<ContentKind, [string, string[]][]>> = {
   status: [
     ['Rules', ['stacking', 'hooks', 'modifiers']],
     ['Display', ['description', 'icon']],
+  ],
+  encounter: [
+    ['Board', ['tiles']],
+    ['Units', ['units']],
+    ['Rewards', ['rewards']],
+  ],
+  ruleset: [
+    ['Board', ['board', 'move', 'collision', 'bumpDamage', 'edge', 'fog']],
+    ['Player', ['player']],
+    ['Enemy', ['enemy']],
+    ['Responses and permanents', ['responses', 'permanents']],
+  ],
+  scenario: [
+    ['Setup', ['encounter', 'seed']],
+    ['Cards', ['hand', 'deck']],
   ],
   unit: [
     ['Stats', ['hp', 'faction']],
@@ -88,7 +104,11 @@ export function ItemForm({ project, ops, item, issues, flagged, board, setBoard,
             title ? (
               <fieldset key={title} className="ccg-section">
                 <legend>{title}</legend>
-                <ObjectFields fields={spec.fields} root={root} value={value} onChange={change} pointer="" only={keys} />
+                {item.kind === 'encounter' && keys[0] === 'tiles' ? (
+                  <EncounterBoard project={project} item={item} onChange={onChange} />
+                ) : (
+                  <ObjectFields fields={spec.fields} root={root} value={value} onChange={change} pointer="" only={keys} />
+                )}
               </fieldset>
             ) : (
               <ObjectFields key="all" fields={spec.fields} root={root} value={value} onChange={change} pointer="" only={keys} />
