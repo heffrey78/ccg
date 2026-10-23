@@ -26,6 +26,7 @@ export {
   type PatternShape,
   type Pos,
   type Topology,
+  type TopologyLayout,
 } from './board/topology.js';
 export {
   composeRules,
@@ -59,11 +60,13 @@ export {
 } from './cards/zones.js';
 export {
   boardModule,
+  boardPresentation,
   boardTargeting,
   createBoardState,
   unitAt,
   unitsAt,
   type BoardConfig,
+  type BoardPresentation,
   type BoardState,
   type BoardTargetingOptions,
   type BoardWorld,

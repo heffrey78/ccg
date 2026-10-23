@@ -324,3 +324,28 @@ describe('combat basics', () => {
     expect(g.unit(spawned?.unit as string)).toMatchObject({ hp: 3, side: 'p' });
   });
 });
+
+describe('presentation', () => {
+  it('the board module describes its layout and blocking tiles for clients', () => {
+    const rules = composeRules<World>({ round: [{ id: 'main', perSide: true, interactive: true }] }, [
+      boardModule<World>({ topology: new LaneTopology(3), tiles: TILES, units: UNITS }),
+    ]);
+    expect(rules.presentation).toEqual({
+      board: {
+        kind: 'lane',
+        cell: 'square',
+        cells: [{ pos: '0', x: 0, y: 0 }, { pos: '1', x: 1, y: 0 }, { pos: '2', x: 2, y: 0 }],
+        directions: { e: { x: 1, y: 0 }, w: { x: -1, y: 0 } },
+        tiles: { wall: { blocking: true }, spikes: { blocking: false } },
+      },
+    });
+    expect(JSON.parse(JSON.stringify(rules.presentation))).toEqual(rules.presentation);
+  });
+
+  it('two modules may not present the same key', () => {
+    const board = boardModule<World>({ topology: new LaneTopology(3) });
+    expect(() => composeRules<World>({ round: [{ id: 'main', perSide: true, interactive: true }] }, [board, { name: 'other', presentation: { board: {} } }])).toThrow(
+      /presentation 'board' is defined by both board and other/,
+    );
+  });
+});

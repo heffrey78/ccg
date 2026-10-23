@@ -14,6 +14,25 @@ const topologies: [string, Topology][] = [
 describe.each(topologies)('%s topology contract', (_name, topo) => {
   const positions = topo.positions();
 
+  it('lays out every cell once, with each direction offset leading to that neighbour', () => {
+    const layout = topo.layout?.();
+    if (!layout) throw new Error('no layout');
+    expect(layout.cells.map((c) => c.pos)).toEqual(positions);
+    expect(Object.keys(layout.directions)).toEqual(topo.directions());
+    const at = new Map(layout.cells.map((c) => [c.pos, c]));
+    for (const pos of positions) {
+      for (const dir of topo.directions()) {
+        const next = topo.step(pos, dir);
+        if (next === null) continue;
+        const [a, b, v] = [at.get(pos)!, at.get(next)!, layout.directions[dir]!];
+        expect(b.x - a.x).toBeCloseTo(v.x);
+        expect(b.y - a.y).toBeCloseTo(v.y);
+      }
+    }
+    // No two cells overlap.
+    for (const a of layout.cells) for (const b of layout.cells) if (a !== b) expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeGreaterThan(0.99);
+  });
+
   it('lists unique positions in board order', () => {
     expect(new Set(positions).size).toBe(positions.length);
     expect([...positions].sort((a, b) => topo.compare(a, b))).toEqual(positions);

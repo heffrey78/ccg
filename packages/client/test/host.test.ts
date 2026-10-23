@@ -68,7 +68,9 @@ describe('engine host', () => {
     expect(snap.side).toBe('p');
     expect(snap.deciding).toBe('p');
     expect(snap.legal.map((a) => a.type)).toEqual(['playCard', 'playCard', 'endTurn']);
-    expect(snap.names['fixture:poke']).toBe('POKE');
+    expect(snap.catalog.names['fixture:poke']).toBe('POKE');
+    expect(snap.catalog.cards['fixture:poke']).toMatchObject({ name: 'POKE', text: 'Draw 1 card.', timing: 'main', cost: {} });
+    expect(snap.presentation.board).toMatchObject({ kind: 'lane', cell: 'square' });
     const text = JSON.stringify(snap.view);
     expect(text).not.toContain('"rng"');
     expect(text).not.toContain('"secret"');

@@ -1,88 +1,372 @@
 /**
- * A plain, fully functional encounter screen: state as text and every legal
- * action as a button. #29 replaces it with board, hand and animation UI; this
- * stays useful as a debug view.
+ * The encounter screen (#29): the board, the hand, piles and resources, the
+ * stack with its response prompt, and event-driven animation. Every control
+ * works with the mouse and the keyboard:
+ *
+ *   1–9 select a hand card · ←/→ cycle targets · Enter confirm · Esc cancel
+ *   M select a unit to move · E end turn · P pass · S or Space skip animation
  */
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { Action, GameEvent } from '@ccg/core';
 import type { Snapshot } from '../engine/protocol.js';
-import { describeAction } from './describe.js';
+import { describeAction, describeEvent, type EventContext } from './describe.js';
+import { Board, type BoardEffect, type BoardRenderer, type BoardTarget } from './play/Board.js';
+import { Hand } from './play/Hand.js';
+import { Inspector, Piles, Resources, StackPanel } from './play/Panels.js';
+import { Playback, unitsAfter, type PlaybackState } from './play/playback.js';
+import { anchorCell, choicesFor, offers, type Selection } from './play/selection.js';
+import { layoutOf, permanentOfUnit, type UnitView, type WorldView } from './play/world.js';
 
-interface ViewWorld {
-  board?: { units: Record<string, { id: string; def: string; side: string; pos: string; hp: number; maxHp: number; block: number; statuses: Record<string, number> }> };
-  cards?: { instances: Record<string, { def: string }>; zones: Record<string, Record<string, string[]>>; resources: Record<string, Record<string, number>> };
-  intents?: { declared: { unit: string; name?: string }[] };
-}
+export const SPEEDS = [
+  { value: 0, label: 'Instant' },
+  { value: 1, label: '1×' },
+  { value: 2, label: '2×' },
+  { value: 4, label: '4×' },
+] as const;
 
 export interface EncounterProps {
   snapshot: Snapshot;
   log: GameEvent[];
   busy: boolean;
+  /** Animation speed multiplier; 0 shows results at once. */
+  speed: number;
+  onSpeed(speed: number): void;
   onAct(action: Action): void;
   onQuit(): void;
+  onDebug(): void;
+  /** Custom board renderers by topology kind (e.g. from a game's companion UI package). */
+  renderers?: Record<string, BoardRenderer>;
 }
 
-export function Encounter({ snapshot, log, busy, onAct, onQuit }: EncounterProps) {
-  const { view, names, side, legal, deciding } = snapshot;
-  const world = view.world as ViewWorld;
-  const name = (id: string) => names[id] ?? id;
-  const cardDefs = Object.fromEntries(Object.entries(world.cards?.instances ?? {}).map(([id, c]) => [id, c.def]));
+const isTyping = (target: EventTarget | null) => target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
+const isControl = (target: EventTarget | null) => target instanceof Element && (target.tagName === 'BUTTON' || target.getAttribute('role') === 'button');
+
+export function Encounter({ snapshot, log, busy, speed, onSpeed, onAct, onQuit, onDebug, renderers }: EncounterProps) {
+  const { view, side, legal, deciding, catalog } = snapshot;
+  const world = view.world as WorldView;
+  const layout = layoutOf(snapshot.presentation);
+  const o = useMemo(() => offers(legal), [legal]);
+
+  // ---- playback: animate from the previous snapshot to this one ----
+  const previous = useRef<Snapshot | null>(null);
+  const [start, setStart] = useState<Snapshot>(snapshot);
+  const [play, setPlay] = useState<PlaybackState>({ beats: [], shown: 0, done: true });
+  const playback = useMemo(() => new Playback(setPlay), []);
+  useEffect(() => () => playback.dispose(), [playback]);
+  useLayoutEffect(() => {
+    setStart(previous.current ?? snapshot);
+    previous.current = snapshot;
+    // Speed changes apply from the next action, so only a new snapshot restarts playback.
+    playback.play(snapshot.events, speed);
+  }, [snapshot, playback]);
+  const playing = !play.done;
+  const shownView = playing ? start.view : view;
+  const shownWorld = shownView.world as WorldView;
+  const finalUnits = world.board?.units ?? {};
+  const units: Record<string, UnitView> = playing
+    ? unitsAfter(shownWorld.board?.units ?? {}, play.beats.slice(0, play.shown).map((b) => b.event), finalUnits)
+    : finalUnits;
   const hand = world.cards?.zones[side]?.hand ?? [];
-  const resources = world.cards?.resources[side] ?? {};
-  const intents = new Map((world.intents?.declared ?? []).map((i) => [i.unit, i.name ?? '?']));
+
+  // ---- names for events: units and cards seen in either view ----
+  const eventContext = useMemo<EventContext>(() => {
+    const unitDefs: Record<string, string> = {};
+    const cardDefs: Record<string, string> = {};
+    const intentNames: Record<string, string> = {};
+    for (const w of [start.view.world as WorldView, world]) {
+      for (const u of Object.values(w.board?.units ?? {})) unitDefs[u.id] = u.def;
+      for (const [id, c] of Object.entries(w.cards?.instances ?? {})) cardDefs[id] = c.def;
+      for (const i of w.intents?.declared ?? []) if (i.name) intentNames[i.unit] ??= i.name;
+    }
+    return { side, unitDefs, cardDefs, intentNames, names: catalog.names };
+  }, [start, world, side, catalog]);
+
+  // Action labels name units by their definition, with the tile when two share a name.
+  const labelNames = useMemo(() => {
+    const all = Object.values(world.board?.units ?? {});
+    const out = { ...catalog.names };
+    for (const u of all) {
+      const name = catalog.names[u.def] ?? u.def;
+      out[u.id] = all.filter((o) => o.def === u.def).length > 1 ? `${name} at ${u.pos}` : name;
+    }
+    return out;
+  }, [world, catalog]);
+
+  const beat = playing ? play.beats[play.shown - 1] : undefined;
+  const effect = beat ? effectOf(beat.event, (id) => catalog.names[id] ?? id) : null;
+  const banner = beat?.event.type === 'ItemAnnounced' ? describeEvent(beat.event, eventContext) : null;
+
+  // ---- selection and targeting ----
+  const [selection, setSelection] = useState<Selection>(null);
+  const [focus, setFocus] = useState(0);
+  const [hovered, setHovered] = useState<string | null>(null);
+  useEffect(() => {
+    setSelection(null);
+    setFocus(0);
+  }, [snapshot]);
+  const choices = useMemo(() => choicesFor(selection, o, world, layout, side), [selection, o, world, layout, side]);
+  const canAct = !busy && deciding === side && !view.outcome;
+
+  const act = useCallback(
+    (action: Action) => {
+      if (!canAct) return;
+      playback.skip();
+      setSelection(null);
+      onAct(action);
+    },
+    [canAct, onAct, playback],
+  );
+
+  /** Selects something; a single untargeted choice is played at once. */
+  const choose = (next: Selection) => {
+    if (!canAct) return;
+    // Choosing shows targets on the final board, so finish any animation first.
+    playback.skip();
+    if (next && selection && JSON.stringify(next) === JSON.stringify(selection)) {
+      setSelection(null);
+      return;
+    }
+    const list = choicesFor(next, o, world, layout, side);
+    if (list.length === 1 && list[0]?.anchor.kind === 'none') {
+      act(list[0].action);
+      return;
+    }
+    setSelection(list.length > 0 ? next : null);
+    setFocus(0);
+  };
+
+  const targets: BoardTarget[] = choices.flatMap((c, i) => {
+    const cell = anchorCell(c.anchor, world.board, layout);
+    return cell === null
+      ? []
+      : [{ cell, label: describeAction(c.action, labelNames, eventContext.cardDefs, layout?.kind), onUnit: c.anchor.kind === 'unit', focused: i === focus, onPick: () => act(c.action) }];
+  });
+
+  const onUnit = (unit: string) => {
+    if (o.units.has(unit)) choose({ kind: 'unit', unit });
+  };
+
+  // ---- keyboard ----
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (isTyping(e.target) || e.ctrlKey || e.metaKey || e.altKey) return;
+      const key = e.key.toLowerCase();
+      if ((key === 's' || (key === ' ' && !isControl(e.target))) && playing) {
+        e.preventDefault();
+        playback.skip();
+        return;
+      }
+      if (/^[1-9]$/.test(key)) {
+        const card = hand[Number(key) - 1];
+        if (card && o.cards.has(card)) choose({ kind: 'card', card });
+      } else if (key === 'escape') {
+        setSelection(null);
+      } else if ((key === 'arrowright' || key === 'arrowleft') && choices.length > 0) {
+        e.preventDefault();
+        setFocus((f) => (f + (key === 'arrowright' ? 1 : choices.length - 1)) % choices.length);
+      } else if (key === 'enter' && choices[focus] && !isControl(e.target)) {
+        e.preventDefault();
+        act(choices[focus].action);
+      } else if (key === 'm') {
+        const units = [...o.units.keys()];
+        if (units.length > 0) choose({ kind: 'unit', unit: units[0] as string });
+      } else if (key === 'e' && o.endTurn) {
+        act(o.endTurn);
+      } else if (key === 'p' && o.pass) {
+        act(o.pass);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
+
+  // ---- what to show ----
+  const inspectedId = hovered ?? (selection?.kind === 'unit' ? selection.unit : null);
+  const inspected = inspectedId ? units[inspectedId] : undefined;
+  const inspectedIntent = inspectedId ? shownWorld.intents?.declared.find((i) => i.unit === inspectedId) : undefined;
+  const permanent = inspectedId ? permanentOfUnit(world, inspectedId) : undefined;
+  const permanentCard = permanent ? world.cards?.instances[permanent.card]?.def : undefined;
+  const abilities =
+    permanent && permanent.controller === side && permanentCard
+      ? Object.entries(catalog.cards[permanentCard]?.abilities ?? {}).map(([index, name]) => ({
+          index: Number(index),
+          name,
+          usable: canAct && o.abilities.has(`${permanent.id}:${index}`),
+        }))
+      : [];
+  const Renderer = (layout && renderers?.[layout.kind]) ?? Board;
+  const status = view.outcome
+    ? view.outcome.winners.includes(side)
+      ? `You win — ${view.outcome.reason}`
+      : `You lose — ${view.outcome.reason}`
+    : deciding === side
+      ? view.prompt
+        ? 'Your response'
+        : 'Your decision'
+      : 'Waiting…';
+  const logLines = log.flatMap((e) => {
+    const line = describeEvent(e, eventContext);
+    return line ? [line] : [];
+  });
 
   return (
-    <section aria-labelledby="encounter-heading">
-      <header style={{ display: 'flex', gap: 16, alignItems: 'baseline', flexWrap: 'wrap' }}>
-        <h1 id="encounter-heading" style={{ margin: 0 }}>{snapshot.game.name}</h1>
+    <section className="ccg-encounter" aria-labelledby="encounter-heading">
+      <header className="ccg-topbar">
+        <h1 id="encounter-heading">{snapshot.game.name}</h1>
         <span>Round {view.turn.round}</span>
-        <span>Phase: {view.turn.phase}</span>
-        <span role="status">
-          {view.outcome
-            ? view.outcome.winners.includes(side) ? `You win — ${view.outcome.reason}` : `You lose — ${view.outcome.reason}`
-            : deciding === side ? 'Your decision' : 'Waiting…'}
+        <span className="ccg-muted">{view.turn.phase}</span>
+        <span role="status" className="ccg-turn-status">
+          {status}
         </span>
-        <button type="button" onClick={onQuit}>Quit</button>
+        <span className="ccg-spacer" />
+        <label className="ccg-speed">
+          Animation{' '}
+          <select value={speed} onChange={(e) => onSpeed(Number(e.target.value))}>
+            {SPEEDS.map((s) => (
+              <option key={s.value} value={s.value}>
+                {s.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button type="button" onClick={onDebug}>
+          Debug view
+        </button>
+        <button type="button" onClick={onQuit}>
+          Quit
+        </button>
       </header>
 
-      <h2>Units</h2>
-      <table>
-        <thead>
-          <tr><th>Unit</th><th>Side</th><th>Tile</th><th>HP</th><th>Block</th><th>Statuses</th><th>Intent</th></tr>
-        </thead>
-        <tbody>
-          {Object.values(world.board?.units ?? {}).map((u) => (
-            <tr key={u.id}>
-              <td>{name(u.def)}</td>
-              <td>{u.side}</td>
-              <td>{u.pos}</td>
-              <td>{u.hp}/{u.maxHp}</td>
-              <td>{u.block}</td>
-              <td>{Object.entries(u.statuses).map(([s, n]) => `${name(s)} ${n}`).join(', ')}</td>
-              <td>{intents.get(u.id) ?? ''}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="ccg-main">
+        <div className="ccg-stage">
+          {banner && (
+            <p className="ccg-banner" aria-hidden="true">
+              {banner}
+            </p>
+          )}
+          {layout ? (
+            <Renderer
+              layout={layout}
+              units={units}
+              tiles={shownWorld.board?.tiles ?? {}}
+              side={side}
+              intents={shownWorld.intents?.declared ?? []}
+              intentSummaries={playing ? start.intents : snapshot.intents}
+              names={catalog.names}
+              targets={playing ? [] : targets}
+              effect={effect}
+              selectable={new Set(canAct ? o.units.keys() : [])}
+              selected={selection?.kind === 'unit' ? selection.unit : null}
+              onUnit={onUnit}
+              onInspect={setHovered}
+              speed={speed}
+            />
+          ) : (
+            <p className="ccg-muted">This game has no board layout; use the debug view.</p>
+          )}
+          {playing && (
+            <button type="button" className="ccg-skip" aria-keyshortcuts="S" onClick={() => playback.skip()}>
+              Skip animation
+            </button>
+          )}
+        </div>
 
-      <h2>Hand</h2>
-      <p>
-        {Object.entries(resources).map(([r, n]) => `${r}: ${n}`).join(' · ') || 'No resources'}
-      </p>
-      <ul>{hand.map((id) => <li key={id}>{name(cardDefs[id] ?? id)}</li>)}</ul>
-
-      <h2>Actions</h2>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-        {legal.map((action, i) => (
-          <button key={i} type="button" disabled={busy} onClick={() => onAct(action)}>
-            {describeAction(action, names, cardDefs)}
-          </button>
-        ))}
+        <aside className="ccg-side">
+          <StackPanel view={view} side={side} catalog={catalog} pass={canAct ? o.pass : null} onAct={act} />
+          <Inspector
+            unit={inspected}
+            intent={inspectedIntent}
+            summary={inspectedIntent ? (playing ? start.intents : snapshot.intents)[inspectedIntent.id] : undefined}
+            permanent={permanent}
+            catalog={catalog}
+            world={world}
+            abilities={abilities}
+            onAbility={(ability) => permanent && choose({ kind: 'ability', permanent: permanent.id, ability })}
+          />
+          <section aria-label="Log" className="ccg-log">
+            <h2>Log</h2>
+            <ol aria-live="polite">
+              {logLines.slice(-10).map((line, i) => (
+                <li key={i}>{line}</li>
+              ))}
+            </ol>
+          </section>
+        </aside>
       </div>
 
-      <h2>Log</h2>
-      <ol aria-live="polite" style={{ maxHeight: 200, overflow: 'auto' }}>
-        {log.slice(-15).map((e, i) => <li key={i}>{e.type}{typeof e.unit === 'string' ? ` · ${e.unit}` : ''}</li>)}
-      </ol>
+      <div className="ccg-tray">
+        <div className="ccg-tray-info">
+          <Resources world={world} side={side} />
+          <Piles world={world} side={side} catalog={catalog} />
+        </div>
+        <Hand
+          cards={hand.map((id) => {
+            const def = world.cards?.instances[id]?.def;
+            const face = def ? catalog.cards[def] : undefined;
+            return { id, ...(face && { face }), playable: canAct && o.cards.has(id) };
+          })}
+          selected={selection?.kind === 'card' ? selection.card : null}
+          onSelect={(card) => choose({ kind: 'card', card })}
+        />
+        <div className="ccg-actions">
+          {selection && (
+            <div className="ccg-choices" role="group" aria-label="Choose a target">
+              {choices.map((c, i) => (
+                <button key={i} type="button" className={i === focus ? 'is-focused' : undefined} onClick={() => act(c.action)}>
+                  {describeAction(c.action, labelNames, eventContext.cardDefs, layout?.kind)}
+                </button>
+              ))}
+              <button type="button" onClick={() => setSelection(null)}>
+                Cancel
+              </button>
+            </div>
+          )}
+          {canAct &&
+            o.other.map((a, i) => (
+              <button key={i} type="button" onClick={() => act(a)}>
+                {describeAction(a, labelNames, eventContext.cardDefs, layout?.kind)}
+              </button>
+            ))}
+          {o.endTurn && (
+            <button type="button" className="ccg-primary" disabled={!canAct} aria-keyshortcuts="E" onClick={() => o.endTurn && act(o.endTurn)}>
+              End turn
+            </button>
+          )}
+        </div>
+      </div>
+
+      {view.outcome && (
+        <div className="ccg-outcome" role="dialog" aria-labelledby="outcome-heading">
+          <h2 id="outcome-heading">{view.outcome.winners.includes(side) ? 'Victory' : 'Defeat'}</h2>
+          <p>{view.outcome.reason}</p>
+          <button type="button" onClick={onQuit}>
+            Back to games
+          </button>
+        </div>
+      )}
     </section>
   );
+}
+
+function effectOf(e: GameEvent, name: (id: string) => string): BoardEffect | null {
+  const unit = typeof e.unit === 'string' ? e.unit : null;
+  if (!unit) return null;
+  switch (e.type) {
+    case 'DamageDealt':
+      return { unit, text: `−${String(e.amount)}`, tone: 'damage' };
+    case 'AttackBlocked':
+      return { unit, text: 'Blocked', tone: 'block' };
+    case 'BlockGained':
+      return { unit, text: `+${String(e.amount)} block`, tone: 'block' };
+    case 'Healed':
+      return { unit, text: `+${String(e.amount)}`, tone: 'heal' };
+    case 'StatusChanged':
+      return { unit, text: `${name(e.status as string)} ${Number(e.delta) > 0 ? '+' : ''}${String(e.delta)}`, tone: 'status' };
+    case 'UnitDied':
+      return { unit, text: 'Defeated', tone: 'info' };
+    case 'UnitCollided':
+      return { unit, text: 'Bump!', tone: 'info' };
+    default:
+      return null;
+  }
 }

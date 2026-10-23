@@ -1,4 +1,4 @@
-import { BaseTopology, type Dir, type Pos } from './topology.js';
+import { BaseTopology, type Dir, type Pos, type TopologyLayout } from './topology.js';
 
 const DIRS = ['e', 'w'] as const;
 
@@ -15,6 +15,15 @@ export class LaneTopology extends BaseTopology {
 
   positions(): readonly Pos[] {
     return this.#positions;
+  }
+
+  layout(): TopologyLayout {
+    return {
+      kind: this.kind,
+      cell: 'square',
+      cells: this.#positions.map((pos) => ({ pos, x: Number(pos), y: 0 })),
+      directions: { e: { x: 1, y: 0 }, w: { x: -1, y: 0 } },
+    };
   }
 
   contains(pos: Pos): boolean {

@@ -1,6 +1,12 @@
 export * from './engine/index.js';
 export { SettingsStore, memoryStorage, type KeyValueStorage, type Platform } from './platform.js';
 export { App, type AppProps } from './ui/App.js';
-export { describeAction } from './ui/describe.js';
-export { Encounter, type EncounterProps } from './ui/Encounter.js';
+export { DebugEncounter, type DebugEncounterProps } from './ui/DebugEncounter.js';
+export { describeAction, describeEvent, type EventContext } from './ui/describe.js';
+export { Encounter, SPEEDS, type EncounterProps } from './ui/Encounter.js';
 export { GameSelect, type GameSelectProps } from './ui/GameSelect.js';
+export { Board, type BoardEffect, type BoardProps, type BoardRenderer, type BoardTarget } from './ui/play/Board.js';
+export { Playback, beats, unitsAfter, BEAT_MS, type Beat, type PlaybackState, type ShownUnit } from './ui/play/playback.js';
+export { offers, choicesFor, anchorCell, type Anchor, type Choice, type Offers, type Selection } from './ui/play/selection.js';
+export type { BoardView, CardsView, IntentView, Layout, PermanentView, UnitView, WorldView } from './ui/play/world.js';
+export { CSS } from './ui/styles.js';

@@ -303,6 +303,11 @@ export interface GameRules<W = unknown> {
   view?(world: W, viewer: SideId | null, state: GameState<W>): void;
   /** Redacts an event for a viewer, or returns null to withhold it. */
   redact?(event: GameEvent, viewer: SideId | null, state: GameState<W>): GameEvent | null;
+  /**
+   * Static, serializable facts clients need to draw the game, keyed by module
+   * (e.g. `board`: the board layout). Never part of state; safe to send to any viewer.
+   */
+  presentation?: Record<string, unknown>;
 }
 
 export interface GameSetup<W> {

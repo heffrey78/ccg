@@ -1,4 +1,4 @@
-import { BaseTopology, type Dir, type Pos } from './topology.js';
+import { BaseTopology, type Dir, type Pos, type TopologyLayout } from './topology.js';
 
 type Vec = readonly [number, number];
 
@@ -48,6 +48,18 @@ export class SquareTopology extends BaseTopology {
 
   positions(): readonly Pos[] {
     return this.#positions;
+  }
+
+  layout(): TopologyLayout {
+    return {
+      kind: this.kind,
+      cell: 'square',
+      cells: this.#positions.map((pos) => {
+        const [x, y] = coords(pos);
+        return { pos, x, y };
+      }),
+      directions: Object.fromEntries(this.directions().map((d) => [d, { x: (VECTORS[d] as Vec)[0], y: (VECTORS[d] as Vec)[1] }])),
+    };
   }
 
   contains(pos: Pos): boolean {
