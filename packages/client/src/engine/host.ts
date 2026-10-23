@@ -12,6 +12,9 @@ import {
   legalActions,
   randomPolicy,
   redactEvents,
+  rulesetOf,
+  runRewards,
+  standardInput,
   viewState,
   type DeclaredIntent,
   type GameEvent,
@@ -52,6 +55,20 @@ interface Running {
   resolved: ResolvedGame<unknown>;
   topology?: string;
   ai: StatePolicy<unknown>;
+  /** Set when playing a run (#45): its encounters in order, with rewards between them. */
+  run?: RunState;
+}
+
+interface RunState {
+  /** Index of the current encounter. */
+  stage: number;
+  encounters: string[];
+  deck: string[];
+  hp: Record<string, number>;
+  seed: string | number;
+  carryHp: boolean;
+  status: 'playing' | 'reward' | 'won' | 'lost';
+  rewards?: string[];
 }
 
 function catalogOf(game: ResolvedGame<unknown>, topology: string | undefined): Catalog {
@@ -135,10 +152,65 @@ export function createEngineHost(options: HostOptions = {}): EngineHost {
       catalog: game.catalog,
       presentation: game.rules.presentation ?? {},
       intents: intentSummaries(game, declared),
+      ...(game.run && {
+        run: {
+          stage: game.run.stage + 1,
+          total: game.run.encounters.length,
+          status: game.run.status,
+          ...(game.run.rewards && { rewards: game.run.rewards }),
+        },
+      }),
     };
   };
 
+  /** After an action in a run: on a win, offer rewards (or finish); on a loss, end the run. */
+  const advanceRun = (game: Running): void => {
+    const run = game.run;
+    const outcome = game.session.state.outcome;
+    if (!run || run.status !== 'playing' || !outcome) return;
+    if (!outcome.winners.includes(game.side)) {
+      run.status = 'lost';
+      return;
+    }
+    if (run.carryHp) {
+      const units = Object.values((game.session.state.world as { board?: { units: Record<string, { def: string; side: string; hp: number }> } }).board?.units ?? {});
+      for (const u of units) if (u.side === game.side) run.hp[u.def] = u.hp;
+    }
+    if (run.stage + 1 >= run.encounters.length) {
+      run.status = 'won';
+      return;
+    }
+    run.status = 'reward';
+    run.rewards = runRewards(rulesetOf(game.resolved), standardInput(game.resolved), run.encounters[run.stage] as string, run.seed, run.stage);
+  };
+
+  /** Starts encounter `run.stage` of a run with the run's deck and carried HP. */
+  const startStage = (game: GameListing, run: RunState, seed: string | number): EngineReply => {
+    const setupOptions: SetupOptions = {
+      seed: `${String(run.seed)}:${run.stage}`,
+      encounter: run.encounters[run.stage] as string,
+      deck: run.deck,
+      ...(Object.keys(run.hp).length > 0 && { hp: run.hp }),
+    };
+    const built = build(game, setupOptions);
+    if ('error' in built) return built.error;
+    const started = Session.start(built.rules, built.setup, built.versions);
+    if (!started.ok) return { ok: false, error: started.error };
+    const side = built.setup.sides.find((s) => s.controller === 'human')?.id ?? (built.setup.sides[0]?.id as SideId);
+    running = { ...built.parts, session: started.session, side, options: setupOptions, ai: aiFor(game, seed), run: { ...run, status: 'playing' } };
+    const events = runAi(running);
+    advanceRun(running);
+    return { ok: true, type: 'snapshot', snapshot: snapshot(running, events) };
+  };
+
   const playable = () => registry.list().filter(isPlayable).map(listing);
+  const safely = <T,>(fn: () => T): T | null => {
+    try {
+      return fn();
+    } catch {
+      return null;
+    }
+  };
   const aiFor = (game: GameListing, seed: string | number) => options.ai?.(game) ?? randomPolicy(`ai:${String(seed)}`);
   const issuesText = (issues: { package?: string; file?: string; pointer: string; message: string }[]) =>
     issues.map((i) => `${i.package ? `${i.package} ` : ''}${i.file ?? ''}${i.pointer}: ${i.message}`).join('\n');
@@ -245,6 +317,20 @@ export function createEngineHost(options: HostOptions = {}): EngineHost {
         case 'start': {
           const pkg = registry.get(request.game);
           if (!pkg) return { ok: false, error: { code: 'unknown-game', message: `no game '${request.game}'` } };
+          // A content-only game with a run plays the run, unless one encounter is asked for.
+          if (!request.encounter && !request.scenario && !pkg.createRules) {
+            const resolved = registry.resolve(request.game);
+            const ruleset = resolved.ok ? safely(() => rulesetOf(resolved.game)) : null;
+            if (ruleset?.run && resolved.ok) {
+              const prefix = `${pkg.manifest.id}:`;
+              const q = (ref: string) => (ref.includes(':') ? ref : `${prefix}${ref}`);
+              return startStage(
+                listing(pkg),
+                { stage: 0, encounters: ruleset.run.encounters.map(q), deck: ruleset.player.deck.map(q), hp: {}, seed: request.seed, carryHp: ruleset.run.carryHp ?? true, status: 'playing' },
+                request.seed,
+              );
+            }
+          }
           const options: SetupOptions = {
             seed: request.seed,
             ...(request.encounter && { encounter: request.encounter }),
@@ -267,7 +353,19 @@ export function createEngineHost(options: HostOptions = {}): EngineHost {
           }
           const result = running.session.apply(request.action);
           if (!result.ok) return { ok: false, error: result.error };
-          return { ok: true, type: 'snapshot', snapshot: snapshot(running, [...result.events, ...runAi(running)]) };
+          const events = [...result.events, ...runAi(running)];
+          advanceRun(running);
+          return { ok: true, type: 'snapshot', snapshot: snapshot(running, events) };
+        }
+
+        case 'chooseReward': {
+          const run = running?.run;
+          if (!running || !run || run.status !== 'reward') return { ok: false, error: { code: 'illegal-action', message: 'no reward to choose' } };
+          if (request.card !== null && !run.rewards?.includes(request.card)) {
+            return { ok: false, error: { code: 'illegal-action', message: `'${request.card}' is not one of the rewards` } };
+          }
+          const { rewards: _offered, ...rest } = run;
+          return startStage(running.game, { ...rest, stage: run.stage + 1, deck: request.card === null ? run.deck : [...run.deck, request.card] }, run.seed);
         }
 
         case 'view':

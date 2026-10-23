@@ -38,7 +38,7 @@ export function PlaytestPane({ project, problems, engine, tryCard, onSaveScenari
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const pkg = project.manifest.id;
-  const [kind, id] = target.split(':') as ['encounter' | 'scenario', string];
+  const [kind, id] = target.split(':') as ['encounter' | 'scenario' | 'run', string];
 
   const attempt = async (work: () => Promise<Snapshot | null>, keepLog = true) => {
     setBusy(true);
@@ -66,6 +66,7 @@ export function PlaytestPane({ project, problems, engine, tryCard, onSaveScenari
       // Trying a card plays it in an encounter: the selected one, or the first.
       const encounter = kind === 'encounter' ? id : encounters[0]?.[1].id;
       if (hand) return engine.start(pkg, seedValue, { ...(encounter && { encounter: `${pkg}:${encounter}` }), hand });
+      if (kind === 'run') return engine.start(pkg, seedValue);
       return engine.start(pkg, seedValue, kind === 'scenario' ? { scenario: `${pkg}:${id}` } : { encounter: `${pkg}:${id}` });
     }, false);
 
@@ -99,12 +100,14 @@ export function PlaytestPane({ project, problems, engine, tryCard, onSaveScenari
     setTarget(`scenario:${scenarioId}`);
   };
 
+  const hasRun = itemsOfKind(project, 'ruleset').some(([, r]) => r.run);
   const options = useMemo(
     () => [
+      ...(hasRun ? [{ value: 'run:', label: 'Run: every encounter in order' }] : []),
       ...scenarios.map(([, s]) => ({ value: `scenario:${s.id}`, label: `Scenario: ${s.name}` })),
       ...encounters.map(([, e]) => ({ value: `encounter:${e.id}`, label: `Encounter: ${e.name}` })),
     ],
-    [scenarios, encounters],
+    [scenarios, encounters, hasRun],
   );
   const act = (action: Action) => void attempt(() => engine.act(action));
 
@@ -119,7 +122,7 @@ export function PlaytestPane({ project, problems, engine, tryCard, onSaveScenari
             </option>
           ))}
         </select>
-        {kind === 'encounter' && (
+        {kind !== 'scenario' && (
           <label>
             Seed <input aria-label="Seed" value={seed} size={8} onChange={(e) => setSeed(e.target.value)} />
           </label>
@@ -160,6 +163,7 @@ export function PlaytestPane({ project, problems, engine, tryCard, onSaveScenari
               onAct={act}
               onQuit={() => setSnapshot(null)}
               onDebug={() => setDebug(true)}
+              onChooseReward={(card) => void attempt(() => engine.chooseReward(card), false)}
             />
           )}
         </div>

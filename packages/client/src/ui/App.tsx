@@ -79,6 +79,10 @@ export function App({ engine, platform, seed, renderers }: AppProps) {
           onAct={(a: Action) => void run(() => engine.act(a))}
           onQuit={() => setSnapshot(null)}
           onDebug={() => setDebug(true)}
+          onChooseReward={(card) => {
+            setLog([]);
+            void run(() => engine.chooseReward(card));
+          }}
           {...(renderers && { renderers })}
         />
       ) : games ? (

@@ -99,6 +99,11 @@ export class EngineClient {
     });
   }
 
+  /** Between a run's encounters: take a reward card (or none) and start the next encounter. */
+  chooseReward(card: string | null): Promise<Snapshot> {
+    return this.snapshot({ type: 'chooseReward', card });
+  }
+
   act(action: Action): Promise<Snapshot> {
     return this.snapshot({ type: 'act', action });
   }

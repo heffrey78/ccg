@@ -111,6 +111,10 @@ export const CSS = `
 
 .ccg-outcome { position: fixed; inset: 0; display: grid; place-content: center; text-align: center; background: color-mix(in srgb, var(--bg) 80%, transparent); z-index: 10; }
 .ccg-outcome h2 { font-size: 2.4rem; margin: 0; }
+.ccg-rewards { display: flex; gap: 12px; justify-content: center; margin: 12px 0; flex-wrap: wrap; }
+.ccg-app .ccg-reward { padding: 0; border: none; background: none; }
+.ccg-app .ccg-reward:hover .ccg-card { transform: translateY(-4px); border-color: var(--target); }
+.ccg-run-progress { font-weight: 600; color: var(--accent); }
 
 @media (prefers-reduced-motion: reduce) {
   .ccg-app *, .ccg-app *::before { animation: none !important; transition: none !important; }

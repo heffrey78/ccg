@@ -173,6 +173,9 @@ function checkReferences(items: LoadedItem[], assets: Set<string>): ContentIssue
     }
     if (item.kind === 'ruleset') {
       (item.player as { deck: string[] }).deck.forEach((c, i) => expect('card', c, `/player/deck/${i}`));
+      const run = item.run as { encounters: string[]; rewards?: { pool: string[] } } | undefined;
+      run?.encounters.forEach((e, i) => expect('encounter', e, `/run/encounters/${i}`));
+      run?.rewards?.pool.forEach((c, i) => expect('card', c, `/run/rewards/pool/${i}`));
     }
     if (item.kind === 'encounter') {
       for (const [pos, tile] of Object.entries((item.tiles as Record<string, string> | undefined) ?? {})) {

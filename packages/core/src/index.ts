@@ -91,6 +91,7 @@ export { statusesModule, type DamageModifier, type StatusDef, type StatusHook } 
 export { buildDefinitions, type Definitions } from './content.js';
 export { isGamePackage, isPlayable, qualify, type AssetResolver, type GamePackage } from './packages/package.js';
 export {
+  runRewards,
   sidesOf,
   standardRules,
   standardSetup,
@@ -100,7 +101,7 @@ export {
   type StandardGameInput,
   type StandardWorld,
 } from './standard.js';
-export { PackageRegistry, type PackageIssue, type ResolveResult, type ResolvedGame } from './packages/registry.js';
+export { PackageRegistry, rulesetOf, standardInput, type PackageIssue, type ResolveResult, type ResolvedGame } from './packages/registry.js';
 export { parseVersion, satisfies } from './packages/semver.js';
 export {
   createIntentsState,
