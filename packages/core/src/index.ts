@@ -43,3 +43,16 @@ export {
   type CardsState,
   type CardsWorld,
 } from './cards/zones.js';
+export {
+  boardModule,
+  createBoardState,
+  unitAt,
+  type BoardConfig,
+  type BoardState,
+  type BoardWorld,
+  type MoveActionConfig,
+  type TileDef,
+  type UnitDef,
+  type UnitPlacement,
+  type UnitState,
+} from './board/units.js';
