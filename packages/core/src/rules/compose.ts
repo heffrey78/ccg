@@ -2,14 +2,31 @@
  * Builds a game's rules from engine modules (zones, board, statuses...) plus
  * the game's own phases and outcome. Each module owns a slice of the world and
  * contributes ops, steps, actions, listeners and state checks.
+ *
+ * Ops can carry content metadata (decision #12): `defineOp(meta, run)` keeps an
+ * op's runtime handler next to the description the validator, card-text
+ * renderer and editor read. `describeOps()` collects that metadata.
  */
+import { OpRegistry, type OpMeta } from '@ccg/content';
 import { ContentError } from '../kernel/params.js';
-import type { GameRules, PhaseContext, StackItem } from '../kernel/types.js';
+import type { GameRules, OpHandler, PhaseContext, StackItem } from '../kernel/types.js';
+
+/** An op with its content metadata. Ops without metadata are internal: content cannot use them. */
+export interface OpDefinition<W> {
+  meta: Omit<OpMeta, 'id'>;
+  run: OpHandler<W>;
+}
+
+export type ModuleOp<W> = OpHandler<W> | OpDefinition<W>;
+
+export function defineOp<W>(meta: Omit<OpMeta, 'id'>, run: OpHandler<W>): OpDefinition<W> {
+  return { meta, run };
+}
 
 export interface RulesModule<W> {
   /** Used in error messages when two modules clash. */
   name: string;
-  ops?: GameRules<W>['ops'];
+  ops?: Record<string, ModuleOp<W>>;
   steps?: GameRules<W>['steps'];
   actions?: NonNullable<GameRules<W>['actions']>;
   listeners?: GameRules<W>['listeners'];
@@ -17,7 +34,24 @@ export interface RulesModule<W> {
   onItemResolved?(ctx: PhaseContext<W>, item: StackItem): void;
 }
 
-export type BaseRules<W> = Omit<GameRules<W>, 'ops' | 'steps'> & Partial<Pick<GameRules<W>, 'ops' | 'steps'>>;
+export type BaseRules<W> = Omit<GameRules<W>, 'ops' | 'steps'> & {
+  ops?: Record<string, ModuleOp<W>>;
+  steps?: GameRules<W>['steps'];
+};
+
+const runOf = <W>(op: ModuleOp<W>): OpHandler<W> => (typeof op === 'function' ? op : op.run);
+
+function asModule<W>(base: BaseRules<W>): RulesModule<W> {
+  return {
+    name: 'game',
+    ...(base.ops && { ops: base.ops }),
+    ...(base.steps && { steps: base.steps }),
+    ...(base.actions && { actions: base.actions }),
+    ...(base.listeners && { listeners: base.listeners }),
+    ...(base.stateChecks && { stateChecks: base.stateChecks }),
+    ...(base.onItemResolved && { onItemResolved: base.onItemResolved }),
+  };
+}
 
 /**
  * Merges modules into one rule set. The base's own ops, steps and actions are
@@ -25,18 +59,7 @@ export type BaseRules<W> = Omit<GameRules<W>, 'ops' | 'steps'> & Partial<Pick<Ga
  * run in module order, then the base's.
  */
 export function composeRules<W>(base: BaseRules<W>, modules: RulesModule<W>[]): GameRules<W> {
-  const all: RulesModule<W>[] = [
-    ...modules,
-    {
-      name: 'game',
-      ...(base.ops && { ops: base.ops }),
-      ...(base.steps && { steps: base.steps }),
-      ...(base.actions && { actions: base.actions }),
-      ...(base.listeners && { listeners: base.listeners }),
-      ...(base.stateChecks && { stateChecks: base.stateChecks }),
-      ...(base.onItemResolved && { onItemResolved: base.onItemResolved }),
-    },
-  ];
+  const all: RulesModule<W>[] = [...modules, asModule(base)];
 
   const merge = <T>(field: 'ops' | 'steps' | 'actions'): Record<string, T> => {
     const out: Record<string, T> = {};
@@ -53,10 +76,11 @@ export function composeRules<W>(base: BaseRules<W>, modules: RulesModule<W>[]): 
 
   const listenerSources = all.flatMap((m) => (m.listeners ? [m.listeners] : []));
   const resolvedHooks = all.flatMap((m) => (m.onItemResolved ? [m.onItemResolved] : []));
+  const ops = merge<ModuleOp<W>>('ops');
 
   const rules: GameRules<W> = {
     round: base.round,
-    ops: merge('ops'),
+    ops: Object.fromEntries(Object.entries(ops).map(([id, op]) => [id, runOf(op)])),
     steps: merge('steps'),
     actions: merge('actions'),
     listeners: (state) => listenerSources.flatMap((source) => source(state)),
@@ -68,4 +92,14 @@ export function composeRules<W>(base: BaseRules<W>, modules: RulesModule<W>[]): 
   if (base.outcome) rules.outcome = base.outcome;
   if (base.limits) rules.limits = base.limits;
   return rules;
+}
+
+/** Metadata for every content-visible op in these modules, for validation and the editor. */
+export function describeOps<W>(modules: RulesModule<W>[], registry = new OpRegistry()): OpRegistry {
+  for (const m of modules) {
+    for (const [id, op] of Object.entries(m.ops ?? {})) {
+      if (typeof op !== 'function') registry.register({ id, ...op.meta });
+    }
+  }
+  return registry;
 }

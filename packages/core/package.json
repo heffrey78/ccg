@@ -14,9 +14,13 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json && node scripts/export-schemas.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.build.json --noEmit",
     "test": "vitest run"
+  },
+  "dependencies": {
+    "@ccg/content": "workspace:^",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "eslint": "^10.13.0"

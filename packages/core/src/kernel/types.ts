@@ -162,6 +162,8 @@ export interface EffectContext<W = unknown> {
   step(steps: Step | Step[]): StepOutcome;
   /** Sets a variable for this item's later effects (§3.1). */
   setVar(name: string, value: unknown): void;
+  /** Runs nested effects inline, in order, as part of this effect (e.g. an `if` op's branch). */
+  run(effects: Effect[]): void;
   newId(prefix: string): string;
 }
 

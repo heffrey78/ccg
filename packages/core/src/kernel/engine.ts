@@ -19,6 +19,7 @@ import type {
   ApplyResult,
   Cause,
   CheckContext,
+  Effect,
   EffectContext,
   EventInput,
   GameEvent,
@@ -301,25 +302,34 @@ class Resolver<W> {
 
   private runEffects(item: StackItem, via?: string): void {
     item.effects.forEach((effect, index) => {
-      this.withCause(via === undefined ? { item: item.id, effect: index } : { item: item.id, effect: index, via }, () => {
-        const handler = this.rules.ops[effect.op];
-        if (!handler) throw new ContentError(`unknown op '${effect.op}'`);
-        const { op: _op, ...params } = effect;
-        const resolved = resolveParams(params, item.vars);
-        const ctx: EffectContext<W> = {
-          state: this.state,
-          item,
-          rng: this.rng,
-          step: (steps) => this.step(steps),
-          setVar: (name, value) => {
-            item.vars[name] = value;
-          },
-          newId: (prefix) => this.newId(prefix),
-        };
-        handler(ctx, resolved);
-        this.runStateChecks();
-      });
+      this.withCause(via === undefined ? { item: item.id, effect: index } : { item: item.id, effect: index, via }, () =>
+        this.runEffect(item, effect),
+      );
     });
+  }
+
+  /** Runs one effect of an item: resolve its parameters, run its op, then state checks. */
+  private runEffect(item: StackItem, effect: Effect): void {
+    const handler = this.rules.ops[effect.op];
+    if (!handler) throw new ContentError(`unknown op '${effect.op}'`);
+    const { op: _op, ...params } = effect;
+    const resolved = resolveParams(params, item.vars);
+    const ctx: EffectContext<W> = {
+      state: this.state,
+      item,
+      rng: this.rng,
+      step: (steps) => this.step(steps),
+      setVar: (name, value) => {
+        item.vars[name] = value;
+      },
+      // Nested effects (e.g. an `if` op's branches) keep the outer effect's cause.
+      run: (effects) => {
+        for (const nested of effects) this.runEffect(item, nested);
+      },
+      newId: (prefix) => this.newId(prefix),
+    };
+    handler(ctx, resolved);
+    this.runStateChecks();
   }
 
   // ---- steps, modifiers and interrupts (§3, §6.1) ----

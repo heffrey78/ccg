@@ -22,6 +22,8 @@ export type WidgetHint =
   | 'card'
   | 'status'
   | 'effects'
+  | 'condition'
+  | 'side'
   | (string & {});
 
 export interface OpMeta {
@@ -60,25 +62,44 @@ export class OpRegistry {
   }
 }
 
-/** The schema for one effect of this op: `{ op, ...params }`, each parameter optionally a variable. */
-export function effectSchemaFor(meta: OpMeta): z.ZodObject {
+/**
+ * The schema for one effect of this op: `{ op, ...params }`, each parameter
+ * optionally a variable. Parameters with the `effects` widget hold nested
+ * effect lists and are validated against `nested`, the full effect schema.
+ */
+export function effectSchemaFor(meta: OpMeta, nested?: z.ZodType): z.ZodObject {
   const shape: Record<string, z.ZodType> = { op: z.literal(meta.id) };
   for (const [key, schema] of Object.entries(meta.params.shape)) {
-    shape[key] =
-      schema instanceof z.ZodOptional
-        ? z.union([schema.unwrap() as z.ZodType, varRef]).optional()
-        : z.union([schema as z.ZodType, varRef]);
+    const optional = schema instanceof z.ZodOptional;
+    if (nested && meta.widgets?.[key] === 'effects') {
+      const list = z.array(nested);
+      shape[key] = optional ? list.optional() : list;
+      continue;
+    }
+    const inner = (optional ? schema.unwrap() : schema) as z.ZodType;
+    const either = z.union([inner, varRef]);
+    shape[key] = optional ? either.optional() : either;
   }
   return z.object(shape).strict();
 }
 
-/** Renders an op's card text. Variable parameters show as "X"; missing ones as "?". */
+/**
+ * Renders an op's card text. `{name}` is replaced by the parameter's value and
+ * `{name:card|cards}` by the value plus the singular or plural word. Variable
+ * parameters show as "X" (plural); missing ones as "?".
+ */
 export function renderText(meta: OpMeta, params: Record<string, unknown>): string {
-  return meta.text.replace(/\{(\w+)\}/g, (_match, name: string) => {
+  return meta.text.replace(/\{(\w+)(?::([^|}]*)\|([^}]*))?\}/g, (_match, name: string, one?: string, many?: string) => {
     const value = params[name];
-    if (value === undefined) return '?';
-    if (typeof value === 'object' && value !== null && '$' in value) return 'X';
-    if (Array.isArray(value)) return value.join(', ');
-    return String(value);
+    const shown = format(value);
+    if (one === undefined) return shown;
+    return `${shown} ${value === 1 ? one : many}`;
   });
+}
+
+function format(value: unknown): string {
+  if (value === undefined) return '?';
+  if (typeof value === 'object' && value !== null && '$' in value) return 'X';
+  if (Array.isArray(value)) return value.map(format).join(', ');
+  return String(value);
 }

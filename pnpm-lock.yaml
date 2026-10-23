@@ -208,6 +208,13 @@ importers:
         version: 8.20.0
 
   packages/core:
+    dependencies:
+      '@ccg/content':
+        specifier: workspace:^
+        version: link:../content
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
     devDependencies:
       eslint:
         specifier: ^10.13.0

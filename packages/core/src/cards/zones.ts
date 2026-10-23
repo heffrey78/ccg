@@ -6,9 +6,11 @@
  * zone is the top of the pile. Card definitions are static content, passed to
  * the module rather than stored in state.
  */
+import type { Targeting } from '@ccg/content';
+import { z } from 'zod';
 import { ContentError } from '../kernel/params.js';
 import type { ActionDef, Effect, EffectContext, EventInput, GameState, SideId, Step } from '../kernel/types.js';
-import type { RulesModule } from '../rules/compose.js';
+import { defineOp, type RulesModule } from '../rules/compose.js';
 
 /** Zones every side has. Packages may add more by name. */
 export const ZONES = ['draw', 'hand', 'discard', 'exhaust', 'resolving'] as const;
@@ -35,10 +37,26 @@ export interface CardsWorld {
 
 export interface CardDef {
   cost?: Record<string, number>;
+  targeting?: Targeting;
   effects: Effect[];
   /** Goes to the exhaust zone instead of discard after it resolves. */
   exhausts?: boolean;
   upgrade?: { cost?: Record<string, number>; effects?: Effect[] };
+}
+
+/**
+ * Turns a card's targeting into legal choices and the variables its effects
+ * see. The board module supplies one (`boardTargeting`); without it only
+ * untargeted cards can be played.
+ */
+export interface TargetingResolver<W> {
+  /** Legal choices; `null` means the card needs no target. */
+  choices(state: GameState<W>, side: SideId, targeting: Targeting): (string | null)[];
+  bind(state: GameState<W>, side: SideId, targeting: Targeting, target: string | null): Record<string, unknown>;
+}
+
+export interface ZonesOptions<W> {
+  targeting?: TargetingResolver<W>;
 }
 
 export interface CardsSetupOptions {
@@ -112,55 +130,72 @@ const MOVE_EVENTS: Record<string, string> = {
 };
 
 const str = (v: unknown) => v as string;
+const side = z.string().min(1).optional();
+const card = z.string().min(1);
+const count = z.number().int().min(1);
 
-export function zonesModule<W extends CardsWorld>(defs: Record<string, CardDef>): RulesModule<W> {
+export function zonesModule<W extends CardsWorld>(defs: Record<string, CardDef>, options: ZonesOptions<W> = {}): RulesModule<W> {
   const sideOf = (ctx: EffectContext<W>, p: Record<string, unknown>): SideId => {
-    const side = (p.side as SideId | undefined) ?? ctx.item.controller;
-    if (side === null || side === undefined) throw new ContentError(`op '${ctx.item.kind}' needs a side`);
-    return side;
+    const s = (p.side as SideId | undefined) ?? ctx.item.controller;
+    if (s === null || s === undefined) throw new ContentError(`op on a '${ctx.item.kind}' item needs a side`);
+    return s;
   };
   const cardsOf = (state: GameState<W>) => state.world.cards;
-  const move = (card: string, toZone: string, extra: Record<string, unknown> = {}): Step => ({
+  const move = (cardId: string, toZone: string, extra: Record<string, unknown> = {}): Step => ({
     kind: 'moveCard',
-    card,
+    card: cardId,
     toZone,
     ...extra,
   });
+  const cardParam = (ctx: EffectContext<W>, p: Record<string, unknown>) => str(p.card ?? ctx.item.vars.target);
 
-  /** Moves the discard pile into the draw pile and shuffles it (empty discard: no-op). */
-  const reshuffle = (ctx: EffectContext<W>, side: SideId) => {
-    const discard = zone(cardsOf(ctx.state), side, 'discard').slice();
-    if (discard.length === 0) return;
-    ctx.step(discard.map((card) => move(card, 'draw', { position: 'bottom', reason: 'reshuffle' })));
-    shuffle(ctx, side, 'draw');
+  const shuffle = (ctx: EffectContext<W>, s: SideId, name: string) => {
+    ctx.step({ kind: 'orderZone', side: s, zone: name, order: ctx.rng.shuffle(zone(cardsOf(ctx.state), s, name)) });
   };
 
-  const shuffle = (ctx: EffectContext<W>, side: SideId, name: string) => {
-    ctx.step({ kind: 'orderZone', side, zone: name, order: ctx.rng.shuffle(zone(cardsOf(ctx.state), side, name)) });
+  /** Moves the discard pile into the draw pile and shuffles it (empty discard: no-op). */
+  const reshuffle = (ctx: EffectContext<W>, s: SideId) => {
+    const discard = zone(cardsOf(ctx.state), s, 'discard').slice();
+    if (discard.length === 0) return;
+    ctx.step(discard.map((c) => move(c, 'draw', { position: 'bottom', reason: 'reshuffle' })));
+    shuffle(ctx, s, 'draw');
+  };
+
+  const choices = (state: GameState<W>, s: SideId, def: CardDef): (string | null)[] => {
+    const targeting = def.targeting ?? { kind: 'none' };
+    if (options.targeting) return options.targeting.choices(state, s, targeting);
+    return targeting.kind === 'none' ? [null] : [];
   };
 
   const playCard: ActionDef<W> = {
-    list(state, side) {
+    list(state, s) {
       const cards = cardsOf(state);
-      return zone(cards, side, 'hand')
-        .filter((id) => canAfford(cards, side, effectiveDef(defs, cards.instances[id] as CardInstance).cost))
-        .map((card) => ({ type: 'playCard', side, card }));
+      return zone(cards, s, 'hand').flatMap((id) => {
+        const def = effectiveDef(defs, cards.instances[id] as CardInstance);
+        if (!canAfford(cards, s, def.cost)) return [];
+        return choices(state, s, def).map((target) =>
+          target === null ? { type: 'playCard', side: s, card: id } : { type: 'playCard', side: s, card: id, target },
+        );
+      });
     },
     perform(ctx, action) {
       const cards = cardsOf(ctx.state);
-      const card = cards.instances[str(action.card)] as CardInstance;
-      const def = effectiveDef(defs, card);
+      const instance = cards.instances[str(action.card)] as CardInstance;
+      const def = effectiveDef(defs, instance);
+      const targeting = def.targeting ?? { kind: 'none' };
+      // Bind targets before paying costs, so variables describe the board as the card was played.
+      const bound = options.targeting?.bind(ctx.state, action.side, targeting, (action.target as string | undefined) ?? null) ?? {};
       const costs = Object.entries(def.cost ?? {}).filter(([, amount]) => amount > 0);
       if (costs.length > 0) {
         ctx.step(costs.map(([resource, amount]) => ({ kind: 'resource', side: action.side, resource, delta: -amount, reason: 'cost' })));
       }
-      ctx.step(move(card.id, 'resolving', { reason: 'play' }));
+      ctx.step(move(instance.id, 'resolving', { reason: 'play' }));
       ctx.announce({
         kind: 'card',
         controller: action.side,
-        source: card.id,
+        source: instance.id,
         effects: def.effects,
-        vars: { card: card.id, handAtPlay: zone(cardsOf(ctx.state), action.side, 'hand').length },
+        vars: { ...bound, card: instance.id, handAtPlay: zone(cardsOf(ctx.state), action.side, 'hand').length },
       });
     },
   };
@@ -172,21 +207,21 @@ export function zonesModule<W extends CardsWorld>(defs: Record<string, CardDef>)
     steps: {
       moveCard(state, s) {
         const cards = cardsOf(state);
-        const card = str(s.card);
-        const from = locateCard(cards, card);
-        if (!from) throw new ContentError(`card '${card}' is not in any zone`);
+        const cardId = str(s.card);
+        const from = locateCard(cards, cardId);
+        if (!from) throw new ContentError(`card '${cardId}' is not in any zone`);
         const toSide = (s.toSide as SideId | undefined) ?? from.side;
         const toZone = str(s.toZone);
         const target = zone(cards, toSide, toZone);
         zone(cards, from.side, from.zone).splice(from.index, 1);
-        if (s.position === 'bottom') target.push(card);
-        else target.unshift(card);
+        if (s.position === 'bottom') target.push(cardId);
+        else target.unshift(cardId);
         const type = MOVE_EVENTS[str(s.reason)] ?? 'CardMoved';
-        const instance = cards.instances[card] as CardInstance;
+        const instance = cards.instances[cardId] as CardInstance;
         return [
           {
             type,
-            card,
+            card: cardId,
             def: instance.def,
             from: { side: from.side, zone: from.zone },
             to: { side: toSide, zone: toZone },
@@ -211,47 +246,142 @@ export function zonesModule<W extends CardsWorld>(defs: Record<string, CardDef>)
         if (after === before) return [];
         return [{ type: 'ResourceChanged', side: s.side, resource: s.resource, delta: after - before, value: after, reason: s.reason ?? null }];
       },
+      upgradeCard(state, s) {
+        const instance = cardsOf(state).instances[str(s.card)];
+        if (!instance || instance.upgraded) return [];
+        instance.upgraded = true;
+        return [{ type: 'CardUpgraded', card: instance.id, def: instance.def }];
+      },
     },
 
     ops: {
-      draw(ctx, p) {
-        const side = sideOf(ctx, p);
-        for (let i = 0; i < ((p.n as number | undefined) ?? 1); i++) {
-          if (zone(cardsOf(ctx.state), side, 'draw').length === 0) reshuffle(ctx, side);
-          const top = zone(cardsOf(ctx.state), side, 'draw')[0];
-          if (top === undefined) return;
-          ctx.step(move(top, 'hand', { reason: 'draw' }));
-        }
-      },
-      shuffle(ctx, p) {
-        shuffle(ctx, sideOf(ctx, p), (p.zone as string | undefined) ?? 'draw');
-      },
-      discard(ctx, p) {
-        ctx.step(move(str(p.card), 'discard', { reason: 'discard' }));
-      },
-      discardHand(ctx, p) {
-        const hand = zone(cardsOf(ctx.state), sideOf(ctx, p), 'hand').slice();
-        if (hand.length > 0) ctx.step(hand.map((card) => move(card, 'discard', { reason: 'discard' })));
-        ctx.setVar('discarded', { count: hand.length });
-      },
-      exhaust(ctx, p) {
-        ctx.step(move(str(p.card), 'exhaust', { reason: 'exhaust' }));
-      },
-      moveCard(ctx, p) {
-        ctx.step(move(str(p.card), str(p.zone), { position: p.position ?? 'top', ...(p.side !== undefined && { toSide: p.side }) }));
-      },
-      search(ctx, p) {
-        const side = sideOf(ctx, p);
-        const cards = cardsOf(ctx.state);
-        const found = zone(cards, side, str(p.from ?? 'draw'))
-          .filter((id) => cards.instances[id]?.def === p.def)
-          .slice(0, (p.n as number | undefined) ?? 1);
-        if (found.length > 0) ctx.step(found.map((card) => move(card, str(p.to ?? 'hand'))));
-        ctx.setVar('found', { count: found.length });
-      },
-      gainResource(ctx, p) {
-        ctx.step({ kind: 'resource', side: sideOf(ctx, p), resource: p.resource, delta: p.amount, reason: 'effect' });
-      },
+      draw: defineOp(
+        {
+          displayName: 'Draw',
+          description: 'Draw cards from the top of the draw pile, reshuffling the discard pile if it runs out.',
+          params: z.object({ n: count, side }),
+          text: 'Draw {n:card|cards}.',
+          widgets: { n: 'number', side: 'side' },
+          category: 'cards',
+        },
+        (ctx, p) => {
+          const s = sideOf(ctx, p);
+          for (let i = 0; i < (p.n as number); i++) {
+            if (zone(cardsOf(ctx.state), s, 'draw').length === 0) reshuffle(ctx, s);
+            const top = zone(cardsOf(ctx.state), s, 'draw')[0];
+            if (top === undefined) return;
+            ctx.step(move(top, 'hand', { reason: 'draw' }));
+          }
+        },
+      ),
+      shuffle: defineOp(
+        {
+          displayName: 'Shuffle',
+          description: 'Shuffle a zone.',
+          params: z.object({ zone: z.string().min(1), side }),
+          text: 'Shuffle your {zone}.',
+          category: 'cards',
+        },
+        (ctx, p) => shuffle(ctx, sideOf(ctx, p), str(p.zone)),
+      ),
+      discard: defineOp(
+        {
+          displayName: 'Discard',
+          description: 'Discard a card (the target card if none is given).',
+          params: z.object({ card: card.optional() }),
+          text: 'Discard a card.',
+          widgets: { card: 'card' },
+          category: 'cards',
+        },
+        (ctx, p) => ctx.step(move(cardParam(ctx, p), 'discard', { reason: 'discard' })),
+      ),
+      discardHand: defineOp(
+        {
+          displayName: 'Discard hand',
+          description: 'Discard every card in hand. Sets `discarded.count`.',
+          params: z.object({ side }),
+          text: 'Discard your hand.',
+          category: 'cards',
+        },
+        (ctx, p) => {
+          const hand = zone(cardsOf(ctx.state), sideOf(ctx, p), 'hand').slice();
+          if (hand.length > 0) ctx.step(hand.map((c) => move(c, 'discard', { reason: 'discard' })));
+          ctx.setVar('discarded', { count: hand.length });
+        },
+      ),
+      exhaust: defineOp(
+        {
+          displayName: 'Exhaust',
+          description: 'Remove a card to the exhaust zone (the target card if none is given).',
+          params: z.object({ card: card.optional() }),
+          text: 'Exhaust a card.',
+          widgets: { card: 'card' },
+          category: 'cards',
+        },
+        (ctx, p) => ctx.step(move(cardParam(ctx, p), 'exhaust', { reason: 'exhaust' })),
+      ),
+      moveCard: defineOp(
+        {
+          displayName: 'Move card',
+          description: 'Put a card on the top or bottom of a zone.',
+          params: z.object({ card: card.optional(), zone: z.string().min(1), position: z.enum(['top', 'bottom']).optional(), side }),
+          text: 'Put a card into your {zone}.',
+          widgets: { card: 'card', position: 'enum' },
+          category: 'cards',
+        },
+        (ctx, p) =>
+          ctx.step(move(cardParam(ctx, p), str(p.zone), { position: p.position ?? 'top', ...(p.side !== undefined && { toSide: p.side }) })),
+      ),
+      search: defineOp(
+        {
+          displayName: 'Search',
+          description: 'Move the first matching cards from one zone to another. Sets `found.count`.',
+          params: z.object({ def: z.string().min(1), from: z.string().min(1).optional(), to: z.string().min(1).optional(), n: count.optional(), side }),
+          text: 'Search for {def}.',
+          widgets: { def: 'card' },
+          category: 'cards',
+        },
+        (ctx, p) => {
+          const s = sideOf(ctx, p);
+          const cards = cardsOf(ctx.state);
+          const found = zone(cards, s, str(p.from ?? 'draw'))
+            .filter((id) => cards.instances[id]?.def === p.def)
+            .slice(0, (p.n as number | undefined) ?? 1);
+          if (found.length > 0) ctx.step(found.map((c) => move(c, str(p.to ?? 'hand'))));
+          ctx.setVar('found', { count: found.length });
+        },
+      ),
+      upgradeCard: defineOp(
+        {
+          displayName: 'Upgrade card',
+          description: 'Upgrade a card for the rest of the game (the played card if none is given).',
+          params: z.object({ card: card.optional() }),
+          text: 'Upgrade a card.',
+          widgets: { card: 'card' },
+          category: 'cards',
+        },
+        (ctx, p) => ctx.step({ kind: 'upgradeCard', card: p.card ?? ctx.item.vars.card }),
+      ),
+      gainResource: defineOp(
+        {
+          displayName: 'Gain resource',
+          description: 'Gain an amount of a resource such as energy.',
+          params: z.object({ resource: z.string().min(1), amount: z.number().int(), side }),
+          text: 'Gain {amount} {resource}.',
+          category: 'cards',
+        },
+        (ctx, p) => ctx.step({ kind: 'resource', side: sideOf(ctx, p), resource: p.resource, delta: p.amount, reason: 'effect' }),
+      ),
+      countCards: defineOp(
+        {
+          displayName: 'Count cards',
+          description: 'Store the number of cards in a zone in a variable.',
+          params: z.object({ zone: z.string().min(1), as: z.string().min(1), side }),
+          text: '',
+          category: 'variables',
+        },
+        (ctx, p) => ctx.setVar(str(p.as), zone(cardsOf(ctx.state), sideOf(ctx, p), str(p.zone)).length),
+      ),
     },
 
     onItemResolved(ctx, item) {
