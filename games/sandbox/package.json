@@ -1,0 +1,36 @@
+{
+  "name": "@ccg/game-sandbox",
+  "version": "0.1.0",
+  "description": "A tiny sample game package for the ccg engine: a lane duel built only on the public API.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "@ccg/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.build.json --noEmit",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "@ccg/core": "workspace:^",
+    "@ccg/sdk": "workspace:^",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@ccg/content": "workspace:*",
+    "@ccg/core": "workspace:*",
+    "@ccg/sdk": "workspace:*",
+    "eslint": "^10.13.0",
+    "zod": "^4.6.7"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

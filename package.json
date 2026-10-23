@@ -12,7 +12,8 @@
     "test": "turbo run test",
     "lint": "eslint .",
     "changeset": "changeset",
-    "release": "turbo run build && changeset publish"
+    "release": "turbo run build && changeset publish",
+    "check:pack": "node scripts/check-pack.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "^3.0.3",
