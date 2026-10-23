@@ -1,7 +1,7 @@
 /**
  * The worked examples from docs/design/resolution-order.md, encoded against the
- * kernel with the test lane game. Examples that need modules not built yet are
- * listed as todos naming the task that will encode them.
+ * kernel with the test lane game. Examples that need the real modules are encoded
+ * next to those modules; comments below say where.
  */
 import { describe, expect, it } from 'vitest';
 import { apply, hashState, type Action, type GameEvent } from '../src/index.js';
@@ -63,7 +63,8 @@ describe('resolution-order worked examples', () => {
     expect(after.world.hand).toEqual(['Next']);
   });
 
-  it.todo('E3: a trap springs during a reaction, and the intent whiffs (#54, #57, #58)');
+  // E3 (a trap springs during a reaction, and the intent whiffs) is encoded with
+  // real traps and reactions in test/abilities.test.ts.
 
   it('E4: destroying an aura mid-resolution clamps HP', () => {
     const totem = unit('T', PLAYER, 1, 5, { aura: { bonus: 2, radius: 1 } });
@@ -248,7 +249,8 @@ describe('resolution-order worked examples', () => {
     expect(hashState(state)).toBe(before);
   });
 
-  it.todo('E13: a hidden trap in fair-AI and cheating-AI views — the path choice is in test/hidden-content.test.ts; the trap springing is #58');
+  // E13 (a hidden trap in fair-AI and cheating-AI views) is encoded in
+  // test/hidden-content.test.ts (path choice) and test/abilities.test.ts (the trap springs).
 
   it('E14: a game with no response windows never pauses', () => {
     const state = startLane(

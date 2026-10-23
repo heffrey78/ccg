@@ -659,6 +659,34 @@ export function boardModule<W extends BoardWorld>(config: BoardConfig): RulesMod
           ctx.setVar(str(p.as), n);
         },
       ),
+      selectUnits: defineOp(
+        {
+          displayName: 'Select units',
+          description: 'Store the units within a range of a unit (default the acting one), filtered by side, in a variable — e.g. for area attacks.',
+          params: z.object({
+            as: z.string().min(1),
+            near: unitRef.optional(),
+            range: z.number().int().min(0),
+            relation: z.enum(['enemy', 'ally', 'any']).optional(),
+          }),
+          text: '',
+          category: 'variables',
+        },
+        (ctx, p) => {
+          const center = boardOf(ctx.state).units[str(p.near ?? ctx.item.vars.self)];
+          if (!center) {
+            ctx.setVar(str(p.as), []);
+            return;
+          }
+          const relation = p.relation ?? 'enemy';
+          const picked = Object.values(boardOf(ctx.state).units)
+            .filter((u) => u.id !== center.id && topo.distance(center.pos, u.pos) <= num(p.range))
+            .filter((u) => relation === 'any' || (relation === 'ally') === (u.side === center.side))
+            .sort((a, b) => topo.compare(a.pos, b.pos))
+            .map((u) => u.id);
+          ctx.setVar(str(p.as), picked);
+        },
+      ),
       measureDistance: defineOp(
         {
           displayName: 'Measure distance',
