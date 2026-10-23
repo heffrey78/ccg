@@ -223,6 +223,45 @@ describe('engine host', () => {
       expect((await engine.start('live', 4, { encounter: 'live:two' })).run).toBeUndefined();
     });
 
+    it('debugs: inspects any step, then rewinds five actions and branches', async () => {
+      const engine = new EngineClient(localTransport(createEngineHost({ debug: true })));
+      await engine.loadFiles(files(5));
+      await engine.start('live', 1);
+      for (let i = 0; i < 3; i++) await zap(engine);
+      await engine.act({ type: 'endTurn', side: 'player' });
+      for (let i = 0; i < 2; i++) await zap(engine);
+
+      const now = await engine.debug();
+      expect(now.at).toBe(6);
+      expect(now.actions.map((a) => a.action.type)).toEqual(['playCard', 'playCard', 'playCard', 'endTurn', 'playCard', 'playCard']);
+      expect(now.actions[0]?.events.some((e) => e.type === 'DamageDealt' && e.amount === 5)).toBe(true);
+      expect((now.state.world as World).board.units.enemy1?.hp).toBe(15);
+
+      const early = await engine.debug(1);
+      expect((early.state.world as World).board.units.enemy1?.hp).toBe(35);
+      expect((early.previous?.world as World).board.units.enemy1?.hp).toBe(40);
+      // Each side's view: the enemy can't see the player's hand.
+      const enemyView = early.views.enemy?.world as World;
+      expect(enemyView.cards.zones.player?.hand?.every((id) => !enemyView.cards.instances[id])).toBe(true);
+      expect(Object.keys(early.views).sort()).toEqual(['enemy', 'player']);
+
+      // Rewind five actions and choose differently: end the turn instead.
+      const branched = await engine.branch(1);
+      expect(dummyHp(branched)).toBe(35);
+      expect(branched.notice).toMatch(/Rewound to step 1/);
+      await engine.act({ type: 'endTurn', side: 'player' });
+      expect((await engine.debug()).actions.map((a) => a.action.type)).toEqual(['playCard', 'endTurn']);
+      await expect(engine.debug(9)).rejects.toMatchObject({ code: 'illegal-action' });
+    });
+
+    it('a player-facing engine refuses to debug', async () => {
+      const engine = client();
+      await engine.loadFiles(files(5));
+      await engine.start('live', 1);
+      await expect(engine.debug()).rejects.toMatchObject({ code: 'illegal-action' });
+      await expect(engine.branch(0)).rejects.toMatchObject({ code: 'illegal-action' });
+    });
+
     it('starts a saved scenario', async () => {
       const engine = client();
       const scenario = json({ formatVersion: 1, kind: 'scenario', id: 'opening', name: 'Opening', encounter: 'one', seed: 'x', hand: ['zap'], deck: [] });

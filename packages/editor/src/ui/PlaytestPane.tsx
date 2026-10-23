@@ -5,11 +5,12 @@
  * any setup can be saved as a scenario.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { Action, GameEvent } from '@ccg/core';
+import type { Action, GameEvent, GameState } from '@ccg/core';
 import type { ContentItem } from '@ccg/content';
 import { DebugEncounter, Encounter } from '@ccg/client';
 import type { EngineClient, Snapshot } from '@ccg/client/engine';
 import { itemsOfKind, projectFiles, type Project } from '../project.js';
+import { DebugPanel } from './DebugPanel.js';
 import { slug } from './ProjectPicker.js';
 
 export interface PlaytestPaneProps {
@@ -33,6 +34,9 @@ export function PlaytestPane({ project, problems, engine, tryCard, onSaveScenari
   const [auto, setAuto] = useState(true);
   const [speed, setSpeed] = useState(1);
   const [debug, setDebug] = useState(false);
+  const [debugger_, setDebugger] = useState(false);
+  // How the running game was set up, to save it as a scenario (a run or a tried card can't be).
+  const [setupOf, setSetupOf] = useState<{ encounter: string; seed: string | number; hand?: string[]; deck?: string[] } | null>(null);
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [log, setLog] = useState<GameEvent[]>([]);
   const [busy, setBusy] = useState(false);
@@ -65,9 +69,16 @@ export function PlaytestPane({ project, problems, engine, tryCard, onSaveScenari
       await engine.loadFiles(projectFiles(project));
       // Trying a card plays it in an encounter: the selected one, or the first.
       const encounter = kind === 'encounter' ? id : encounters[0]?.[1].id;
+      if (hand || kind === 'run') setSetupOf(null);
       if (hand) return engine.start(pkg, seedValue, { ...(encounter && { encounter: `${pkg}:${encounter}` }), hand });
       if (kind === 'run') return engine.start(pkg, seedValue);
-      return engine.start(pkg, seedValue, kind === 'scenario' ? { scenario: `${pkg}:${id}` } : { encounter: `${pkg}:${id}` });
+      if (kind === 'scenario') {
+        const s = project.items[`scenario:${id}`] as unknown as { encounter: string; seed: string | number; hand?: string[]; deck?: string[] } | undefined;
+        setSetupOf(s ? { encounter: s.encounter, seed: s.seed, ...(s.hand && { hand: s.hand }), ...(s.deck && { deck: s.deck }) } : null);
+        return engine.start(pkg, seedValue, { scenario: `${pkg}:${id}` });
+      }
+      setSetupOf({ encounter: id, seed: seedValue });
+      return engine.start(pkg, seedValue, { encounter: `${pkg}:${id}` });
     }, false);
 
   useEffect(() => {
@@ -135,6 +146,11 @@ export function PlaytestPane({ project, problems, engine, tryCard, onSaveScenari
             Save as scenario
           </button>
         )}
+        {snapshot && (
+          <button type="button" aria-pressed={debugger_} onClick={() => setDebugger((d) => !d)}>
+            Debugger
+          </button>
+        )}
         <span className="ccg-spacer" />
         <label>
           <input type="checkbox" checked={auto} onChange={(e) => setAuto(e.target.checked)} /> Apply edits live
@@ -170,6 +186,55 @@ export function PlaytestPane({ project, problems, engine, tryCard, onSaveScenari
       ) : (
         <p className="ccg-muted">Start an encounter to play the project as it is now. Edits apply while you play.</p>
       )}
+      {snapshot && debugger_ && (
+        <DebugPanel
+          engine={engine}
+          snapshot={snapshot}
+          names={snapshot.catalog.names}
+          onSnapshot={(next) => {
+            setSnapshot(next);
+            setLog([]);
+            setMessage(next.notice ?? null);
+          }}
+          {...(setupOf && { onSaveTest: (actions: Action[], state: GameState<unknown>) => onSaveScenario(testScenario(project, setupOf, actions, state)) })}
+        />
+      )}
     </section>
   );
+}
+
+/**
+ * A scenario test from a playtest: its setup, the actions so far, and
+ * expectations for what is true now: the outcome, and each unit's HP where
+ * its definition appears once on its side.
+ */
+export function testScenario(
+  project: Project,
+  setup: { encounter: string; seed: string | number; hand?: string[]; deck?: string[] },
+  actions: Action[],
+  state: GameState<unknown>,
+): ContentItem {
+  const pkg = `${project.manifest.id}:`;
+  const local = (ref: string) => (ref.startsWith(pkg) ? ref.slice(pkg.length) : ref);
+  const units = Object.values((state.world as { board?: { units: Record<string, { def: string; side: string; hp: number }> } }).board?.units ?? {});
+  const expect: object[] = [{ kind: 'outcome', winner: state.outcome ? (state.outcome.winners.includes(state.sides[0]?.id ?? '') ? 'player' : 'enemy') : 'none' }];
+  for (const u of units) {
+    if (units.filter((o) => o.def === u.def && o.side === u.side).length > 1) continue;
+    expect.push({ kind: 'unit', unit: local(u.def), side: u.side, hp: { min: u.hp, max: u.hp } });
+  }
+  const base = slug(`${local(setup.encounter)}-test`) || 'test';
+  let id = base;
+  for (let n = 2; project.items[`scenario:${id}`]; n++) id = `${base}-${n}`;
+  return {
+    formatVersion: 1,
+    kind: 'scenario',
+    id,
+    name: `${project.items[`encounter:${local(setup.encounter)}`]?.name ?? setup.encounter}: ${actions.length} actions`,
+    encounter: local(setup.encounter),
+    seed: setup.seed,
+    ...(setup.hand && { hand: setup.hand }),
+    ...(setup.deck && { deck: setup.deck }),
+    actions,
+    expect,
+  } as ContentItem;
 }

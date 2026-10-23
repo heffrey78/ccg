@@ -156,5 +156,18 @@ export const CSS = `
 .ccg-paint-unit.is-enemy { fill: var(--danger); }
 .ccg-paint-label { font-size: 9px; font-weight: 700; fill: #fff; pointer-events: none; }
 .ccg-paint-facing { fill: var(--ink); opacity: .7; pointer-events: none; }
+.ccg-debugger { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; display: flex; flex-direction: column; gap: 8px; }
+.ccg-debugger h3 { margin: 8px 0 4px; font-size: .95rem; }
+.ccg-debugger-main { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 12px; }
+@media (max-width: 900px) { .ccg-debugger-main { grid-template-columns: 1fr; } }
+.ccg-timeline { margin: 0; padding-left: 28px; max-height: 260px; overflow: auto; font-size: .85rem; }
+.ccg-editor .ccg-timeline button { border: none; background: none; padding: 1px 4px; text-align: left; }
+.ccg-timeline .is-current { background: var(--select); border-radius: 4px; font-weight: 700; }
+.ccg-events { margin: 4px 0; padding-left: 24px; max-height: 200px; overflow: auto; font-size: .8rem; }
+.ccg-state { max-height: 420px; overflow: auto; font-family: ui-monospace, monospace; font-size: .8rem; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
+.ccg-tree-children { padding-left: 14px; }
+.ccg-tree-node > summary { cursor: pointer; }
+.ccg-tree-node.has-changes > summary { color: var(--warn); }
+.ccg-tree-leaf.is-changed { background: var(--hl); outline: 1px solid var(--warn); border-radius: 3px; }
 .ccg-raw summary { cursor: pointer; color: var(--muted); margin: 8px 0; }
 `;

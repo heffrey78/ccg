@@ -4,7 +4,7 @@
  * while AI thinks) or `localTransport` to run the host in-process.
  */
 import type { EngineHost } from './host.js';
-import type { EngineReply, EngineRequest, GameListing, Snapshot } from './protocol.js';
+import type { DebugInfo, EngineReply, EngineRequest, GameListing, Snapshot } from './protocol.js';
 import type { Action } from '@ccg/core';
 
 export interface EngineTransport {
@@ -102,6 +102,19 @@ export class EngineClient {
   /** Between a run's encounters: take a reward card (or none) and start the next encounter. */
   chooseReward(card: string | null): Promise<Snapshot> {
     return this.snapshot({ type: 'chooseReward', card });
+  }
+
+  /** Debug hosts only: the authoritative state after `at` actions (default: now). */
+  async debug(at?: number): Promise<DebugInfo> {
+    const reply = await this.transport.request({ type: 'debug', ...(at !== undefined && { at }) });
+    if (!reply.ok) throw new EngineError(reply.error.code, reply.error.message);
+    if (reply.type !== 'debug') throw new EngineError('protocol', 'expected debug info');
+    return reply.debug;
+  }
+
+  /** Debug hosts only: rewind to after `at` actions and play on from there. */
+  branch(at: number): Promise<Snapshot> {
+    return this.snapshot({ type: 'branch', at });
   }
 
   act(action: Action): Promise<Snapshot> {

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { ContentItem } from '@ccg/content';
 import { behaviorSummary, blankProject, createItem, editorOps, moveEncounters, previewIntents, testProject, updateItem, validateProject } from '../src/index.js';
+import { changedPointers } from '../src/ui/DebugPanel.js';
+import { testScenario } from '../src/ui/PlaytestPane.js';
 
 const ops = editorOps();
 const hit = (name: string, damage: number, range = 1) => ({
@@ -86,5 +88,29 @@ describe('scenario tests in the editor', () => {
       ['t:calm', true, []],
       ['t:won', false, ['expected the player to win, but it goes on']],
     ]);
+  });
+});
+
+describe('debugger helpers', () => {
+  it('finds what changed between two states, with the parents of each change', () => {
+    const before = { turn: { round: 1, phase: 'a' }, world: { units: { a: { hp: 5 }, b: { hp: 3 } } }, log: [1] };
+    const after = { turn: { round: 2, phase: 'a' }, world: { units: { a: { hp: 5 }, b: { hp: 1 } } }, log: [1, 2] };
+    expect([...changedPointers(before, after)].sort()).toEqual(['', '/log', '/log/1', '/turn', '/turn/round', '/world', '/world/units', '/world/units/b', '/world/units/b/hp']);
+    expect(changedPointers(before, structuredClone(before)).size).toBe(0);
+  });
+
+  it('a test saved from a playtest replays to the same result', async () => {
+    let project = blankProject({ id: 'dbg', name: 'Dbg', board: 'lane' });
+    const state = { outcome: null, sides: [{ id: 'player' }, { id: 'enemy' }], world: { board: { units: { a: { def: 'dbg:hero', side: 'player', hp: 30 }, b: { def: 'dbg:foe', side: 'enemy', hp: 20 } } } } };
+    const item = testScenario(project, { encounter: 'dbg:first-fight', seed: 3 }, [{ type: 'endTurn', side: 'player' }], state as never);
+    expect(item).toMatchObject({ kind: 'scenario', id: 'first-fight-test', encounter: 'first-fight', seed: 3, actions: [{ type: 'endTurn', side: 'player' }] });
+    expect((item as unknown as { expect: object[] }).expect).toEqual([
+      { kind: 'outcome', winner: 'none' },
+      { kind: 'unit', unit: 'hero', side: 'player', hp: { min: 30, max: 30 } },
+      { kind: 'unit', unit: 'foe', side: 'enemy', hp: { min: 20, max: 20 } },
+    ]);
+    project = createItem(item)(project);
+    // After one end turn the foe has advanced but not reached the hero, so nothing is hurt.
+    expect((await testProject(project)).map((r) => [r.id, r.passed, r.failures])).toEqual([['dbg:first-fight-test', true, []]]);
   });
 });
