@@ -120,5 +120,13 @@ export const CSS = `
 .ccg-playtest { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; box-shadow: var(--shadow); }
 .ccg-playtest h2 { margin: 0; font-size: 1.1rem; }
 .ccg-playtest .ccg-app { min-height: 0; margin-top: 8px; padding: 8px; border-radius: 8px; }
+.ccg-item-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; align-items: start; }
+@media (max-width: 900px) { .ccg-item-form { grid-template-columns: 1fr; } }
+.ccg-item-sections { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.ccg-section { border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px 10px; margin: 0; min-width: 0; }
+.ccg-section legend { font-weight: 700; padding: 0 4px; }
+.ccg-preview { position: sticky; top: 8px; width: 220px; display: flex; flex-direction: column; gap: 6px; }
+.ccg-editor .ccg-app.ccg-preview-host { min-height: 0; background: transparent; padding: 0; }
+.ccg-status-chip { display: inline-flex; gap: 6px; align-items: center; border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; background: var(--panel); }
 .ccg-raw summary { cursor: pointer; color: var(--muted); margin: 8px 0; }
 `;

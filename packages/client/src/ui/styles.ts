@@ -97,6 +97,7 @@ export const CSS = `
 .ccg-app .ccg-card.is-playable:hover { transform: translateY(-4px); }
 .ccg-app .ccg-card.is-selected { border-color: var(--target); transform: translateY(-8px); box-shadow: 0 0 0 3px color-mix(in srgb, var(--target) 35%, transparent); }
 .ccg-app .ccg-card.is-reaction { border-color: color-mix(in srgb, var(--reaction) 60%, var(--line)); }
+.ccg-card.is-preview { position: relative; width: 180px; min-height: 220px; display: flex; flex-direction: column; gap: 6px; padding: 10px; border: 2px solid var(--line); border-radius: 12px; background: var(--panel); box-shadow: var(--shadow); }
 .ccg-card-top { display: flex; gap: 6px; align-items: center; }
 .ccg-card-cost { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: #fff; font-weight: 700; font-size: .85rem; }
 .ccg-card-name { font-weight: 700; }

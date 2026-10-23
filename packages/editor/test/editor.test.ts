@@ -113,6 +113,26 @@ describe('opening and saving', () => {
     expect(openProject({})).toEqual({ ok: false, message: 'missing game.json' });
   });
 
+  it('a card with an upgrade, a permanent and reaction timing round-trips through save and load', async () => {
+    let p = blankProject({ id: 'rt', name: 'Round trip', board: 'lane' });
+    const card = item('card', 'riposte', {
+      cost: { energy: 1 },
+      timing: 'reaction',
+      reaction: { kind: ['intent'], targetsYou: true },
+      targeting: { kind: 'none' },
+      effects: [{ op: 'counter' }],
+      upgrade: { name: 'Riposte+', cost: { energy: 0 }, effects: [{ op: 'counter' }, { op: 'draw', n: 1 }] },
+      permanent: { kind: 'aura', duration: 2, statics: [{ kind: 'maxHp', amount: 2, affects: 'allies' }] },
+    });
+    p = createItem(card)(p);
+    const store = memoryStore();
+    const saved = await saveProject(p, store, {});
+    const reopened = open(await readAll(store));
+    expect(reopened.items['card:riposte']).toEqual(card);
+    expect(projectFiles(reopened)).toEqual(saved);
+    expect(await validateProject(reopened)).toEqual([]);
+  });
+
   it('saves only what changed and removes deleted files', async () => {
     const files = readDir(FIXTURE);
     const store = memoryStore(files);

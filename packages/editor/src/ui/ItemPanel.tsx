@@ -71,7 +71,8 @@ export function ItemPanel({
   pointer,
   board,
   setBoard,
-}: PanelProps & { itemKey: string; pointer?: string | undefined; board: PreviewBoard; setBoard(board: PreviewBoard): void }) {
+  onTryCard,
+}: PanelProps & { itemKey: string; pointer?: string | undefined; board: PreviewBoard; setBoard(board: PreviewBoard): void; onTryCard?(card: string): void }) {
   const item = project.items[itemKey];
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -102,6 +103,11 @@ export function ItemPanel({
         <h2 id="item-heading">{item.name}</h2>
         <span className="ccg-kind">{KIND_SINGULAR[item.kind]}</span>
         <span className="ccg-spacer" />
+        {item.kind === 'card' && onTryCard && (
+          <button type="button" title="Start a playtest with this card in your opening hand" onClick={() => onTryCard(item.id)}>
+            Try it
+          </button>
+        )}
         <button
           type="button"
           onClick={() => {

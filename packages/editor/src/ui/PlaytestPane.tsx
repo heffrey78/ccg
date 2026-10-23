@@ -7,7 +7,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Action, GameEvent } from '@ccg/core';
 import type { ContentItem } from '@ccg/content';
-import { CSS as CLIENT_CSS, DebugEncounter, Encounter } from '@ccg/client';
+import { DebugEncounter, Encounter } from '@ccg/client';
 import type { EngineClient, Snapshot } from '@ccg/client/engine';
 import { itemsOfKind, projectFiles, type Project } from '../project.js';
 import { slug } from './ProjectPicker.js';
@@ -17,12 +17,14 @@ export interface PlaytestPaneProps {
   /** Problems in the project; with any, changes cannot be applied. */
   problems: number;
   engine: EngineClient;
+  /** Starts a game with this card first in the hand; `n` changes on every request. */
+  tryCard?: { card: string; n: number } | null;
   onSaveScenario(item: ContentItem): void;
 }
 
 type Mode = 'hot' | 'replay';
 
-export function PlaytestPane({ project, problems, engine, onSaveScenario }: PlaytestPaneProps) {
+export function PlaytestPane({ project, problems, engine, tryCard, onSaveScenario }: PlaytestPaneProps) {
   const encounters = itemsOfKind(project, 'encounter');
   const scenarios = itemsOfKind(project, 'scenario');
   const [target, setTarget] = useState(() => (scenarios[0] ? `scenario:${scenarios[0][1].id}` : `encounter:${encounters[0]?.[1].id ?? ''}`));
@@ -57,12 +59,20 @@ export function PlaytestPane({ project, problems, engine, onSaveScenario }: Play
   // The project the running game was built from or last updated to.
   const applied = useRef(project);
   const seedValue = /^-?\d+$/.test(seed.trim()) ? Number(seed) : seed.trim() || 1;
-  const start = () =>
+  const start = (hand?: string[]) =>
     attempt(async () => {
       applied.current = project;
       await engine.loadFiles(projectFiles(project));
+      // Trying a card plays it in an encounter: the selected one, or the first.
+      const encounter = kind === 'encounter' ? id : encounters[0]?.[1].id;
+      if (hand) return engine.start(pkg, seedValue, { ...(encounter && { encounter: `${pkg}:${encounter}` }), hand });
       return engine.start(pkg, seedValue, kind === 'scenario' ? { scenario: `${pkg}:${id}` } : { encounter: `${pkg}:${id}` });
     }, false);
+
+  useEffect(() => {
+    if (tryCard) void start([`${pkg}:${tryCard.card}`]);
+    // Only a new request starts a game.
+  }, [tryCard?.n]);
 
   // Apply edits to the running game shortly after they are made.
   useEffect(() => {
@@ -138,7 +148,6 @@ export function PlaytestPane({ project, problems, engine, onSaveScenario }: Play
       )}
       {snapshot ? (
         <div className="ccg-app">
-          <style>{CLIENT_CSS}</style>
           {debug ? (
             <DebugEncounter snapshot={snapshot} log={log} busy={busy} onAct={act} onQuit={() => setDebug(false)} />
           ) : (

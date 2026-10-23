@@ -1,4 +1,5 @@
 import type { CardFace } from '../../engine/protocol.js';
+import { CardFaceContent } from './CardFace.js';
 
 export interface HandCard {
   id: string;
@@ -36,16 +37,7 @@ export function Hand({ cards, selected, onSelect }: HandProps) {
               aria-label={face ? `${face.name}${cost ? `, costs ${cost}` : ''}. ${face.targeting} ${face.text}${card.playable ? '' : ' Not playable now.'}` : 'Unknown card'}
               onClick={() => card.playable && onSelect(card.id)}
             >
-              <span className="ccg-card-top">
-                <span className="ccg-card-cost">{face ? (Object.values(face.cost)[0] ?? 0) : '?'}</span>
-                <span className="ccg-card-name">{face?.name ?? '?'}</span>
-              </span>
-              {face?.art && <img className="ccg-card-art" src={face.art} alt="" />}
-              <span className="ccg-card-text">{face?.text}</span>
-              {face && (face.keywords.length > 0 || face.timing !== 'main') && (
-                <span className="ccg-card-tags">{[face.timing !== 'main' ? face.timing : null, ...face.keywords].filter(Boolean).join(' · ')}</span>
-              )}
-              {i < 9 && <span className="ccg-card-key" aria-hidden="true">{i + 1}</span>}
+              <CardFaceContent face={face} keyHint={i < 9 ? String(i + 1) : undefined} />
             </button>
           </li>
         );
