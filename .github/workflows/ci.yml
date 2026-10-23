@@ -25,5 +25,6 @@ jobs:
       - run: pnpm test
       - run: pnpm build
       - run: pnpm check:pack
+      - run: pnpm ccg test examples/duel
       - run: pnpm --filter @ccg/web exec playwright install --with-deps chromium
       - run: pnpm --filter @ccg/web e2e

@@ -4,7 +4,7 @@
  * Pure and async, so the web app runs it in a worker.
  */
 import { createContentSchemas, loadPackage, mapRefs, parseRef, REF_PATTERN, type OpRegistry } from '@ccg/content';
-import { builtinOps } from '@ccg/core';
+import { PackageRegistry, builtinOps, runScenarios, type ScenarioResult } from '@ccg/core';
 import { boardIssues, projectBoard } from './encounters.js';
 import { projectFiles, type Project } from './project.js';
 import { fileSource } from './stores/store.js';
@@ -49,4 +49,14 @@ export async function validateProject(project: Project, ops: OpRegistry = editor
   const board = projectBoard(project);
   if (board) for (const issue of boardIssues(project, board)) issues.push({ ...issue, file: project.paths[issue.key] as string });
   return issues;
+}
+
+/** Runs the project's scenarios that have expectations (#46), as the `ccg test` CLI does. */
+export async function testProject(project: Project): Promise<ScenarioResult[]> {
+  const registry = new PackageRegistry();
+  const loaded = await registry.loadFiles(fileSource(projectFiles(project)));
+  if (!loaded.ok) throw new Error(loaded.issues.map((i) => `${i.file ?? ''}${i.pointer}: ${i.message}`).join('\n'));
+  const resolved = registry.resolve(loaded.package.manifest.id);
+  if (!resolved.ok) throw new Error(resolved.issues.map((i) => `${i.file ?? ''}${i.pointer}: ${i.message}`).join('\n'));
+  return runScenarios(resolved.game);
 }

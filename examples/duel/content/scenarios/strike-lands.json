@@ -1,0 +1,46 @@
+{
+  "formatVersion": 1,
+  "kind": "scenario",
+  "id": "strike-lands",
+  "name": "Strike lands for 6",
+  "encounter": "close-quarters",
+  "seed": 1,
+  "hand": [
+    "strike"
+  ],
+  "deck": [],
+  "actions": [
+    {
+      "type": "playCard",
+      "side": "player",
+      "card": "card1",
+      "target": "enemy1"
+    }
+  ],
+  "expect": [
+    {
+      "kind": "unit",
+      "unit": "foe",
+      "hp": {
+        "min": 14,
+        "max": 14
+      }
+    },
+    {
+      "kind": "resource",
+      "resource": "energy",
+      "value": {
+        "min": 2,
+        "max": 2
+      }
+    },
+    {
+      "kind": "cards",
+      "zone": "discard",
+      "count": {
+        "min": 1,
+        "max": 1
+      }
+    }
+  ]
+}

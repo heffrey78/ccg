@@ -1,0 +1,45 @@
+{
+  "formatVersion": 1,
+  "kind": "ruleset",
+  "id": "main",
+  "name": "Rules",
+  "board": {
+    "topology": "lane",
+    "length": 7
+  },
+  "move": {
+    "range": 1
+  },
+  "player": {
+    "resources": {
+      "energy": 3
+    },
+    "handSize": 5,
+    "deck": [
+      "strike",
+      "strike",
+      "strike",
+      "strike",
+      "strike",
+      "guard",
+      "guard",
+      "guard",
+      "guard",
+      "guard"
+    ]
+  },
+  "run": {
+    "encounters": [
+      "practice",
+      "close-quarters",
+      "first-fight"
+    ],
+    "rewards": {
+      "pool": [
+        "strike",
+        "guard"
+      ],
+      "choices": 2
+    }
+  }
+}

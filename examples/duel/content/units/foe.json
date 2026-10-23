@@ -1,0 +1,47 @@
+{
+  "formatVersion": 1,
+  "kind": "unit",
+  "id": "foe",
+  "name": "Foe",
+  "hp": 20,
+  "behavior": {
+    "kind": "if",
+    "cond": {
+      "kind": "enemyWithin",
+      "range": 1
+    },
+    "then": {
+      "kind": "intent",
+      "intent": {
+        "name": "Hit",
+        "target": {
+          "kind": "unit",
+          "select": "nearestEnemy",
+          "range": 1
+        },
+        "effects": [
+          {
+            "op": "damage",
+            "amount": 5
+          }
+        ]
+      }
+    },
+    "else": {
+      "kind": "intent",
+      "intent": {
+        "name": "Advance",
+        "target": {
+          "kind": "unit",
+          "select": "nearestEnemy"
+        },
+        "effects": [
+          {
+            "op": "approach",
+            "distance": 2
+          }
+        ]
+      }
+    }
+  }
+}

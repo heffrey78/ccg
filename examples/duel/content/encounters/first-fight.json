@@ -1,0 +1,20 @@
+{
+  "formatVersion": 1,
+  "kind": "encounter",
+  "id": "first-fight",
+  "name": "First Fight",
+  "units": [
+    {
+      "unit": "hero",
+      "side": "player",
+      "pos": "0",
+      "facing": "e"
+    },
+    {
+      "unit": "foe",
+      "side": "enemy",
+      "pos": "6",
+      "facing": "w"
+    }
+  ]
+}

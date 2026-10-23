@@ -13,7 +13,8 @@
     "lint": "eslint .",
     "changeset": "changeset",
     "release": "turbo run build && changeset publish",
-    "check:pack": "node scripts/check-pack.mjs"
+    "check:pack": "node scripts/check-pack.mjs",
+    "ccg": "node packages/cli/dist/cli.js"
   },
   "devDependencies": {
     "@changesets/cli": "^3.0.3",

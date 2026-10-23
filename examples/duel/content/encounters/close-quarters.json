@@ -1,0 +1,20 @@
+{
+  "formatVersion": 1,
+  "kind": "encounter",
+  "id": "close-quarters",
+  "name": "Close Quarters",
+  "units": [
+    {
+      "unit": "hero",
+      "side": "player",
+      "pos": "0",
+      "facing": "e"
+    },
+    {
+      "unit": "foe",
+      "side": "enemy",
+      "pos": "1",
+      "facing": "w"
+    }
+  ]
+}

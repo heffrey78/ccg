@@ -14,6 +14,8 @@ import {
   randomPolicy,
   rulesetOf,
   runRewards,
+  runScenario,
+  runScenarios,
   Session,
   standardInput,
   topologyOf,
@@ -239,5 +241,68 @@ describe('the standard game', () => {
     const resolved = registry.resolve('plain');
     expect(resolved.ok).toBe(false);
     if (!resolved.ok) expect(resolved.issues.map((i) => i.message)).toContain("unknown card 'plain:missing'");
+  });
+});
+
+describe('scenarios as tests', () => {
+  const scenario = (id: string, fields: object) => item('scenario', id, { encounter: 'close', seed: 1, hand: ['strike'], deck: [], ...fields });
+  const strike = { type: 'playCard', side: 'player', card: 'card1', target: 'enemy1' };
+
+  function resolve(...scenarios: ContentItem[]) {
+    const pkg = contentGame();
+    pkg.content.push(item('encounter', 'close', { units: [{ unit: 'hero', side: 'player', pos: '0' }, { unit: 'foe', side: 'enemy', pos: '1' }] }), ...scenarios);
+    const registry = new PackageRegistry();
+    registry.register(pkg);
+    const resolved = registry.resolve('plain');
+    if (!resolved.ok) throw new Error(resolved.issues.map((i) => `${i.file}${i.pointer}: ${i.message}`).join('\n'));
+    return resolved.game;
+  }
+
+  it('replays the actions and checks every kind of expectation', () => {
+    const game = resolve(
+      scenario('lands', {
+        actions: [strike],
+        expect: [
+          { kind: 'unit', unit: 'foe', hp: { min: 14, max: 14 } },
+          { kind: 'unit', unit: 'hero', pos: '0' },
+          { kind: 'resource', resource: 'energy', value: { min: 2, max: 2 } },
+          { kind: 'cards', zone: 'discard', count: { min: 1, max: 1 } },
+          { kind: 'outcome', winner: 'none' },
+        ],
+      }),
+    );
+    expect(runScenario(game, 'plain:lands')).toEqual({ id: 'plain:lands', name: 'lands', passed: true, failures: [], played: 1 });
+  });
+
+  it('reports each expectation that fails, in words', () => {
+    const game = resolve(
+      scenario('wrong', {
+        actions: [strike],
+        expect: [
+          { kind: 'unit', unit: 'foe', hp: { max: 10 } },
+          { kind: 'unit', unit: 'foe', alive: false },
+          { kind: 'outcome', winner: 'player' },
+        ],
+      }),
+    );
+    expect(runScenario(game, 'plain:wrong').failures).toEqual([
+      "expected foe's HP to be at most 10, but it is 14",
+      'expected no foe on the board, but 1 remain',
+      'expected the player to win, but it goes on',
+    ]);
+  });
+
+  it('a recorded action that no longer works fails the scenario', () => {
+    const game = resolve(scenario('stale', { actions: [{ ...strike, card: 'card9' }], expect: [{ kind: 'outcome', winner: 'none' }] }));
+    expect(runScenario(game, 'plain:stale')).toMatchObject({ passed: false, played: 0 });
+    expect(runScenario(game, 'plain:stale').failures[0]).toMatch(/^action 1 \(playCard by player\) can no longer be played/);
+  });
+
+  it('runs every scenario with expectations, in id order', () => {
+    const game = resolve(scenario('b', { expect: [{ kind: 'outcome', winner: 'none' }] }), scenario('a', { expect: [{ kind: 'outcome', winner: 'none' }] }), scenario('setup-only', {}));
+    expect(runScenarios(game).map((r) => [r.id, r.passed])).toEqual([
+      ['plain:a', true],
+      ['plain:b', true],
+    ]);
   });
 });

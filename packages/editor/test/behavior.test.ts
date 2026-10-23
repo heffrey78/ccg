@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ContentItem } from '@ccg/content';
-import { behaviorSummary, blankProject, createItem, editorOps, moveEncounters, previewIntents, updateItem, validateProject } from '../src/index.js';
+import { behaviorSummary, blankProject, createItem, editorOps, moveEncounters, previewIntents, testProject, updateItem, validateProject } from '../src/index.js';
 
 const ops = editorOps();
 const hit = (name: string, damage: number, range = 1) => ({
@@ -74,5 +74,17 @@ describe('encounters on the board', () => {
     project = setBoard(project, { topology: 'lane', length: 7 });
     project = moveEncounters('square', { topology: 'lane', length: 7 })(project);
     expect((project.items['encounter:first-fight'] as unknown as { units: { pos: string }[] }).units.map((u) => u.pos)).toEqual(['0', '6']);
+  });
+});
+
+describe('scenario tests in the editor', () => {
+  it('runs the project’s scenarios with expectations', async () => {
+    let project = blankProject({ id: 't', name: 'T', board: 'lane' });
+    project = createItem({ formatVersion: 1, kind: 'scenario', id: 'calm', name: 'Calm', encounter: 'first-fight', seed: 1, expect: [{ kind: 'outcome', winner: 'none' }] } as ContentItem)(project);
+    project = createItem({ formatVersion: 1, kind: 'scenario', id: 'won', name: 'Won already?', encounter: 'first-fight', seed: 1, expect: [{ kind: 'outcome', winner: 'player' }] } as ContentItem)(project);
+    expect((await testProject(project)).map((r) => [r.id, r.passed, r.failures])).toEqual([
+      ['t:calm', true, []],
+      ['t:won', false, ['expected the player to win, but it goes on']],
+    ]);
   });
 });

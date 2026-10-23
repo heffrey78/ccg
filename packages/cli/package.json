@@ -1,0 +1,31 @@
+{
+  "name": "@ccg/cli",
+  "version": "0.0.0",
+  "description": "Command-line tools for ccg game packages: validate content and run scenario tests.",
+  "type": "module",
+  "bin": {
+    "ccg": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "@ccg/source": "./src/cli.ts",
+      "types": "./dist/cli.d.ts",
+      "default": "./dist/cli.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.build.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@ccg/content": "workspace:^",
+    "@ccg/core": "workspace:^"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
