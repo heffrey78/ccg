@@ -14,7 +14,7 @@ export interface GameListing {
 
 export type EngineRequest =
   | { type: 'listGames' }
-  | { type: 'start'; game: string; seed: string | number; encounter?: string; scenario?: string }
+  | { type: 'start'; game: string; seed: string | number; encounter?: string; scenario?: string; /** Cards drawn first, e.g. to try one out. */ hand?: string[] }
   | { type: 'act'; action: Action }
   /** Loads a game package from a zip (as the editor exports), replacing one with the same id. */
   | { type: 'importZip'; data: Uint8Array }

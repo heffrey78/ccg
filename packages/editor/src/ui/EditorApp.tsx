@@ -1,6 +1,7 @@
 /** The editor's top level: pick or create a project, then edit it. */
 import { useMemo, useState } from 'react';
 import type { OpRegistry } from '@ccg/content';
+import { CSS as CLIENT_CSS } from '@ccg/client';
 import { EngineClient, createEngineHost, localTransport } from '@ccg/client/engine';
 import type { Project } from '../project.js';
 import type { DirectoryHandleLike } from '../stores/fsa.js';
@@ -30,6 +31,7 @@ export function EditorApp({ library, pickDirectory, validate, ops, playtestEngin
   const check = useMemo(() => validate ?? ((p: Project) => validateProject(p, registry)), [validate, registry]);
   return (
     <div className="ccg-editor">
+      <style>{CLIENT_CSS}</style>
       <style>{CSS}</style>
       {session ? (
         <Workspace key={session.id} session={session} ops={registry} validate={check} playtestEngine={engine} onClose={() => setSession(null)} />

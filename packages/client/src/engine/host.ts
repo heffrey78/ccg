@@ -6,18 +6,14 @@
 import {
   PackageRegistry,
   Session,
-  cardText,
   decidingSide,
   effectsText,
   isPlayable,
   legalActions,
   randomPolicy,
   redactEvents,
-  targetingText,
   viewState,
-  type CardDef,
   type DeclaredIntent,
-  type Effect,
   type GameEvent,
   type GamePackage,
   type GameRules,
@@ -27,7 +23,8 @@ import {
   type StatePolicy,
 } from '@ccg/core';
 import { filesSource, unzipFiles } from '@ccg/content';
-import type { CardFace, Catalog, EngineReply, EngineRequest, GameListing, IntentSummary, Snapshot } from './protocol.js';
+import { cardFace } from './faces.js';
+import type { Catalog, EngineReply, EngineRequest, GameListing, IntentSummary, Snapshot } from './protocol.js';
 
 export interface HostOptions {
   /** Packages bundled with the app. */
@@ -63,22 +60,11 @@ function catalogOf(game: ResolvedGame<unknown>, topology: string | undefined): C
   for (const item of game.items) {
     catalog.names[item.id] = item.name;
     if (item.kind === 'card') {
-      const def = game.definitions.cards[item.id] as CardDef;
-      const abilities: Record<string, string> = {};
-      def.permanent?.abilities?.forEach((a, i) => {
-        if (a.kind === 'activated') abilities[i] = a.name;
+      catalog.cards[item.id] = cardFace(item, game.ops, {
+        ...(topology && { topology }),
+        name,
+        art: (path) => game.assetUrl(item.id.split(':')[0] as string, path),
       });
-      const face: CardFace = {
-        name: item.name,
-        text: cardText(item as unknown as { text?: string; effects: Effect[] }, game.ops, { ...(topology && { topology }), name }),
-        targeting: targetingText(def.targeting, topology ? { topology } : {}),
-        cost: def.cost ?? {},
-        timing: def.timing ?? 'main',
-        keywords: ((item.keywords as string[] | undefined) ?? []).map((k) => game.name(k) ?? k),
-        abilities,
-      };
-      if (typeof item.art === 'string') face.art = game.assetUrl(item.id.split(':')[0] as string, item.art);
-      catalog.cards[item.id] = face;
     } else if (item.kind === 'status') {
       catalog.statuses[item.id] = {
         name: item.name,
@@ -263,6 +249,7 @@ export function createEngineHost(options: HostOptions = {}): EngineHost {
             seed: request.seed,
             ...(request.encounter && { encounter: request.encounter }),
             ...(request.scenario && { scenario: request.scenario }),
+            ...(request.hand && { hand: request.hand }),
           };
           const built = build(listing(pkg), options);
           if ('error' in built) return built.error;

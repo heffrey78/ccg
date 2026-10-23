@@ -142,6 +142,8 @@ export interface SetupOptions {
   encounter?: string;
   /** A saved scenario: its encounter, seed, hand and deck order replace the others. */
   scenario?: string;
+  /** Cards drawn first (qualified ids), ahead of the shuffled deck, e.g. to try a card out. */
+  hand?: string[];
 }
 
 export function standardSetup(ruleset: RulesetDef, input: StandardGameInput, options: SetupOptions): GameSetup<StandardWorld> {
@@ -156,7 +158,7 @@ export function standardSetup(ruleset: RulesetDef, input: StandardGameInput, opt
   const deck =
     scenario && (scenario.hand || scenario.deck)
       ? [...(scenario.hand ?? []), ...(scenario.deck ?? [])]
-      : new Rng(seedRng(`deck:${seed}`)).shuffle([...ruleset.player.deck]);
+      : [...(options.hand ?? []), ...new Rng(seedRng(`deck:${seed}`)).shuffle([...ruleset.player.deck])];
   const counts: Record<string, number> = {};
   return {
     seed,

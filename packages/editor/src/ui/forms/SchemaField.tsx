@@ -213,6 +213,7 @@ export function ObjectFields({
   onChange,
   pointer,
   skip = [],
+  only,
 }: {
   fields: { key: string; node: JsonSchema; required: boolean }[];
   root: JsonSchema;
@@ -220,8 +221,11 @@ export function ObjectFields({
   onChange(value: Record<string, unknown>): void;
   pointer: string;
   skip?: string[];
+  /** Show just these fields, in this order (for sectioned forms). */
+  only?: string[];
 }) {
-  const shown = fields.filter((f) => !skip.includes(f.key) && describe(f.node, root).kind !== 'const');
+  const picked = only ? only.flatMap((k) => fields.filter((f) => f.key === k)) : fields;
+  const shown = picked.filter((f) => !skip.includes(f.key) && describe(f.node, root).kind !== 'const');
   const absent = shown.filter((f) => !f.required && value[f.key] === undefined);
   const set = (key: string, v: unknown) => onChange({ ...value, [key]: v });
   const remove = (key: string) => {

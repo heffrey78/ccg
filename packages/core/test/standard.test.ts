@@ -161,6 +161,18 @@ describe('the standard game', () => {
     expect(() => resolved.game.createSetup({ seed: 1, scenario: 'plain:nope' })).toThrow(/no scenario/);
   });
 
+  it('cards to try are drawn first, ahead of the shuffled deck', () => {
+    const registry = new PackageRegistry();
+    registry.register(contentGame());
+    const resolved = registry.resolve('plain');
+    if (!resolved.ok) throw new Error('resolve');
+    const created = createGame(resolved.game.createRules(), resolved.game.createSetup({ seed: 5, hand: ['plain:guard', 'plain:guard', 'plain:guard', 'plain:guard', 'plain:guard'] }));
+    if (!created.ok) throw new Error(created.error.message);
+    const world = created.state.world as StandardWorld;
+    expect(zone(world.cards, 'player', 'hand').map((id) => world.cards.instances[id]?.def)).toEqual(Array(5).fill('plain:guard'));
+    expect(zone(world.cards, 'player', 'draw')).toHaveLength(10);
+  });
+
   it('a session can continue under rebuilt rules, so content edits apply to the next action', () => {
     const edited = contentGame();
     const strike = edited.content.find((i) => i.id === 'strike') as ContentItem & { effects: { amount: number }[] };

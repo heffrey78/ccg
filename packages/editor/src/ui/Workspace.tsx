@@ -41,6 +41,8 @@ export function Workspace({ session, ops, validate, playtestEngine, onClose }: W
   const [status, setStatus] = useState<string | null>(null);
   const [confirmClose, setConfirmClose] = useState(false);
   const [playtest, setPlaytest] = useState(false);
+  // A card to try in the playtest pane; the counter restarts it on every click.
+  const [tryCard, setTryCard] = useState<{ card: string; n: number } | null>(null);
   // The board patterns are previewed on, guessed from the encounters until the author picks one.
   const [board, setBoard] = useState<PreviewBoard>(() =>
     guessBoard(Object.values(project.items).flatMap((i) => (i.kind === 'encounter' ? ((i.units as { pos: string }[] | undefined) ?? []).map((u) => u.pos) : []))),
@@ -212,6 +214,10 @@ export function Workspace({ session, ops, validate, playtestEngine, onClose }: W
               pointer={shown.pointer}
               board={board}
               setBoard={setBoard}
+              onTryCard={(card) => {
+                setPlaytest(true);
+                setTryCard((t) => ({ card, n: (t?.n ?? 0) + 1 }));
+              }}
             />
           ) : shown?.kind === 'asset' ? (
             <AssetPanel project={project} path={shown.path} run={run} onSelect={setSelection} />
@@ -228,6 +234,7 @@ export function Workspace({ session, ops, validate, playtestEngine, onClose }: W
           project={project}
           problems={issues?.length ?? 0}
           engine={playtestEngine}
+          tryCard={tryCard}
           onSaveScenario={(item) => {
             if (!run(`Save scenario ${item.name}`, createItem(item))) setSelection({ kind: 'item', key: itemKey('scenario', item.id) });
           }}
