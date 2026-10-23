@@ -255,7 +255,10 @@ export function intentsModule<W extends BoardWorld & IntentsWorld>(config: Inten
   return {
     name: 'intents',
     view(world, viewer) {
-      world.intents.declared = world.intents.declared.map((i) => shown(i, viewer)) as DeclaredIntent[];
+      // Runs after the board's view: intents of units the viewer cannot see go too.
+      world.intents.declared = world.intents.declared
+        .filter((i) => i.side === viewer || world.board.units[i.unit])
+        .map((i) => shown(i, viewer)) as DeclaredIntent[];
       if (viewer === null) world.intents.cursors = {};
       else for (const unit of Object.keys(world.intents.cursors)) if (world.board.units[unit]?.side !== viewer) delete world.intents.cursors[unit];
     },

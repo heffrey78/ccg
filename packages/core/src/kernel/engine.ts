@@ -372,6 +372,7 @@ class Resolver<W> {
       kind: item.kind,
       controller: item.controller,
       source: item.source,
+      ...(item.secret && { secret: true }),
     });
     return item;
   }

@@ -55,6 +55,8 @@ export interface StackItem {
   /** Variables visible to the item's effects (§3.1). */
   vars: Record<string, unknown>;
   countered: boolean;
+  /** Played face-down: other viewers see only that the controller played something (#56). */
+  secret?: boolean;
   /** Whether the response window for the item's current turn at the top has happened (§5). */
   windowDone?: boolean;
   /** Whether the item has had its first (`itemAnnounced`) window. */

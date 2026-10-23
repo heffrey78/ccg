@@ -100,7 +100,7 @@ export {
   type IntentsWorld,
   type Selector,
 } from './board/intents.js';
-export { greedyPolicy, playTurn, randomPolicy, type AiPolicy } from './ai.js';
+export { fairPolicy, greedyPolicy, playTurn, randomPolicy, type AiPolicy, type StatePolicy, type ViewPolicy } from './ai.js';
 export { canSee, opaqueId, redactEvents, viewState, type GameView, type ViewItem, type Visibility } from './kernel/visibility.js';
 export {
   controlledBy,

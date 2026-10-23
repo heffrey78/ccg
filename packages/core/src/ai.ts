@@ -5,14 +5,32 @@
  */
 import { apply, legalActions, END_TURN } from './kernel/engine.js';
 import type { Action, ApplyResult, GameEvent, GameRules, GameState, SideId } from './kernel/types.js';
+import { viewState, type GameView } from './kernel/visibility.js';
 import { Rng, seedRng } from './rng.js';
 
-export interface AiPolicy<W> {
+/**
+ * Picks an action. A policy with full state can "cheat" (useful for harder
+ * difficulty or lookahead); a fair policy gets only its side's view (#56).
+ */
+export type AiPolicy<W> = StatePolicy<W> | ViewPolicy<W>;
+
+export interface StatePolicy<W> {
+  fair?: false;
   choose(rules: GameRules<W>, state: GameState<W>, side: SideId, actions: Action[]): Action;
 }
 
+export interface ViewPolicy<W> {
+  fair: true;
+  choose(rules: GameRules<W>, view: GameView<W>, side: SideId, actions: Action[]): Action;
+}
+
+/** A policy that only ever sees its own side's view. */
+export function fairPolicy<W>(choose: ViewPolicy<W>['choose']): ViewPolicy<W> {
+  return { fair: true, choose };
+}
+
 /** Picks uniformly at random from its own seeded generator, so runs are repeatable. */
-export function randomPolicy<W>(seed: string | number): AiPolicy<W> {
+export function randomPolicy<W>(seed: string | number): StatePolicy<W> {
   const rng = new Rng(seedRng(seed));
   return { choose: (_rules, _state, _side, actions) => rng.pick(actions) };
 }
@@ -21,7 +39,7 @@ export function randomPolicy<W>(seed: string | number): AiPolicy<W> {
  * One-step lookahead: applies each legal action to a copy of the state and
  * picks the best-scoring result (ties go to the first, so it is deterministic).
  */
-export function greedyPolicy<W>(score: (state: GameState<W>, side: SideId) => number): AiPolicy<W> {
+export function greedyPolicy<W>(score: (state: GameState<W>, side: SideId) => number): StatePolicy<W> {
   return {
     choose(rules, state, side, actions) {
       let best = actions[0] as Action;
@@ -56,7 +74,12 @@ export function playTurn<W>(
   for (let i = 0; ; i++) {
     const actions = legalActions(rules, current, side);
     if (actions.length === 0) return { ok: true, state: current, events };
-    const action = i >= maxActions ? { type: END_TURN, side } : policy.choose(rules, current, side, actions);
+    const action =
+      i >= maxActions
+        ? { type: END_TURN, side }
+        : policy.fair
+          ? policy.choose(rules, viewState(rules, current, side), side, actions)
+          : policy.choose(rules, current, side, actions);
     const result = apply(rules, current, action);
     if (!result.ok) return result;
     current = result.state;
