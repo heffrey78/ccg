@@ -25,7 +25,9 @@ export {
   type ContentKind,
   type ContentSchemas,
   type Manifest,
+  type PatternShapeData,
   type SchemaOptions,
+  type Targeting,
 } from './schemas.js';
 
 /** JSON Schema (draft 2020-12) for the manifest and content items, for external editors and IDEs. */

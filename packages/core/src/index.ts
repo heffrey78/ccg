@@ -27,7 +27,15 @@ export {
   type Pos,
   type Topology,
 } from './board/topology.js';
-export { composeRules, type BaseRules, type RulesModule } from './rules/compose.js';
+export {
+  composeRules,
+  defineOp,
+  describeOps,
+  type BaseRules,
+  type ModuleOp,
+  type OpDefinition,
+  type RulesModule,
+} from './rules/compose.js';
 export {
   ZONES,
   canAfford,
@@ -42,13 +50,17 @@ export {
   type CardsSetupOptions,
   type CardsState,
   type CardsWorld,
+  type TargetingResolver,
+  type ZonesOptions,
 } from './cards/zones.js';
 export {
   boardModule,
+  boardTargeting,
   createBoardState,
   unitAt,
   type BoardConfig,
   type BoardState,
+  type BoardTargetingOptions,
   type BoardWorld,
   type MoveActionConfig,
   type TileDef,
@@ -56,3 +68,14 @@ export {
   type UnitPlacement,
   type UnitState,
 } from './board/units.js';
+export { builtinOps } from './builtins.js';
+export {
+  cardText,
+  conditionText,
+  directionText,
+  effectsText,
+  patternText,
+  targetingText,
+  type TextOptions,
+} from './cards/text.js';
+export { condition, evaluate, logicModule, type Condition } from './rules/logic.js';

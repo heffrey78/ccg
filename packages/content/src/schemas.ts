@@ -43,10 +43,15 @@ export interface SchemaOptions {
   formatVersion?: number;
 }
 
+export type PatternShapeData = z.infer<typeof patternShape>;
+export type Targeting = z.infer<typeof targeting>;
+
 export function createContentSchemas(ops: OpRegistry, { formatVersion: version = FORMAT_VERSION }: SchemaOptions = {}) {
   const formatVersion = z.literal(version);
-  const variants = ops.list().map(effectSchemaFor);
-  const effect: z.ZodType =
+  // Effects can nest (an `if` op's branches), so the union refers to itself lazily.
+  const effect: z.ZodType = z.lazy(() => union);
+  const variants = ops.list().map((meta) => effectSchemaFor(meta, effect));
+  const union: z.ZodType =
     variants.length === 0
       ? z.never()
       : variants.length === 1

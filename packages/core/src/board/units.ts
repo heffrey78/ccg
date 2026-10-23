@@ -5,6 +5,9 @@
  * World slice: `board`. The topology, tile definitions and unit definitions
  * are static and passed to the module.
  */
+import type { Targeting } from '@ccg/content';
+import { z } from 'zod';
+import type { TargetingResolver } from '../cards/zones.js';
 import { ContentError } from '../kernel/params.js';
 import type {
   ActionDef,
@@ -16,7 +19,7 @@ import type {
   SideId,
   Step,
 } from '../kernel/types.js';
-import type { RulesModule } from '../rules/compose.js';
+import { defineOp, type RulesModule } from '../rules/compose.js';
 import { findPath, type Dir, type Pos, type Topology } from './topology.js';
 
 export interface UnitState {
@@ -120,6 +123,10 @@ export function unitAt(board: BoardState, pos: Pos): UnitState | undefined {
 
 const str = (v: unknown) => v as string;
 const num = (v: unknown) => v as number;
+const unitRef = z.string().min(1);
+const unitOrUnits = z.union([unitRef, z.array(unitRef)]);
+const amount = z.number().int().min(0);
+const distance = z.number().int().min(1);
 const turnKey = (state: GameState<unknown>) => `${state.turn.round}:${state.turn.activeSide}`;
 
 export function boardModule<W extends BoardWorld>(config: BoardConfig): RulesModule<W> {
@@ -210,15 +217,21 @@ export function boardModule<W extends BoardWorld>(config: BoardConfig): RulesMod
     }
   };
 
+  /** The unit an effect acts on: explicit, else the bound target. */
+  const targetOf = (ctx: EffectContext<W>, p: Record<string, unknown>) => str(p.unit ?? ctx.item.vars.target);
+  /** The unit doing something: explicit, else the playing unit. */
+  const selfOf = (ctx: EffectContext<W>, p: Record<string, unknown>) => str(p.unit ?? ctx.item.vars.self ?? ctx.item.source);
+  const targetsOf = (ctx: EffectContext<W>, p: Record<string, unknown>): string[] => {
+    const t = p.target ?? ctx.item.vars.targets ?? ctx.item.vars.target;
+    return Array.isArray(t) ? (t as string[]) : t === undefined ? [] : [str(t)];
+  };
+
   const sourcePos = (ctx: EffectContext<W>, p: Record<string, unknown>): Pos => {
-    const ref = p.from ?? p.toward ?? ctx.item.source;
+    const ref = p.from ?? p.toward ?? ctx.item.vars.self ?? ctx.item.source;
     const pos = posOf(ctx, ref);
     if (!pos) throw new ContentError(`cannot find the position to push from or pull toward ('${String(ref)}')`);
     return pos;
   };
-
-  const targets = (p: Record<string, unknown>): string[] =>
-    Array.isArray(p.target) ? (p.target as string[]) : [str(p.target ?? p.unit)];
 
   const moveAction: ActionDef<W> | undefined = config.moveAction && {
     list(state, side) {
@@ -365,71 +378,229 @@ export function boardModule<W extends BoardWorld>(config: BoardConfig): RulesMod
     },
 
     ops: {
-      damage(ctx, p) {
-        const steps = targets(p)
-          .filter((id) => unitOf(ctx, id))
-          .sort((a, b) => topo.compare(unitOf(ctx, a)?.pos as Pos, unitOf(ctx, b)?.pos as Pos))
-          .map((unit) => ({ kind: 'damage', unit, amount: num(p.amount), source: p.source ?? 'effect' }));
-        if (steps.length > 0) ctx.step(steps);
-      },
-      gainBlock(ctx, p) {
-        if (unitOf(ctx, p.unit)) ctx.step({ kind: 'gainBlock', unit: p.unit, amount: p.amount });
-      },
-      heal(ctx, p) {
-        if (unitOf(ctx, p.unit)) ctx.step({ kind: 'heal', unit: p.unit, amount: p.amount });
-      },
-      step(ctx, p) {
-        walk(ctx, str(p.unit), str(p.dir), num(p.distance ?? 1));
-      },
-      /** Walks along a shortest open path, stopping early if something blocks or halts it. */
-      moveTo(ctx, p) {
-        const u = unitOf(ctx, p.unit);
-        if (!u) return;
-        const path = findPath(topo, u.pos, str(p.to), (pos) => free(ctx.state, pos));
-        if (!path) return;
-        for (const pos of path.slice(1, (p.maxDistance as number | undefined) === undefined ? undefined : num(p.maxDistance) + 1)) {
-          if (!unitOf(ctx, p.unit) || !free(ctx.state, pos)) return;
-          if (ctx.step(moveStep(str(p.unit), pos, 'step')).halted) return;
-        }
-      },
-      push(ctx, p) {
-        const u = unitOf(ctx, p.unit);
-        if (!u) return;
-        const dir = (p.dir as Dir | undefined) ?? directionRelativeTo(u.pos, sourcePos(ctx, p), true);
-        if (dir) force(ctx, u.id, dir, num(p.distance ?? 1), 'push');
-      },
-      pull(ctx, p) {
-        const u = unitOf(ctx, p.unit);
-        if (!u) return;
-        const toward = sourcePos(ctx, p);
-        const dir = directionRelativeTo(u.pos, toward, false);
-        const distance = Math.min(num(p.distance ?? 1), Math.max(0, topo.distance(u.pos, toward) - 1));
-        if (dir) force(ctx, u.id, dir, distance, 'pull');
-      },
-      teleport(ctx, p) {
-        if (unitOf(ctx, p.unit) && free(ctx.state, str(p.to))) ctx.step(moveStep(str(p.unit), str(p.to), 'teleport'));
-      },
-      swap(ctx, p) {
-        if (unitOf(ctx, p.a) && unitOf(ctx, p.b)) ctx.step({ kind: 'swapUnits', a: p.a, b: p.b });
-      },
-      face(ctx, p) {
-        if (unitOf(ctx, p.unit)) ctx.step({ kind: 'face', unit: p.unit, dir: p.dir });
-      },
-      spawn(ctx, p) {
-        const pos = str(p.pos);
-        if (!free(ctx.state, pos)) return;
-        const id = ctx.newId('unit');
-        ctx.setVar('spawned', { unit: id });
-        ctx.step({
-          kind: 'spawn',
-          id,
-          def: p.def,
-          side: p.side ?? ctx.item.controller,
-          pos,
-          facing: p.facing ?? topo.directions()[0],
-          createdAt: ctx.state.seq,
-        });
-      },
+      damage: defineOp(
+        {
+          displayName: 'Damage',
+          description: 'Deal damage to one or more units (the bound targets if none are given). Block absorbs it first.',
+          params: z.object({ target: unitOrUnits.optional(), amount: amount, source: z.string().min(1).optional() }),
+          text: 'Deal {amount} damage.',
+          widgets: { target: 'unit', amount: 'number' },
+          category: 'combat',
+        },
+        (ctx, p) => {
+          const steps = targetsOf(ctx, p)
+            .filter((id) => unitOf(ctx, id))
+            .sort((a, b) => topo.compare(unitOf(ctx, a)?.pos as Pos, unitOf(ctx, b)?.pos as Pos))
+            .map((unit) => ({ kind: 'damage', unit, amount: num(p.amount), source: p.source ?? 'effect' }));
+          if (steps.length > 0) ctx.step(steps);
+        },
+      ),
+      gainBlock: defineOp(
+        {
+          displayName: 'Gain block',
+          description: 'Give a unit block (the playing unit if none is given).',
+          params: z.object({ unit: unitRef.optional(), amount }),
+          text: 'Gain {amount} block.',
+          widgets: { unit: 'unit', amount: 'number' },
+          category: 'combat',
+        },
+        (ctx, p) => {
+          const unit = selfOf(ctx, p);
+          if (unitOf(ctx, unit)) ctx.step({ kind: 'gainBlock', unit, amount: p.amount });
+        },
+      ),
+      heal: defineOp(
+        {
+          displayName: 'Heal',
+          description: 'Restore HP up to the maximum (the playing unit if none is given).',
+          params: z.object({ unit: unitRef.optional(), amount }),
+          text: 'Heal {amount}.',
+          widgets: { unit: 'unit', amount: 'number' },
+          category: 'combat',
+        },
+        (ctx, p) => {
+          const unit = selfOf(ctx, p);
+          if (unitOf(ctx, unit)) ctx.step({ kind: 'heal', unit, amount: p.amount });
+        },
+      ),
+      step: defineOp(
+        {
+          displayName: 'Move',
+          description: 'Move a unit (the playing unit) in a direction, stopping before anything in the way.',
+          params: z.object({ unit: unitRef.optional(), dir: z.string().min(1).optional(), distance: distance }),
+          text: 'Move {distance}.',
+          widgets: { unit: 'unit', dir: 'direction', distance: 'number' },
+          category: 'movement',
+        },
+        (ctx, p) => {
+          const dir = (p.dir as string | undefined) ?? (ctx.item.vars.dir as string | undefined) ?? unitOf(ctx, selfOf(ctx, p))?.facing;
+          if (dir) walk(ctx, selfOf(ctx, p), dir, num(p.distance));
+        },
+      ),
+      moveTo: defineOp(
+        {
+          displayName: 'Move to',
+          description: 'Walk a unit (the playing unit) along an open path to a tile (the target tile).',
+          params: z.object({ unit: unitRef.optional(), to: z.string().min(1).optional(), maxDistance: distance.optional() }),
+          text: 'Move to a tile.',
+          widgets: { unit: 'unit', to: 'tile' },
+          category: 'movement',
+        },
+        (ctx, p) => {
+          const unit = selfOf(ctx, p);
+          const u = unitOf(ctx, unit);
+          const to = str(p.to ?? ctx.item.vars.target);
+          if (!u || !topo.contains(to)) return;
+          const path = findPath(topo, u.pos, to, (pos) => free(ctx.state, pos));
+          if (!path) return;
+          const limit = p.maxDistance === undefined ? undefined : num(p.maxDistance) + 1;
+          for (const pos of path.slice(1, limit)) {
+            if (!unitOf(ctx, unit) || !free(ctx.state, pos)) return;
+            if (ctx.step(moveStep(unit, pos, 'step')).halted) return;
+          }
+        },
+      ),
+      push: defineOp(
+        {
+          displayName: 'Push',
+          description: 'Force a unit (the target) away from the playing unit, or in a direction. Collisions follow the game rule.',
+          params: z.object({ unit: unitRef.optional(), distance, dir: z.string().min(1).optional(), from: z.string().min(1).optional() }),
+          text: 'Push {distance}.',
+          widgets: { unit: 'unit', distance: 'number', dir: 'direction', from: 'unit' },
+          category: 'movement',
+        },
+        (ctx, p) => {
+          const u = unitOf(ctx, targetOf(ctx, p));
+          if (!u) return;
+          const dir = (p.dir as Dir | undefined) ?? directionRelativeTo(u.pos, sourcePos(ctx, p), true);
+          if (dir) force(ctx, u.id, dir, num(p.distance), 'push');
+        },
+      ),
+      pull: defineOp(
+        {
+          displayName: 'Pull',
+          description: 'Force a unit (the target) toward the playing unit, stopping next to it.',
+          params: z.object({ unit: unitRef.optional(), distance, toward: z.string().min(1).optional() }),
+          text: 'Pull {distance}.',
+          widgets: { unit: 'unit', distance: 'number', toward: 'unit' },
+          category: 'movement',
+        },
+        (ctx, p) => {
+          const u = unitOf(ctx, targetOf(ctx, p));
+          if (!u) return;
+          const toward = sourcePos(ctx, p);
+          const dir = directionRelativeTo(u.pos, toward, false);
+          const d = Math.min(num(p.distance), Math.max(0, topo.distance(u.pos, toward) - 1));
+          if (dir) force(ctx, u.id, dir, d, 'pull');
+        },
+      ),
+      teleport: defineOp(
+        {
+          displayName: 'Teleport',
+          description: 'Move a unit (the playing unit) straight to an open tile (the target tile).',
+          params: z.object({ unit: unitRef.optional(), to: z.string().min(1).optional() }),
+          text: 'Teleport to a tile.',
+          widgets: { unit: 'unit', to: 'tile' },
+          category: 'movement',
+        },
+        (ctx, p) => {
+          const unit = selfOf(ctx, p);
+          const to = str(p.to ?? ctx.item.vars.target);
+          if (unitOf(ctx, unit) && topo.contains(to) && free(ctx.state, to)) ctx.step(moveStep(unit, to, 'teleport'));
+        },
+      ),
+      swap: defineOp(
+        {
+          displayName: 'Swap',
+          description: 'Two units trade places (default: the playing unit and the target).',
+          params: z.object({ a: unitRef.optional(), b: unitRef.optional() }),
+          text: 'Swap places.',
+          widgets: { a: 'unit', b: 'unit' },
+          category: 'movement',
+        },
+        (ctx, p) => {
+          const a = str(p.a ?? ctx.item.vars.self);
+          const b = str(p.b ?? ctx.item.vars.target);
+          if (a !== b && unitOf(ctx, a) && unitOf(ctx, b)) ctx.step({ kind: 'swapUnits', a, b });
+        },
+      ),
+      face: defineOp(
+        {
+          displayName: 'Face',
+          description: 'Turn a unit (the playing unit) to face a direction.',
+          params: z.object({ unit: unitRef.optional(), dir: z.string().min(1).optional() }),
+          text: 'Turn.',
+          widgets: { unit: 'unit', dir: 'direction' },
+          category: 'movement',
+        },
+        (ctx, p) => {
+          const unit = selfOf(ctx, p);
+          const dir = p.dir ?? ctx.item.vars.dir;
+          if (unitOf(ctx, unit) && typeof dir === 'string') ctx.step({ kind: 'face', unit, dir });
+        },
+      ),
+      spawn: defineOp(
+        {
+          displayName: 'Summon',
+          description: 'Create a unit on an open tile (the target tile). Sets `spawned.unit`.',
+          params: z.object({ def: z.string().min(1), pos: z.string().min(1).optional(), side: z.string().min(1).optional(), facing: z.string().min(1).optional() }),
+          text: 'Summon a {def}.',
+          widgets: { def: 'unit', pos: 'tile' },
+          category: 'units',
+        },
+        (ctx, p) => {
+          const pos = str(p.pos ?? ctx.item.vars.target);
+          if (!topo.contains(pos) || !free(ctx.state, pos)) return;
+          const id = ctx.newId('unit');
+          ctx.setVar('spawned', { unit: id });
+          ctx.step({
+            kind: 'spawn',
+            id,
+            def: p.def,
+            side: p.side ?? ctx.item.controller,
+            pos,
+            facing: p.facing ?? unitOf(ctx, ctx.item.vars.self)?.facing ?? topo.directions()[0],
+            createdAt: ctx.state.seq,
+          });
+        },
+      ),
+      countUnits: defineOp(
+        {
+          displayName: 'Count units',
+          description: 'Store how many units there are (optionally of one side, or within a range of a unit) in a variable.',
+          params: z.object({
+            as: z.string().min(1),
+            side: z.string().min(1).optional(),
+            near: unitRef.optional(),
+            range: z.number().int().min(0).optional(),
+          }),
+          text: '',
+          category: 'variables',
+        },
+        (ctx, p) => {
+          const near = posOf(ctx, p.near);
+          const n = Object.values(boardOf(ctx.state).units).filter(
+            (u) =>
+              (p.side === undefined || u.side === p.side) &&
+              (near === undefined || topo.distance(near, u.pos) <= num(p.range ?? 1)),
+          ).length;
+          ctx.setVar(str(p.as), n);
+        },
+      ),
+      measureDistance: defineOp(
+        {
+          displayName: 'Measure distance',
+          description: 'Store the distance between two units or tiles in a variable.',
+          params: z.object({ a: z.string().min(1), b: z.string().min(1), as: z.string().min(1) }),
+          text: '',
+          category: 'variables',
+        },
+        (ctx, p) => {
+          const a = posOf(ctx, p.a);
+          const b = posOf(ctx, p.b);
+          ctx.setVar(str(p.as), a !== undefined && b !== undefined ? topo.distance(a, b) : -1);
+        },
+      ),
     },
 
     listeners(state) {
@@ -492,5 +663,100 @@ export function boardModule<W extends BoardWorld>(config: BoardConfig): RulesMod
         return true;
       },
     ],
+  };
+}
+
+export interface BoardTargetingOptions<W> {
+  /** The unit that plays a side's cards; defaults to the side's earliest-created unit. */
+  actor?: (state: GameState<W>, side: SideId) => string | null;
+}
+
+/**
+ * Card targeting on the board (requirement #2): legal choices measured from
+ * the side's acting unit, and the variables a played card's effects see:
+ * `self` (the actor), `target` (a unit or tile), `dir`, and for patterns
+ * `cells` and `targets` (units on those cells, in board order).
+ */
+export function boardTargeting<W extends BoardWorld>(
+  config: BoardConfig,
+  options: BoardTargetingOptions<W> = {},
+): TargetingResolver<W> {
+  const topo = config.topology;
+  const tiles = config.tiles ?? {};
+  const actorOf =
+    options.actor ??
+    ((state: GameState<W>, side: SideId) =>
+      Object.values(state.world.board.units)
+        .filter((u) => u.side === side)
+        .sort((a, b) => a.createdAt - b.createdAt || (a.id < b.id ? -1 : 1))[0]?.id ?? null);
+  const actor = (state: GameState<W>, side: SideId) => {
+    const id = actorOf(state, side);
+    return id === null ? undefined : state.world.board.units[id];
+  };
+  const inRange = (from: Pos, pos: Pos, range: number | undefined) => range === undefined || topo.distance(from, pos) <= range;
+  const unitsOn = (state: GameState<W>, cells: Pos[]) =>
+    cells.flatMap((pos) => {
+      const u = unitAt(state.world.board, pos);
+      return u ? [u.id] : [];
+    });
+
+  return {
+    choices(state, side, t: Targeting) {
+      const self = actor(state, side);
+      if (t.kind === 'none') return [null];
+      if (!self) return [];
+      const board = state.world.board;
+      switch (t.kind) {
+        case 'self':
+          return [null];
+        case 'unit':
+          return Object.values(board.units)
+            .filter((u) => inRange(self.pos, u.pos, t.range))
+            .filter((u) => (t.filter === 'ally' ? u.side === side : t.filter === 'enemy' ? u.side !== side : true))
+            .sort((a, b) => topo.compare(a.pos, b.pos))
+            .map((u) => u.id);
+        case 'tile':
+          return topo
+            .positions()
+            .filter((pos) => inRange(self.pos, pos, t.range))
+            .filter((pos) => !t.empty || (!unitAt(board, pos) && tiles[board.tiles[pos] ?? '']?.blocking !== true));
+        case 'direction':
+          return [...topo.directions()];
+        case 'pattern':
+          return (t.range ?? 0) === 0
+            ? [...topo.directions()]
+            : topo.positions().filter((pos) => pos !== self.pos && inRange(self.pos, pos, t.range));
+      }
+    },
+
+    bind(state, side, t: Targeting, target) {
+      const self = actor(state, side);
+      const vars: Record<string, unknown> = { self: self?.id ?? null };
+      if (!self) return vars;
+      switch (t.kind) {
+        case 'self':
+          vars.target = self.id;
+          break;
+        case 'unit':
+        case 'tile':
+          vars.target = target;
+          break;
+        case 'direction':
+          vars.dir = target;
+          break;
+        case 'pattern': {
+          const fromActor = (t.range ?? 0) === 0;
+          const origin = fromActor ? self.pos : str(target);
+          const facing = fromActor ? str(target) : (topo.directionTo(self.pos, str(target)) ?? self.facing);
+          const cells = topo.pattern(origin, facing, t.shape as Parameters<Topology['pattern']>[2]);
+          vars.dir = facing;
+          if (!fromActor) vars.target = target;
+          vars.cells = cells;
+          vars.targets = unitsOn(state, cells);
+          break;
+        }
+      }
+      return vars;
+    },
   };
 }

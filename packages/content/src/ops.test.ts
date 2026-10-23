@@ -46,4 +46,11 @@ describe('renderText', () => {
     expect(renderText(damage, { amount: { $: 'stacks' } })).toBe('Deal X damage.');
     expect(renderText(damage, {})).toBe('Deal ? damage.');
   });
+
+  it('pluralizes with {name:one|many}', () => {
+    const draw = { ...damage, text: 'Draw {n:card|cards}.' };
+    expect(renderText(draw, { n: 1 })).toBe('Draw 1 card.');
+    expect(renderText(draw, { n: 3 })).toBe('Draw 3 cards.');
+    expect(renderText(draw, { n: { $: 'x' } })).toBe('Draw X cards.');
+  });
 });
