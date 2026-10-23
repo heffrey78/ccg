@@ -2,15 +2,36 @@
   "$schema": "https://turborepo.com/schema.json",
   "tasks": {
     "build": {
-      "dependsOn": ["^build"],
-      "inputs": ["src/**", "tsconfig*.json", "package.json"],
-      "outputs": ["dist/**"]
+      "dependsOn": [
+        "^build"
+      ],
+      "inputs": [
+        "src/**",
+        "tsconfig*.json",
+        "package.json"
+      ],
+      "outputs": [
+        "dist/**"
+      ]
     },
     "typecheck": {
-      "inputs": ["src/**", "test/**", "tsconfig*.json", "package.json"]
+      "inputs": [
+        "src/**",
+        "test/**",
+        "tsconfig*.json",
+        "package.json"
+      ],
+      "dependsOn": [
+        "^build"
+      ]
     },
     "test": {
-      "inputs": ["src/**", "test/**", "vitest.config.ts", "package.json"]
+      "inputs": [
+        "src/**",
+        "test/**",
+        "vitest.config.ts",
+        "package.json"
+      ]
     }
   }
 }
