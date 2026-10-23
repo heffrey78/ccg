@@ -148,7 +148,17 @@ function checkReferences(items: LoadedItem[], assets: Set<string>): ContentIssue
       }
     };
 
-    for (const field of ['art', 'icon']) expectAsset(item[field], `/${field}`);
+    // Art and icons can sit anywhere, e.g. an intent's icon inside a behaviour tree.
+    const walk = (node: unknown, pointer: string): void => {
+      if (Array.isArray(node)) node.forEach((x, i) => walk(x, `${pointer}/${i}`));
+      else if (typeof node === 'object' && node !== null) {
+        for (const [key, value] of Object.entries(node)) {
+          if ((key === 'art' || key === 'icon') && typeof value === 'string') expectAsset(value, `${pointer}/${escapePointer(key)}`);
+          else walk(value, `${pointer}/${escapePointer(key)}`);
+        }
+      }
+    };
+    walk(item, '');
     if (item.kind === 'card') {
       (item.keywords as string[] | undefined)?.forEach((k, i) => expect('status', k, `/keywords/${i}`));
     }

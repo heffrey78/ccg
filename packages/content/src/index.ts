@@ -17,6 +17,7 @@ export {
   type LoadedPackage,
 } from './package.js';
 export { REF_WIDGETS, mapRefs, type RefVisitor } from './refs.js';
+export { filesSource, unzipFiles, zipFiles, type PackageFiles } from './zip.js';
 export {
   CONTENT_KINDS,
   createContentSchemas,

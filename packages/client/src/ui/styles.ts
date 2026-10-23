@@ -24,6 +24,7 @@ export const CSS = `
 .ccg-app button:focus-visible, .ccg-app [role="button"]:focus-visible { outline: 3px solid var(--target); outline-offset: 2px; }
 .ccg-app .ccg-primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
 .ccg-muted { color: var(--muted); }
+.ccg-import { display: inline-block; margin: 0 0 12px; padding: 6px 12px; border: 1px dashed var(--line); border-radius: 6px; cursor: pointer; }
 
 .ccg-encounter { display: flex; flex-direction: column; gap: 12px; }
 .ccg-topbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: baseline; }

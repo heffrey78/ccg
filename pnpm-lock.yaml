@@ -282,6 +282,9 @@ importers:
 
   packages/content:
     dependencies:
+      fflate:
+        specifier: ^0.8.2
+        version: 0.8.3
       zod:
         specifier: ^4.6.7
         version: 4.6.7
@@ -311,9 +314,6 @@ importers:
       '@ccg/core':
         specifier: workspace:^
         version: link:../core
-      fflate:
-        specifier: ^0.8.2
-        version: 0.8.3
     devDependencies:
       '@types/react':
         specifier: ^19.3.0

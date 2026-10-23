@@ -4,9 +4,13 @@ import { fileURLToPath } from 'node:url';
 import 'fake-indexeddb/auto';
 import { describe, expect, it } from 'vitest';
 import type { ContentItem } from '@ccg/content';
+import { PackageRegistry, isGamePackage } from '@ccg/core';
 import {
   EditorError,
   EditorStore,
+  assetPathFor,
+  assetRefs,
+  moduleSource,
   blankProject,
   createItem,
   decodeText,
@@ -328,3 +332,54 @@ function fakeDirectory(name: string): DirectoryHandleLike {
     },
   };
 }
+
+describe('assets and export', () => {
+  const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+
+  it('finds which content uses each asset, at any depth', () => {
+    let p = blankProject({ id: 'art', name: 'Art', board: 'lane' });
+    p = putAsset('assets/images/strike.png', png)(p);
+    p = putAsset('assets/images/unused.png', png)(p);
+    p = updateItem('card:strike', { ...(p.items['card:strike'] as ContentItem), art: 'assets/images/strike.png' })(p);
+    const foe = structuredClone(p.items['unit:foe'] as ContentItem) as ContentItem & { behavior: { then: { intent: Record<string, unknown> } } };
+    foe.behavior.then.intent.icon = 'assets/images/strike.png';
+    p = updateItem('unit:foe', foe)(p);
+    expect(assetRefs(p).get('assets/images/strike.png')).toEqual([
+      { key: 'card:strike', pointer: '/art' },
+      { key: 'unit:foe', pointer: '/behavior/then/intent/icon' },
+    ]);
+    expect(assetRefs(p).has('assets/images/unused.png')).toBe(false);
+  });
+
+  it('deleting an asset in use is a validation error on the content that uses it', async () => {
+    let p = blankProject({ id: 'art', name: 'Art', board: 'lane' });
+    p = putAsset('assets/images/strike.png', png)(p);
+    p = updateItem('card:strike', { ...(p.items['card:strike'] as ContentItem), art: 'assets/images/strike.png' })(p);
+    expect(await validateProject(p)).toEqual([]);
+    p = removeAsset('assets/images/strike.png')(p);
+    expect(await validateProject(p)).toEqual([
+      { file: 'content/cards/strike.json', key: 'card:strike', pointer: '/art', message: "missing asset 'assets/images/strike.png'" },
+    ]);
+  });
+
+  it('names imported files by type, with clean names', () => {
+    expect(assetPathFor('My Hero (final).PNG')).toBe('assets/images/my-hero-final.png');
+    expect(assetPathFor('hit.ogg')).toBe('assets/audio/hit.ogg');
+    expect(assetPathFor('notes')).toBe('assets/files/notes');
+  });
+
+  it('exports a JS module that loads as a game package, assets inlined', async () => {
+    let p = blankProject({ id: 'mod', name: 'Mod', board: 'grid' });
+    p = putAsset('assets/images/a.png', png)(p);
+    const source = moduleSource(p);
+    const mod = (await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`)) as { default: { manifest: unknown; content: ContentItem[]; assets: { url(path: string): string } } };
+    expect(isGamePackage(mod.default)).toBe(true);
+    expect(mod.default.manifest).toEqual(p.manifest);
+    expect(mod.default.content.map((i) => `${i.kind}:${i.id}`).sort()).toEqual(Object.keys(p.items).sort());
+    expect(mod.default.assets.url('assets/images/a.png')).toBe(`data:image/png;base64,${Buffer.from(png).toString('base64')}`);
+    const registry = new PackageRegistry();
+    registry.register(mod.default as never);
+    const resolved = registry.resolve('mod');
+    expect(resolved.ok && resolved.game.createRules().presentation?.board).toMatchObject({ kind: 'square' });
+  });
+});
