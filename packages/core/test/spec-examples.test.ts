@@ -159,7 +159,8 @@ describe('resolution-order worked examples', () => {
     expect(after.turn).toMatchObject({ round: 2, phase: 'main', activeSide: PLAYER });
   });
 
-  it.todo('E8: drawing past the end of the deck reshuffles mid-effect (#21)');
+  // E8 (drawing past the end of the deck reshuffles mid-effect) is encoded with
+  // the real zones module in src/cards/zones.test.ts.
 
   describe('E9: when variables are evaluated', () => {
     const setup = (effects: object[]) =>
