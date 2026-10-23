@@ -23,7 +23,7 @@ const determinismRules = {
 };
 
 export default tseslint.config(
-  { ignores: ['**/dist/**', '**/node_modules/**', '**/.turbo/**'] },
+  { ignores: ['**/dist/**', '**/node_modules/**', '**/.turbo/**', '**/test-results/**', '**/playwright-report/**'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
@@ -53,5 +53,19 @@ export default tseslint.config(
         },
       ],
     },
+  },
+  {
+    // The client plays any game package; it must never depend on a specific one (requirement #6).
+    files: ['packages/client/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        { patterns: [{ group: ['@ccg/game-*', '**/games/**'], message: 'The client must not import a specific game package.' }] },
+      ],
+    },
+  },
+  {
+    files: ['**/*.tsx'],
+    languageOptions: { globals: { ...globals.browser } },
   },
 );

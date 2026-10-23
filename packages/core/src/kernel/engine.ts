@@ -116,6 +116,14 @@ export function apply<W>(rules: GameRules<W>, state: GameState<W>, action: Actio
   return run(working, rules, (r) => r.perform(action));
 }
 
+/** The side whose decision the game is waiting on, or null if the game is over. */
+export function decidingSide<W>(rules: GameRules<W>, state: GameState<W>): SideId | null {
+  if (state.outcome) return null;
+  if (state.prompt) return state.prompt.side;
+  const current = schedule(rules, state.sides)[state.turn.slot];
+  return current?.def.interactive ? current.activeSide : null;
+}
+
 /** Every action the side may take now (§2 step 1). */
 export function legalActions<W>(rules: GameRules<W>, state: GameState<W>, side: SideId): Action[] {
   if (state.outcome) return [];

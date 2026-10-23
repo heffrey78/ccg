@@ -12,7 +12,7 @@ export {
 } from './replay.js';
 export { canonicalJson, hashState } from './hash.js';
 export { Rng, seedRng, type RngState } from './rng.js';
-export { END_TURN, PASS, apply, createGame, legalActions, schedule, type ScheduledPhase } from './kernel/engine.js';
+export { END_TURN, PASS, apply, createGame, decidingSide, legalActions, schedule, type ScheduledPhase } from './kernel/engine.js';
 export { ContentError, isVarRef } from './kernel/params.js';
 export type * from './kernel/types.js';
 export { HexTopology } from './board/hex.js';
