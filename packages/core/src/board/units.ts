@@ -20,6 +20,7 @@ import type {
   Step,
 } from '../kernel/types.js';
 import { defineOp, type RulesModule } from '../rules/compose.js';
+import type { Behavior } from './intents.js';
 import { findPath, type Dir, type Pos, type Topology } from './topology.js';
 
 export interface UnitState {
@@ -59,6 +60,8 @@ export interface TileDef {
 export interface UnitDef {
   hp: number;
   statuses?: Record<string, number>;
+  /** How the unit picks its intent each round (#27). */
+  behavior?: Behavior;
 }
 
 export interface MoveActionConfig {

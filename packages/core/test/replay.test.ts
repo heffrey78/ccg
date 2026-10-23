@@ -78,7 +78,8 @@ describe('replay', () => {
       if (!result.ok) throw new Error(`seed ${seed}: replay failed at ${result.at}: ${result.error.message}`);
       expect(result.hashes).toEqual(hashes);
     }
-  });
+    // ~2s alone; allow headroom when the suite runs files in parallel.
+  }, 30_000);
 
   it('records the engine API, packages and setup in the log', () => {
     const { session } = playRandomly(7, 3);

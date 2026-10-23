@@ -224,7 +224,8 @@ describe('resolution-order worked examples', () => {
     });
   });
 
-  it.todo('E11: tile-bound and unit-bound intents when the target moves (#27)');
+  // E11 (tile-bound and unit-bound intents when the target moves) is encoded
+  // with the real intents module in test/intents.test.ts.
 
   it('E12: an infinite trigger loop is rejected and the state is unchanged', () => {
     const state = startLane(

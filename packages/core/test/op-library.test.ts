@@ -16,6 +16,8 @@ import {
   defineOp,
   describeOps,
   legalActions,
+  createIntentsState,
+  intentsModule,
   logicModule,
   statusesModule,
   targetingText,
@@ -27,12 +29,13 @@ import {
   type CardDef,
   type CardsWorld,
   type GameState,
+  type IntentsWorld,
   type RulesModule,
   type StatusDef,
   type UnitPlacement,
 } from '../src/index.js';
 
-type World = BoardWorld & CardsWorld;
+type World = BoardWorld & CardsWorld & IntentsWorld;
 
 interface Setup {
   cards: Record<string, CardDef>;
@@ -54,6 +57,7 @@ function game({ cards, hand, deck = [], placements = [HERO(), GRUNT('E1', '2')],
     zonesModule<World>(cards, { targeting: boardTargeting<World>(config) }),
     boardModule<World>(config),
     statusesModule<World>(statuses),
+    intentsModule<World>({ topology: config.topology, behaviors: {} }),
     logicModule<World>(),
     ...extra,
   ];
@@ -67,7 +71,7 @@ function game({ cards, hand, deck = [], placements = [HERO(), GRUNT('E1', '2')],
       { id: 'p', controller: 'human' },
       { id: 'e', controller: 'ai' },
     ],
-    world: { board: createBoardState(UNITS, placements), cards: cardState },
+    world: { board: createBoardState(UNITS, placements), cards: cardState, intents: createIntentsState() },
   });
   if (!created.ok) throw new Error(created.error.message);
   let state = created.state;
@@ -98,7 +102,7 @@ describe('built-in op metadata', () => {
   it('describes every built-in op with a param schema and a text template', () => {
     const g = game({ cards: {}, hand: [] });
     // Internal ops run engine bookkeeping and are deliberately not usable in content.
-    const internal = ['tickStatuses'];
+    const internal = ['tickStatuses', 'resolveIntent'];
     expect(Object.keys(g.rules.ops).filter((id) => !internal.includes(id)).sort()).toEqual(registry.list().map((m) => m.id));
     for (const meta of registry.list()) {
       expect(meta.params).toBeInstanceOf(z.ZodObject);

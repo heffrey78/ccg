@@ -266,6 +266,7 @@ class Resolver<W> {
       rng: this.rng,
       step: (steps) => this.step(steps),
       announce: (item) => this.announce(item),
+      newId: (prefix) => this.newId(prefix),
     };
   }
 

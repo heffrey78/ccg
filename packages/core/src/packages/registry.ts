@@ -277,11 +277,25 @@ function qualifyItem(item: ContentItem, pkg: string, ops: OpRegistry, sink: RefS
       if (keywords) f.keywords = keywords.map((k, i) => ref('status', k, `/keywords/${i}`));
       break;
     }
-    case 'unit':
+    case 'unit': {
       for (const [i, s] of ((f.statuses as { status: string }[] | undefined) ?? []).entries()) {
         s.status = ref('status', s.status, `/statuses/${i}/status`);
       }
+      // Behaviour trees hold intents, whose effects reference content too.
+      const walk = (node: unknown, pointer: string): void => {
+        if (typeof node !== 'object' || node === null) return;
+        const n = node as Record<string, unknown>;
+        if (n.kind === 'intent') effects((n.intent as { effects?: unknown }).effects, `${pointer}/intent/effects`);
+        if (Array.isArray(n.steps)) n.steps.forEach((step, i) => walk(step, `${pointer}/steps/${i}`));
+        if (Array.isArray(n.options)) n.options.forEach((o, i) => walk((o as { then: unknown }).then, `${pointer}/options/${i}/then`));
+        if (n.kind === 'if') {
+          walk(n.then, `${pointer}/then`);
+          walk(n.else, `${pointer}/else`);
+        }
+      };
+      walk(f.behavior, '/behavior');
       break;
+    }
     case 'status':
       for (const [i, hook] of ((f.hooks as { effects: unknown }[] | undefined) ?? []).entries()) effects(hook.effects, `/hooks/${i}/effects`);
       break;
