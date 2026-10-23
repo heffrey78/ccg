@@ -216,3 +216,13 @@ describe('fair and cheating AI (E13, without the trap springing — #58)', () =>
     expect(cheat.choose(g.rules, g.state, 'e', actions).to).not.toBe('2,2');
   });
 });
+
+describe('fog of war vision', () => {
+  it('a view under fog lists the tiles the viewer can see', () => {
+    const g = game({ units: [HERO('0,0'), FOE('4,4', 'Far')], fog: { kind: 'distance', range: 1 } });
+    expect(g.view('p').world.board.vision?.sort()).toEqual(['0,0', '0,1', '1,0'].sort());
+    expect(g.view(null).world.board.vision).toEqual([]);
+    expect(g.state.world.board.vision).toBeUndefined();
+    expect(game({ units: [HERO('0,0')] }).view('p').world.board.vision).toBeUndefined();
+  });
+});

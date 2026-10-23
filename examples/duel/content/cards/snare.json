@@ -1,0 +1,39 @@
+{
+  "formatVersion": 1,
+  "kind": "card",
+  "id": "snare",
+  "name": "Snare",
+  "cost": {
+    "energy": 1
+  },
+  "targeting": {
+    "kind": "tile",
+    "range": 3,
+    "empty": true
+  },
+  "effects": [],
+  "permanent": {
+    "kind": "trap",
+    "unit": "snare-trap",
+    "abilities": [
+      {
+        "kind": "triggered",
+        "on": "UnitEnteredTile",
+        "onTile": true,
+        "scope": "enemy",
+        "timing": "when",
+        "halt": true,
+        "consume": true,
+        "effects": [
+          {
+            "op": "damage",
+            "target": {
+              "$": "event.unit"
+            },
+            "amount": 4
+          }
+        ]
+      }
+    ]
+  }
+}

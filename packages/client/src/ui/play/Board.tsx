@@ -18,6 +18,16 @@ export interface BoardTarget {
   onPick(): void;
 }
 
+/** A permanent drawn on the board: an aura on its tile, or an attachment on its host. */
+export interface BoardMarker {
+  id: string;
+  label: string;
+  kind: string;
+  pos?: string;
+  host?: string;
+  mine: boolean;
+}
+
 /** A floating label over a unit for the beat that is playing. */
 export interface BoardEffect {
   unit: string;
@@ -42,6 +52,10 @@ export interface BoardProps {
   onInspect(unit: string | null): void;
   /** Animation speed multiplier for CSS transitions; 0 disables them. */
   speed: number;
+  /** Under fog of war, the tiles the player can see; undefined without fog. */
+  vision?: string[] | undefined;
+  /** Auras and attachments to draw. */
+  markers?: BoardMarker[];
 }
 
 export type BoardRenderer = (props: BoardProps) => ReactNode;
@@ -64,7 +78,8 @@ const activate = (fn: () => void) => (e: KeyboardEvent) => {
 };
 
 export function Board(props: BoardProps) {
-  const { layout, units, tiles, side, intents, intentSummaries, names, targets, effect, selectable, selected, speed } = props;
+  const { layout, units, tiles, side, intents, intentSummaries, names, targets, effect, selectable, selected, speed, vision, markers = [] } = props;
+  const seen = vision ? new Set(vision) : null;
   const hex = layout.cell === 'hex';
   // Cell centres are ~1 apart; a hex's circumradius is 1/√3 of that.
   const radius = hex ? CELL / SQRT3 : CELL / 2;
@@ -102,7 +117,8 @@ export function Board(props: BoardProps) {
           const p = at.get(c.pos)!;
           const tile = tiles[c.pos];
           const blocking = tile !== undefined && layout.tiles[tile]?.blocking === true;
-          const cls = ['ccg-cell', blocking && 'is-blocking', tile && !blocking && 'is-special', threatened.has(c.pos) && 'is-threatened'].filter(Boolean).join(' ');
+          const fogged = seen !== null && !seen.has(c.pos);
+          const cls = ['ccg-cell', blocking && 'is-blocking', tile && !blocking && 'is-special', threatened.has(c.pos) && 'is-threatened', fogged && 'is-fogged'].filter(Boolean).join(' ');
           return (
             <g key={c.pos} transform={`translate(${p.x} ${p.y})`}>
               {hex ? (
@@ -111,10 +127,24 @@ export function Board(props: BoardProps) {
                 <rect className={cls} x={-radius + 2} y={-radius + 2} width={radius * 2 - 4} height={radius * 2 - 4} rx={6} />
               )}
               {tile && <text className="ccg-tile-label" y={radius - 8} textAnchor="middle">{name(tile)}</text>}
-              <title>{tile ? `${c.pos} · ${name(tile)}` : c.pos}</title>
+              <title>{[c.pos, tile && name(tile), fogged && 'out of sight'].filter(Boolean).join(' · ')}</title>
             </g>
           );
         })}
+      </g>
+
+      <g>
+        {markers
+          .filter((m) => m.pos !== undefined && at.has(m.pos))
+          .map((m) => {
+            const p = at.get(m.pos as string)!;
+            return (
+              <g key={m.id} className={['ccg-aura', m.mine ? 'is-mine' : 'is-enemy'].join(' ')} transform={`translate(${p.x} ${p.y})`} data-permanent={m.id} aria-label={`${m.label} (${m.kind}) on ${m.pos}`} role="img">
+                <circle r={radius * 0.88} />
+                <text y={-radius * 0.68} textAnchor="middle">{m.label}</text>
+              </g>
+            );
+          })}
       </g>
 
       <g>
@@ -166,6 +196,14 @@ export function Board(props: BoardProps) {
                   {Object.entries(u.statuses).map(([s, n]) => `${initials(name(s))}${n}`).join(' ')}
                 </text>
               )}
+              {markers
+                .filter((m) => m.host === u.id)
+                .map((m, i) => (
+                  <g key={m.id} className="ccg-attachment" transform={`translate(${-radius * 0.98} ${radius * 0.12 - i * 15})`} data-permanent={m.id} aria-label={`${m.label} attached`} role="img">
+                    <rect x={-2} y={-8} width={Math.max(26, m.label.length * 6)} height={14} rx={7} />
+                    <text x={4} dy="0.3em">{initials(m.label)}</text>
+                  </g>
+                ))}
               {intent && !mine && (
                 <g className="ccg-intent" transform={`translate(0 ${-radius - 6})`}>
                   <rect x={-30} y={-11} width={60} height={20} rx={10} />

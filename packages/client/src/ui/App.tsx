@@ -16,11 +16,13 @@ export interface AppProps {
   seed?: string | number;
   /** Custom board renderers by topology kind. */
   renderers?: Record<string, BoardRenderer>;
+  /** Start this encounter (a qualified id) instead of the game's default or run. */
+  encounter?: string;
 }
 
 const reducedMotion = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-export function App({ engine, platform, seed, renderers }: AppProps) {
+export function App({ engine, platform, seed, renderers, encounter }: AppProps) {
   const [games, setGames] = useState<GameListing[] | null>(null);
   const [lastPlayed, setLastPlayed] = useState<string | null>(null);
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
@@ -29,11 +31,13 @@ export function App({ engine, platform, seed, renderers }: AppProps) {
   const [error, setError] = useState<string | null>(null);
   const [debug, setDebug] = useState(false);
   const [speed, setSpeed] = useState(reducedMotion() ? 0 : 1);
+  const [autoPass, setAutoPass] = useState(0);
 
   useEffect(() => {
     void engine.listGames().then(setGames, (e: Error) => setError(e.message));
     void platform.settings.get<string | null>('lastPlayed', null).then(setLastPlayed);
     void platform.settings.get<number | null>('animationSpeed', null).then((s) => s !== null && setSpeed(s));
+    void platform.settings.get<number>('autoPass', 0).then(setAutoPass);
   }, [engine, platform]);
 
   const changeSpeed = (s: number) => {
@@ -59,7 +63,7 @@ export function App({ engine, platform, seed, renderers }: AppProps) {
     setLog([]);
     void platform.settings.set('lastPlayed', game);
     setLastPlayed(game);
-    void run(() => engine.start(game, seed ?? Math.floor(Math.random() * 2 ** 31)));
+    void run(() => engine.start(game, seed ?? Math.floor(Math.random() * 2 ** 31), encounter?.startsWith(`${game}:`) ? { encounter } : {}));
   };
 
   return (
@@ -79,6 +83,11 @@ export function App({ engine, platform, seed, renderers }: AppProps) {
           onAct={(a: Action) => void run(() => engine.act(a))}
           onQuit={() => setSnapshot(null)}
           onDebug={() => setDebug(true)}
+          autoPass={autoPass}
+          onAutoPass={(seconds) => {
+            setAutoPass(seconds);
+            void platform.settings.set('autoPass', seconds);
+          }}
           onChooseReward={(card) => {
             setLog([]);
             void run(() => engine.chooseReward(card));

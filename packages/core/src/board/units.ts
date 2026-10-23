@@ -50,6 +50,8 @@ export interface BoardState {
   units: Record<string, UnitState>;
   /** Position → tile definition id, for tiles that differ from open ground. */
   tiles: Record<Pos, string>;
+  /** In a view under fog of war only: the tiles the viewer can see (#59). Never in state. */
+  vision?: Pos[];
 }
 
 export interface BoardWorld {
@@ -320,6 +322,21 @@ export function boardModule<W extends BoardWorld>(config: BoardConfig): RulesMod
     }
     return seen;
   };
+  /** Tiles a side's own units can see through the fog, by the same rules as units. */
+  const sightedTiles = (state: GameState<W>, side: SideId): Set<Pos> => {
+    const fog = config.fog;
+    const own = Object.values(boardOf(state).units).filter((u) => u.side === side);
+    const blocks = (pos: Pos) => blockedTile(state, pos) || (fog?.kind === 'lineOfSight' && fog.unitsBlock === true && !!unitAt(boardOf(state), pos));
+    return new Set(
+      topo.positions().filter((pos) =>
+        own.some((o) => {
+          const d = topo.distance(o.pos, pos);
+          if (fog?.kind === 'distance') return d <= fog.range;
+          return (fog?.range === undefined || d <= fog.range) && lineOfSight(topo, o.pos, pos, blocks);
+        }),
+      ),
+    );
+  };
   const fogCache = new WeakMap<object, Map<SideId | null, Set<string>>>();
   /** Units visible to a viewer: their own visibility rule, then fog of war. */
   const visibleUnits = (state: GameState<W>, viewer: SideId | null): Set<string> => {
@@ -349,6 +366,12 @@ export function boardModule<W extends BoardWorld>(config: BoardConfig): RulesMod
     view(world, viewer, state) {
       const visible = visibleUnits(state, viewer);
       for (const id of Object.keys(world.board.units)) if (!visible.has(id)) delete world.board.units[id];
+      if (config.fog) {
+        // What the viewer sees; a spectator sees only what every side sees.
+        const sides = viewer === null ? state.sides.map((x) => x.id) : [viewer];
+        const seen = sides.map((side) => sightedTiles(state, side));
+        world.board.vision = topo.positions().filter((pos) => seen.every((set) => set.has(pos)));
+      }
     },
 
     redact(event, viewer, state) {

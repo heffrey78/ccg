@@ -114,6 +114,18 @@ export const CSS = `
 .ccg-rewards { display: flex; gap: 12px; justify-content: center; margin: 12px 0; flex-wrap: wrap; }
 .ccg-app .ccg-reward { padding: 0; border: none; background: none; }
 .ccg-app .ccg-reward:hover .ccg-card { transform: translateY(-4px); border-color: var(--target); }
+.ccg-cell.is-fogged { fill: color-mix(in srgb, var(--ink) 22%, var(--cell)); }
+.ccg-aura circle { fill: color-mix(in srgb, var(--reaction) 12%, transparent); stroke: var(--reaction); stroke-width: 2; stroke-dasharray: 5 4; pointer-events: none; }
+.ccg-aura.is-enemy circle { stroke: var(--enemy); }
+.ccg-aura text { font-size: 9px; font-weight: 700; fill: var(--reaction); pointer-events: none; }
+.ccg-attachment rect { fill: var(--reaction); stroke: var(--panel); }
+.ccg-attachment text { font-size: 8px; font-weight: 700; fill: #fff; pointer-events: none; }
+.ccg-respond { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); margin: 0; padding: 6px 14px; border-radius: 999px; background: var(--reaction); color: #fff; font-weight: 600; z-index: 1; }
+.ccg-countdown { opacity: .85; }
+.ccg-app .ccg-card.is-eligible { border-color: var(--reaction); box-shadow: 0 0 0 3px color-mix(in srgb, var(--reaction) 40%, transparent); }
+.ccg-permanents h2 { margin: 0 0 4px; font-size: 1rem; }
+.ccg-permanents ul { margin: 0; padding-left: 16px; }
+.ccg-permanents li { margin-bottom: 4px; }
 .ccg-run-progress { font-weight: 600; color: var(--accent); }
 
 @media (prefers-reduced-motion: reduce) {

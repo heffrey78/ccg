@@ -12,6 +12,8 @@ export interface HandProps {
   cards: HandCard[];
   selected: string | null;
   onSelect(card: string): void;
+  /** A response prompt is open: playable cards are the eligible reactions. */
+  responding?: boolean;
 }
 
 const costText = (cost: Record<string, number>) =>
@@ -19,7 +21,7 @@ const costText = (cost: Record<string, number>) =>
     .map(([r, n]) => `${n} ${r}`)
     .join(', ');
 
-export function Hand({ cards, selected, onSelect }: HandProps) {
+export function Hand({ cards, selected, onSelect, responding = false }: HandProps) {
   if (cards.length === 0) return <p className="ccg-muted">Your hand is empty.</p>;
   return (
     <ol className="ccg-hand" aria-label="Hand">
@@ -30,7 +32,7 @@ export function Hand({ cards, selected, onSelect }: HandProps) {
           <li key={card.id}>
             <button
               type="button"
-              className={['ccg-card', card.playable && 'is-playable', selected === card.id && 'is-selected', face?.timing === 'reaction' && 'is-reaction'].filter(Boolean).join(' ')}
+              className={['ccg-card', card.playable && 'is-playable', responding && card.playable && 'is-eligible', selected === card.id && 'is-selected', face?.timing === 'reaction' && 'is-reaction'].filter(Boolean).join(' ')}
               aria-pressed={selected === card.id}
               aria-disabled={!card.playable}
               aria-keyshortcuts={i < 9 ? String(i + 1) : undefined}
