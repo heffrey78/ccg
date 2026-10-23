@@ -20,6 +20,7 @@ import {
   intentsModule,
   logicModule,
   permanentsModule,
+  stackModule,
   statusesModule,
   targetingText,
   zone,
@@ -62,6 +63,7 @@ function game({ cards, hand, deck = [], placements = [HERO(), GRUNT('E1', '2')],
     intentsModule<World>({ topology: config.topology, behaviors: {} }),
     permanentsModule<World>({ topology: config.topology, cards, units: UNITS }),
     logicModule<World>(),
+    stackModule<World>(),
     ...extra,
   ];
   const rules = composeRules<World>({ round: [{ id: 'main', side: 'p', interactive: true }] }, modules);

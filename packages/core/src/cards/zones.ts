@@ -10,7 +10,7 @@ import type { Targeting } from '@ccg/content';
 import { z } from 'zod';
 import { ContentError } from '../kernel/params.js';
 import { canSee, opaqueId, type Visibility } from '../kernel/visibility.js';
-import type { ActionDef, Effect, EffectContext, EventInput, GameState, SideId, Step } from '../kernel/types.js';
+import type { ActionDef, Effect, EffectContext, EventInput, GameState, Prompt, SideId, Step, WindowTiming } from '../kernel/types.js';
 import { defineOp, type RulesModule } from '../rules/compose.js';
 
 /** Zones every side has. Packages may add more by name. */
@@ -61,6 +61,38 @@ export interface CardsWorld {
   cards: CardsState;
 }
 
+export interface ReactionCondition {
+  /** Item kinds it responds to, e.g. ['intent'] or ['card']. Any kind if omitted. */
+  kind?: string[];
+  /** Whose item: an opponent's (default), your own, or anyone's. */
+  from?: 'opponent' | 'self' | 'any';
+  /** Only items whose target is one of your units. */
+  targetsYou?: boolean;
+  /** Only items that are themselves reactions. */
+  reaction?: boolean;
+  /** Windows it may be played in. Default: itemAnnounced and itemTop. */
+  windows?: WindowTiming[];
+}
+
+/** Whether a reaction may be played against the prompt's item (§5.2). */
+export function reactionAllowed(state: GameState<unknown>, side: SideId, prompt: Prompt, condition: ReactionCondition = {}): boolean {
+  const windows = condition.windows ?? ['itemAnnounced', 'itemTop'];
+  if (!windows.includes(prompt.window)) return false;
+  const item = state.stack.find((i) => i.id === prompt.item);
+  if (prompt.item !== null && !item) return false;
+  if (!item) return condition.kind === undefined && condition.targetsYou !== true && condition.reaction !== true;
+  if (condition.kind && !condition.kind.includes(item.kind)) return false;
+  const from = condition.from ?? 'opponent';
+  if (from === 'opponent' && item.controller === side) return false;
+  if (from === 'self' && item.controller !== side) return false;
+  if (condition.reaction === true && item.vars.reaction !== true) return false;
+  if (condition.targetsYou) {
+    const units = (state.world as { board?: { units: Record<string, { side: SideId }> } }).board?.units;
+    if (typeof item.vars.target !== 'string' || units?.[item.vars.target]?.side !== side) return false;
+  }
+  return true;
+}
+
 /** Makes a card a permanent when it resolves (#55, requirement #50). */
 export interface CardPermanent {
   kind: 'unit' | 'structure' | 'trap' | 'aura' | 'attachment';
@@ -80,6 +112,10 @@ export interface CardDef {
   permanent?: CardPermanent;
   /** Played face-down: hidden from other sides when played (#56). Traps are face-down by default. */
   faceDown?: boolean;
+  /** When it can be played (#57): main phase (default), only in response windows, or both. */
+  timing?: 'main' | 'reaction' | 'any';
+  /** What a reaction may respond to; checked against the item it would respond to (§5.2). */
+  reaction?: ReactionCondition;
   effects: Effect[];
   /** Goes to the exhaust zone instead of discard after it resolves. */
   exhausts?: boolean;
@@ -213,18 +249,22 @@ export function zonesModule<W extends CardsWorld>(defs: Record<string, CardDef>,
     return targeting.kind === 'none' ? [null] : [];
   };
 
+  const playable = (state: GameState<W>, s: SideId, accept: (def: CardDef) => boolean) => {
+    const cards = cardsOf(state);
+    return zone(cards, s, 'hand').flatMap((id) => {
+      const def = effectiveDef(defs, cards.instances[id] as CardInstance);
+      if (!accept(def) || !canAfford(cards, s, def.cost)) return [];
+      if (options.playable && !options.playable(state, s, def)) return [];
+      return choices(state, s, def).map((target) =>
+        target === null ? { type: 'playCard', side: s, card: id } : { type: 'playCard', side: s, card: id, target },
+      );
+    });
+  };
+
   const playCard: ActionDef<W> = {
-    list(state, s) {
-      const cards = cardsOf(state);
-      return zone(cards, s, 'hand').flatMap((id) => {
-        const def = effectiveDef(defs, cards.instances[id] as CardInstance);
-        if (!canAfford(cards, s, def.cost)) return [];
-        if (options.playable && !options.playable(state, s, def)) return [];
-        return choices(state, s, def).map((target) =>
-          target === null ? { type: 'playCard', side: s, card: id } : { type: 'playCard', side: s, card: id, target },
-        );
-      });
-    },
+    list: (state, s) => playable(state, s, (def) => (def.timing ?? 'main') !== 'reaction'),
+    respond: (state, s, prompt) =>
+      playable(state, s, (def) => (def.timing ?? 'main') !== 'main' && reactionAllowed(state, s, prompt, def.reaction)),
     perform(ctx, action) {
       const cards = cardsOf(ctx.state);
       const instance = cards.instances[str(action.card)] as CardInstance;
@@ -246,7 +286,13 @@ export function zonesModule<W extends CardsWorld>(defs: Record<string, CardDef>,
         ...(faceDown && { secret: true }),
         // A permanent enters play first unless the card says where (§9.1).
         effects: def.permanent && !def.effects.some((e) => e.op === 'enterPlay') ? [{ op: 'enterPlay' }, ...def.effects] : def.effects,
-        vars: { ...bound, card: instance.id, handAtPlay: zone(cardsOf(ctx.state), action.side, 'hand').length },
+        vars: {
+          ...bound,
+          card: instance.id,
+          handAtPlay: zone(cardsOf(ctx.state), action.side, 'hand').length,
+          // A reaction remembers what it answered, for counter/redirect/modify (§5.3).
+          ...(ctx.answering && { reaction: true, respondingTo: ctx.answering.item }),
+        },
       });
     },
   };

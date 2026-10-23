@@ -80,6 +80,19 @@ export function createContentSchemas(ops: OpRegistry, { formatVersion: version =
       effects,
       /** Goes to the exhaust zone instead of discard after it resolves. */
       exhausts: z.boolean().optional(),
+      /** When it can be played (#57). */
+      timing: z.enum(['main', 'reaction', 'any']).optional(),
+      reaction: z
+        .object({
+          kind: z.array(z.string().min(1)).optional(),
+          from: z.enum(['opponent', 'self', 'any']).optional(),
+          targetsYou: z.boolean().optional(),
+          reaction: z.boolean().optional(),
+          windows: z.array(z.enum(['itemAnnounced', 'itemTop', 'phaseEnd'])).optional(),
+        })
+        .strict()
+        .optional(),
+      faceDown: z.boolean().optional(),
       /** Becomes a permanent when it resolves (#55). */
       permanent: z
         .object({

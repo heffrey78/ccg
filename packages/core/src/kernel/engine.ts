@@ -222,6 +222,7 @@ class Resolver<W> {
       return;
     }
     // A response (or any action) answers the prompt; the new item gets its own window.
+    const answering = this.state.prompt;
     this.state.prompt = null;
     if (action.type === END_TURN) {
       this.emit({ type: 'TurnEnded', side: action.side });
@@ -234,6 +235,7 @@ class Resolver<W> {
     const ctx: ActionContext<W> = {
       state: this.state,
       rng: this.rng,
+      answering,
       step: (steps) => this.step(steps),
       announce: (item) => this.announce(item),
       newId: (prefix) => this.newId(prefix),
@@ -410,6 +412,12 @@ class Resolver<W> {
     if (!handler) throw new ContentError(`unknown op '${effect.op}'`);
     const { op: _op, ...params } = effect;
     const resolved = resolveParams(params, item.vars);
+    for (const mod of item.mods ?? []) {
+      if (mod.op !== effect.op || !(mod.param in resolved)) continue;
+      const value = resolved[mod.param];
+      if ('set' in mod) resolved[mod.param] = mod.set;
+      else if (typeof value === 'number') resolved[mod.param] = Math.max(0, Math.floor((value + (mod.add ?? 0)) * (mod.multiply ?? 1)));
+    }
     const ctx: EffectContext<W> = {
       state: this.state,
       item,

@@ -12,6 +12,7 @@ import { boardModule } from './board/units.js';
 import { zonesModule } from './cards/zones.js';
 import { describeOps } from './rules/compose.js';
 import { logicModule } from './rules/logic.js';
+import { stackModule } from './rules/stack.js';
 
 /** Metadata for every built-in op, for content validation, card text and the editor. */
 export function builtinOps(): OpRegistry {
@@ -22,5 +23,6 @@ export function builtinOps(): OpRegistry {
     intentsModule({ topology: new LaneTopology(1), behaviors: {} }) as never,
     permanentsModule({ topology: new LaneTopology(1), cards: {}, units: {} }) as never,
     logicModule(),
+    stackModule(),
   ]);
 }
