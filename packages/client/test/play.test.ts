@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { HexTopology, LaneTopology, type Action, type GameEvent } from '@ccg/core';
-import { Playback, beats, unitsAfter, type PlaybackState, type Timer } from '../src/ui/play/playback.js';
+import { Playback, beats, effectOf, unitsAfter, type PlaybackState, type Timer } from '../src/ui/play/playback.js';
 import { anchorCell, choicesFor, offers } from '../src/ui/play/selection.js';
 import type { Layout, UnitView, WorldView } from '../src/ui/play/world.js';
 
@@ -128,5 +128,28 @@ describe('event playback', () => {
     expect(end.E).toMatchObject({ pos: '2', dying: true });
     // The starting units are not changed.
     expect(start.E.pos).toBe('3');
+  });
+});
+
+describe('effectOf', () => {
+  const name = (id: string) => id.toUpperCase();
+  const ev = (type: string, fields: Record<string, unknown> = {}): GameEvent => ({ type, cause: { action: 0 }, ...fields });
+  it('gives a hit its attacker, so the attacker lunges and the target shakes', () => {
+    expect(effectOf(ev('DamageDealt', { unit: 'bug', amount: 3, by: 'knot' }), name, 4)).toEqual({ unit: 'bug', beat: 4, text: '−3', tone: 'damage', motion: 'hit', by: 'knot' });
+    expect(effectOf(ev('AttackBlocked', { unit: 'knot', by: 'bug' }), name)).toMatchObject({ motion: 'blocked', by: 'bug' });
+  });
+  it('leaves out the attacker when nothing dealt the hit (rot, a fall, a collision)', () => {
+    expect(effectOf(ev('DamageDealt', { unit: 'bug', amount: 1, by: null }), name)).not.toHaveProperty('by');
+  });
+  it('gives heals, block, statuses, deaths and bumps their own motion', () => {
+    const motion = (type: string, fields: Record<string, unknown> = {}) => effectOf(ev(type, { unit: 'u', ...fields }), name)?.motion;
+    expect([
+      motion('Healed', { amount: 2 }),
+      motion('BlockGained', { amount: 2 }),
+      motion('StatusChanged', { status: 'rot', delta: 1, stacks: 1 }),
+      motion('UnitDied'),
+      motion('UnitCollided'),
+      motion('UnitEnteredTile', { pos: '3' }),
+    ]).toEqual(['heal', 'guard', 'status', 'die', 'bump', undefined]);
   });
 });

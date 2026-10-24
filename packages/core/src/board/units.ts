@@ -429,7 +429,7 @@ export function boardModule<W extends BoardWorld>(config: BoardConfig): RulesMod
         const u = boardOf(state).units[str(s.unit)];
         if (!u) return [];
         const amount = num(s.amount);
-        if (amount <= 0) return [{ type: 'AttackBlocked', unit: u.id, side: u.side, source: s.source ?? null }];
+        if (amount <= 0) return [{ type: 'AttackBlocked', unit: u.id, side: u.side, source: s.source ?? null, by: s.by ?? null }];
         u.hp -= amount;
         return [{ type: 'DamageDealt', unit: u.id, side: u.side, amount, source: s.source ?? null, by: s.by ?? null }];
       },

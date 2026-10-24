@@ -10,12 +10,12 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { Action, GameEvent } from '@ccg/core';
 import type { RunProgress, ServiceChoice, Snapshot } from '../engine/protocol.js';
 import { describeAction, describeEvent, type EventContext } from './describe.js';
-import { Board, type BoardEffect, type BoardMarker, type BoardRenderer, type BoardTarget } from './play/Board.js';
+import { Board, type BoardMarker, type BoardRenderer, type BoardTarget } from './play/Board.js';
 import { CardPreview } from './play/CardFace.js';
 import { RunMap } from './play/RunMap.js';
 import { Hand } from './play/Hand.js';
 import { Inspector, Piles, Resources, StackPanel } from './play/Panels.js';
-import { Playback, unitsAfter, type PlaybackState } from './play/playback.js';
+import { Playback, effectOf, unitsAfter, type PlaybackState } from './play/playback.js';
 import { anchorCell, choicesFor, offers, type Selection } from './play/selection.js';
 import { layoutOf, permanentOfUnit, type UnitView, type WorldView } from './play/world.js';
 
@@ -106,7 +106,7 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, onAct, onQuit, 
   }, [world, catalog]);
 
   const beat = playing ? play.beats[play.shown - 1] : undefined;
-  const effect = beat ? effectOf(beat.event, (id) => catalog.names[id] ?? id) : null;
+  const effect = beat ? effectOf(beat.event, (id) => catalog.names[id] ?? id, play.shown) : null;
   const banner = beat && ['ItemAnnounced', 'CardRevealed', 'PermanentRevealed', 'PermanentEntered'].includes(beat.event.type) ? describeEvent(beat.event, eventContext) : null;
 
   // ---- selection and targeting ----
@@ -481,29 +481,6 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, onAct, onQuit, 
       )}
     </section>
   );
-}
-
-function effectOf(e: GameEvent, name: (id: string) => string): BoardEffect | null {
-  const unit = typeof e.unit === 'string' ? e.unit : null;
-  if (!unit) return null;
-  switch (e.type) {
-    case 'DamageDealt':
-      return { unit, text: `−${String(e.amount)}`, tone: 'damage' };
-    case 'AttackBlocked':
-      return { unit, text: 'Blocked', tone: 'block' };
-    case 'BlockGained':
-      return { unit, text: `+${String(e.amount)} block`, tone: 'block' };
-    case 'Healed':
-      return { unit, text: `+${String(e.amount)}`, tone: 'heal' };
-    case 'StatusChanged':
-      return { unit, text: `${name(e.status as string)} ${Number(e.delta) > 0 ? '+' : ''}${String(e.delta)}`, tone: 'status' };
-    case 'UnitDied':
-      return { unit, text: 'Defeated', tone: 'info' };
-    case 'UnitCollided':
-      return { unit, text: 'Bump!', tone: 'info' };
-    default:
-      return null;
-  }
 }
 
 /** What a response prompt is about, e.g. "Foe: Hit targets you. Respond with a reaction, or pass." */

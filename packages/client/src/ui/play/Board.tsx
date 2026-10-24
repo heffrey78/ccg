@@ -28,11 +28,19 @@ export interface BoardMarker {
   mine: boolean;
 }
 
-/** A floating label over a unit for the beat that is playing. */
+/** How a unit moves for the beat that is playing. */
+export type BoardMotion = 'hit' | 'blocked' | 'guard' | 'heal' | 'status' | 'die' | 'bump';
+
+/** A floating label over a unit for the beat that is playing, and how the unit (and its attacker) move. */
 export interface BoardEffect {
   unit: string;
   text: string;
   tone: 'damage' | 'block' | 'heal' | 'status' | 'info';
+  /** The beat's index, so the same effect twice in a row plays twice. */
+  beat?: number;
+  motion?: BoardMotion;
+  /** The unit that dealt the hit; it lunges at `unit`, or fires at it from range. */
+  by?: string;
 }
 
 export interface BoardProps {
@@ -109,6 +117,17 @@ export function Board(props: BoardProps) {
     }
   }
   const intentByUnit = new Map(intents.map((i) => [i.unit, i]));
+  // The beat's motion: the struck unit, and the attacker that lunges at it or fires from range.
+  const struck = effect ? units[effect.unit] : undefined;
+  const struckAt = struck ? at.get(struck.pos) : undefined;
+  const attacker = effect?.by && effect.by !== effect.unit && (effect.motion === 'hit' || effect.motion === 'blocked') ? units[effect.by] : undefined;
+  const attackerAt = attacker ? at.get(attacker.pos) : undefined;
+  const reach = attackerAt && struckAt ? { x: struckAt.x - attackerAt.x, y: struckAt.y - attackerAt.y } : null;
+  const ranged = reach !== null && Math.hypot(reach.x, reach.y) > CELL * 1.5;
+  const lunge = reach && Math.hypot(reach.x, reach.y) > 0 ? { x: (reach.x / Math.hypot(reach.x, reach.y)) * radius * (ranged ? -0.15 : 0.5), y: (reach.y / Math.hypot(reach.x, reach.y)) * radius * (ranged ? -0.15 : 0.5) } : null;
+  // A ranged hit lands when the shot arrives.
+  const motionOf = (id: string): string | null =>
+    effect?.motion && effect.unit === id ? `is-${effect.motion}${ranged ? ' is-ranged' : ''}` : attacker?.id === id && lunge ? 'is-lunging' : null;
   const transition = speed > 0 ? `transform ${Math.round(200 / speed)}ms ease-out, opacity ${Math.round(300 / speed)}ms` : 'none';
 
   return (
@@ -117,7 +136,7 @@ export function Board(props: BoardProps) {
       viewBox={`${box.x} ${box.y} ${box.w} ${box.h}`}
       role="group"
       aria-label={`${layout.kind} board`}
-      style={{ width: '100%', maxHeight: '56vh' }}
+      style={{ width: '100%', maxHeight: '56vh', ['--ccg-speed' as string]: Math.max(speed, 0.01) }}
     >
       {background && <image className="ccg-scene" href={background} x={box.x} y={box.y} width={box.w} height={box.h} preserveAspectRatio="xMidYMid slice" />}
       <g className={background ? 'has-scene' : undefined}>
@@ -181,31 +200,37 @@ export function Board(props: BoardProps) {
               data-unit={u.id}
               data-pos={u.pos}
             >
-              {art[u.def] ? (
-                <>
-                  <ellipse className="ccg-unit-ground" cy={radius * 0.32} rx={radius * 0.62} ry={radius * 0.16} />
-                  <image
-                    className="ccg-unit-sprite"
-                    href={art[u.def]}
-                    x={-radius * 0.78}
-                    y={-radius * 0.98}
-                    width={radius * 1.56}
-                    height={radius * 1.56}
-                    // Sprites face east; units facing west are mirrored.
-                    {...(dir && dir.x < -0.01 && { transform: 'scale(-1 1)' })}
+              <g
+                key={motionOf(u.id) ? `${u.id}:${effect?.beat ?? 0}` : u.id}
+                className={['ccg-unit-figure', motionOf(u.id)].filter(Boolean).join(' ')}
+                {...(motionOf(u.id) === 'is-lunging' && lunge && { style: { ['--lx' as string]: `${lunge.x.toFixed(1)}px`, ['--ly' as string]: `${lunge.y.toFixed(1)}px` } })}
+              >
+                {art[u.def] ? (
+                  <>
+                    <ellipse className="ccg-unit-ground" cy={radius * 0.32} rx={radius * 0.62} ry={radius * 0.16} />
+                    <image
+                      className="ccg-unit-sprite"
+                      href={art[u.def]}
+                      x={-radius * 0.78}
+                      y={-radius * 0.98}
+                      width={radius * 1.56}
+                      height={radius * 1.56}
+                      // Sprites face east; units facing west are mirrored.
+                      {...(dir && dir.x < -0.01 && { transform: 'scale(-1 1)' })}
+                    />
+                  </>
+                ) : (
+                  <circle className="ccg-unit-body" cy={-6} r={radius * 0.5} />
+                )}
+                {dir && !art[u.def] && (
+                  <path
+                    className="ccg-unit-facing"
+                    d="M -6 -5 L 6 0 L -6 5 Z"
+                    transform={`translate(${dir.x * radius * 0.62} ${dir.y * radius * 0.62 - 6}) rotate(${(Math.atan2(dir.y, dir.x) * 180) / Math.PI})`}
                   />
-                </>
-              ) : (
-                <circle className="ccg-unit-body" cy={-6} r={radius * 0.5} />
-              )}
-              {dir && !art[u.def] && (
-                <path
-                  className="ccg-unit-facing"
-                  d="M -6 -5 L 6 0 L -6 5 Z"
-                  transform={`translate(${dir.x * radius * 0.62} ${dir.y * radius * 0.62 - 6}) rotate(${(Math.atan2(dir.y, dir.x) * 180) / Math.PI})`}
-                />
-              )}
-              {!art[u.def] && <text className="ccg-unit-name" y={-6} textAnchor="middle" dy="0.35em">{initials(name(u.def))}</text>}
+                )}
+                {!art[u.def] && <text className="ccg-unit-name" y={-6} textAnchor="middle" dy="0.35em">{initials(name(u.def))}</text>}
+              </g>
               <g transform={`translate(${-radius * 0.7} ${radius * 0.5})`}>
                 <rect className="ccg-hp-track" width={radius * 1.4} height={12} rx={6} />
                 <rect className="ccg-hp-fill" width={Math.max(0, (radius * 1.4 * Math.max(0, u.hp)) / Math.max(1, u.maxHp))} height={12} rx={6} />
@@ -275,10 +300,32 @@ export function Board(props: BoardProps) {
         })}
       </g>
 
+      {effect?.motion && struckAt && (
+        <g key={`burst:${effect.unit}:${effect.beat ?? 0}`} className={`ccg-burst is-${effect.motion}${ranged ? ' is-ranged' : ''}`} transform={`translate(${struckAt.x} ${struckAt.y - radius * 0.3})`} aria-hidden="true">
+          <circle className="ccg-burst-ring" r={radius * 0.55} />
+          {Array.from({ length: 8 }, (_, i) => {
+            const a = (Math.PI / 4) * i + Math.PI / 8;
+            return effect.motion === 'status' || effect.motion === 'heal' ? (
+              <circle key={i} className="ccg-burst-mote" r={4} style={{ ['--mx' as string]: `${(Math.cos(a) * radius * 0.7).toFixed(1)}px`, ['--my' as string]: `${(Math.sin(a) * radius * 0.7).toFixed(1)}px` }} />
+            ) : (
+              <line key={i} className="ccg-burst-ray" x1={Math.cos(a) * radius * 0.3} y1={Math.sin(a) * radius * 0.3} x2={Math.cos(a) * radius * 0.62} y2={Math.sin(a) * radius * 0.62} />
+            );
+          })}
+        </g>
+      )}
+      {ranged && attackerAt && struckAt && (
+        <circle
+          key={`shot:${effect?.beat ?? 0}`}
+          className="ccg-projectile"
+          r={7}
+          style={{ ['--fx' as string]: `${attackerAt.x}px`, ['--fy' as string]: `${attackerAt.y - radius * 0.3}px`, ['--tx' as string]: `${struckAt.x}px`, ['--ty' as string]: `${struckAt.y - radius * 0.3}px` }}
+          aria-hidden="true"
+        />
+      )}
       {effect && at.has(units[effect.unit]?.pos ?? '') && (
         <text
-          key={`${effect.unit}:${effect.text}`}
-          className={`ccg-float tone-${effect.tone}`}
+          key={`${effect.unit}:${effect.text}:${effect.beat ?? 0}`}
+          className={`ccg-float tone-${effect.tone}${ranged ? ' is-ranged' : ''}`}
           x={at.get(units[effect.unit]!.pos)!.x}
           y={at.get(units[effect.unit]!.pos)!.y - radius * 0.2}
           textAnchor="middle"
