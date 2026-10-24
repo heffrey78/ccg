@@ -158,6 +158,44 @@ export const CSS = `
 .ccg-app .ccg-deck-pick > button:last-child { padding: 6px 12px; border: 1px solid var(--line); background: var(--panel); }
 .ccg-run-progress { font-weight: 600; color: var(--accent); }
 
+/* Beat motions (#123): durations divide by the animation speed. */
+.ccg-unit-figure { --ccg-beat: calc(420ms / var(--ccg-speed, 1)); }
+.ccg-unit-figure.is-lunging { animation: ccg-lunge var(--ccg-beat) ease-in-out; }
+.ccg-unit-figure.is-hit { animation: ccg-shake var(--ccg-beat) ease-out; }
+.ccg-unit-figure.is-hit .ccg-unit-sprite, .ccg-unit-figure.is-hit .ccg-unit-body { animation: ccg-flash var(--ccg-beat) ease-out; }
+.ccg-unit-figure.is-blocked, .ccg-unit-figure.is-bump { animation: ccg-recoil var(--ccg-beat) ease-out; }
+.ccg-unit-figure.is-guard, .ccg-unit-figure.is-heal { animation: ccg-swell var(--ccg-beat) ease-out; transform-box: fill-box; transform-origin: 50% 90%; }
+.ccg-unit-figure.is-status { animation: ccg-wobble var(--ccg-beat) ease-in-out; transform-box: fill-box; transform-origin: 50% 90%; }
+.ccg-unit-figure.is-die { animation: ccg-collapse var(--ccg-beat) ease-in forwards; transform-box: fill-box; transform-origin: 50% 90%; }
+@keyframes ccg-lunge { 35% { transform: translate(var(--lx), var(--ly)); } 55% { transform: translate(var(--lx), var(--ly)); } }
+@keyframes ccg-shake { 15% { transform: translateX(-6px); } 35% { transform: translateX(5px); } 55% { transform: translateX(-3px); } 75% { transform: translateX(2px); } }
+@keyframes ccg-flash { 0%, 30% { filter: brightness(0.7) sepia(1) saturate(9) hue-rotate(-40deg) drop-shadow(0 0 6px var(--threat)); } }
+@keyframes ccg-recoil { 30% { transform: translateY(3px) scale(0.97); } }
+@keyframes ccg-swell { 40% { transform: scale(1.08); } }
+@keyframes ccg-wobble { 25% { transform: rotate(-5deg); } 50% { transform: rotate(4deg); } 75% { transform: rotate(-2deg); } }
+@keyframes ccg-collapse { to { transform: translateY(6px) scale(0.6) rotate(-12deg); opacity: 0.3; } }
+.ccg-burst { pointer-events: none; --ccg-beat: calc(420ms / var(--ccg-speed, 1)); }
+.ccg-burst-ring { fill: none; stroke-width: 3; transform-box: fill-box; transform-origin: center; animation: ccg-ring var(--ccg-beat) ease-out both; }
+.ccg-burst-ray { stroke-width: 3; stroke-linecap: round; transform-box: fill-box; animation: ccg-fade var(--ccg-beat) ease-out both; }
+.ccg-burst-mote { animation: ccg-mote var(--ccg-beat) ease-out both; }
+.ccg-burst.is-hit .ccg-burst-ring, .ccg-burst.is-hit .ccg-burst-ray { stroke: var(--threat); }
+.ccg-burst.is-blocked .ccg-burst-ring, .ccg-burst.is-guard .ccg-burst-ring, .ccg-burst.is-blocked .ccg-burst-ray, .ccg-burst.is-guard .ccg-burst-ray { stroke: var(--block); }
+.ccg-burst.is-heal .ccg-burst-ring { stroke: var(--hp); }
+.ccg-burst.is-heal .ccg-burst-mote { fill: var(--hp); }
+.ccg-burst.is-status .ccg-burst-ring { stroke: var(--reaction); }
+.ccg-burst.is-status .ccg-burst-mote { fill: var(--reaction); }
+.ccg-burst.is-die .ccg-burst-ring, .ccg-burst.is-die .ccg-burst-ray, .ccg-burst.is-bump .ccg-burst-ring, .ccg-burst.is-bump .ccg-burst-ray { stroke: var(--muted); }
+.ccg-projectile { fill: var(--threat); stroke: var(--panel); stroke-width: 2; pointer-events: none; filter: drop-shadow(0 0 4px var(--threat)); animation: ccg-shot calc(160ms / var(--ccg-speed, 1)) ease-in both; }
+/* A ranged hit waits for its shot, and plays shorter to fit the same beat. */
+.ccg-unit-figure.is-ranged, .ccg-burst.is-ranged { --ccg-beat: calc(280ms / var(--ccg-speed, 1)); }
+.ccg-burst.is-ranged { animation: ccg-hidden calc(160ms / var(--ccg-speed, 1)) step-end; }
+@keyframes ccg-hidden { from, to { visibility: hidden; } }
+.ccg-unit-figure.is-ranged, .ccg-unit-figure.is-ranged .ccg-unit-sprite, .ccg-unit-figure.is-ranged .ccg-unit-body, .ccg-burst.is-ranged > *, .ccg-float.is-ranged { animation-delay: calc(160ms / var(--ccg-speed, 1)); }
+@keyframes ccg-ring { from { transform: scale(0.3); opacity: 1; } to { transform: scale(1.25); opacity: 0; } }
+@keyframes ccg-fade { from { opacity: 1; } to { opacity: 0; } }
+@keyframes ccg-mote { from { transform: translate(0, 0); opacity: 1; } to { transform: translate(var(--mx), var(--my)); opacity: 0; } }
+@keyframes ccg-shot { from { transform: translate(var(--fx), var(--fy)); opacity: 1; } 90% { opacity: 1; } to { transform: translate(var(--tx), var(--ty)); opacity: 0; } }
+
 @media (prefers-reduced-motion: reduce) {
   .ccg-app *, .ccg-app *::before { animation: none !important; transition: none !important; }
 }

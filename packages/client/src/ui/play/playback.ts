@@ -6,6 +6,7 @@
  * ends or is skipped. Framework-free, with an injectable timer for tests.
  */
 import type { GameEvent } from '@ccg/core';
+import type { BoardEffect } from './Board.js';
 import type { UnitView } from './world.js';
 
 /** Beat length at 1x speed, by event type. Events not listed are not animated. */
@@ -16,8 +17,8 @@ export const BEAT_MS: Record<string, number> = {
   UnitEnteredTile: 220,
   UnitTurned: 80,
   UnitCollided: 200,
-  AttackBlocked: 320,
-  DamageDealt: 380,
+  AttackBlocked: 380,
+  DamageDealt: 440,
   BlockGained: 280,
   BlockLost: 120,
   Healed: 320,
@@ -44,6 +45,31 @@ export function beats(events: GameEvent[], speed: number): Beat[] {
     const ms = BEAT_MS[event.type];
     return ms === undefined ? [] : [{ event, duration: ms / speed }];
   });
+}
+
+/** What the board shows for one event: a floating label, the unit's motion, and the attacker that dealt it. */
+export function effectOf(e: GameEvent, name: (id: string) => string, beat = 0): BoardEffect | null {
+  const unit = typeof e.unit === 'string' ? e.unit : null;
+  if (!unit) return null;
+  const by = typeof e.by === 'string' ? { by: e.by } : {};
+  switch (e.type) {
+    case 'DamageDealt':
+      return { unit, beat, text: `−${String(e.amount)}`, tone: 'damage', motion: 'hit', ...by };
+    case 'AttackBlocked':
+      return { unit, beat, text: 'Blocked', tone: 'block', motion: 'blocked', ...by };
+    case 'BlockGained':
+      return { unit, beat, text: `+${String(e.amount)} block`, tone: 'block', motion: 'guard' };
+    case 'Healed':
+      return { unit, beat, text: `+${String(e.amount)}`, tone: 'heal', motion: 'heal' };
+    case 'StatusChanged':
+      return { unit, beat, text: `${name(e.status as string)} ${Number(e.delta) > 0 ? '+' : ''}${String(e.delta)}`, tone: 'status', motion: 'status' };
+    case 'UnitDied':
+      return { unit, beat, text: 'Defeated', tone: 'info', motion: 'die' };
+    case 'UnitCollided':
+      return { unit, beat, text: 'Bump!', tone: 'info', motion: 'bump' };
+    default:
+      return null;
+  }
 }
 
 export type ShownUnit = UnitView & { dying?: boolean };

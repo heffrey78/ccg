@@ -33,3 +33,33 @@ test('hovering a unit shows its details without moving the log or the hand', asy
   await expect(page.getByRole('region', { name: 'Unit details' }).getByRole('heading', { name: 'The Knot' })).toBeVisible();
   expect([(await log.boundingBox())?.y, (await hand.boundingBox())?.y]).toEqual(before);
 });
+
+test('a hit plays out on the board: the shot flies, the target flashes, the attacker recoils', async ({ page }) => {
+  await page.goto('/?seed=3');
+  await page.getByRole('button', { name: /^Sporeline/ }).click();
+  await expect(page.getByRole('status')).toHaveText('Your decision');
+  // Beats are brief, so record every motion class the board shows while the rounds play.
+  await page.evaluate(() => {
+    const seen = new Set<string>();
+    (window as unknown as { seen: Set<string> }).seen = seen;
+    const note = (el: Element) => {
+      const unit = el.closest('[data-unit]')?.getAttribute('aria-label')?.split(',')[0] ?? '';
+      for (const c of el.classList) if (c.startsWith('is-') || c === 'ccg-projectile') seen.add(`${unit}:${c}`);
+    };
+    new MutationObserver((records) => {
+      for (const r of records) {
+        if (r.target instanceof Element && r.type === 'attributes') note(r.target);
+        for (const n of r.addedNodes) if (n instanceof Element) [n, ...n.querySelectorAll('*')].forEach(note);
+      }
+    }).observe(document.querySelector('.ccg-board') as Element, { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] });
+  });
+  // The leafcutter closes in, then spits at the Knot from two tiles away.
+  for (let round = 2; round <= 3; round++) {
+    await page.getByRole('button', { name: 'End turn' }).click();
+    await expect(page.locator('header').getByText(`Round ${round}`)).toBeVisible();
+    await expect(page.getByRole('status')).toHaveText('Your decision');
+  }
+  await expect(page.getByRole('region', { name: 'Log' })).toContainText('The Knot takes 4 damage');
+  // The log updates at once; the board plays the hit out after it.
+  await expect.poll(() => page.evaluate(() => [...(window as unknown as { seen: Set<string> }).seen])).toEqual(expect.arrayContaining([':ccg-projectile', 'The Knot:is-hit', 'The Knot:is-ranged', 'Leafcutter:is-lunging']));
+});
