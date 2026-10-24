@@ -198,6 +198,7 @@ const NAME_HINTS: Record<string, WidgetHint> = {
   shape: 'pattern',
   area: 'pattern',
   art: 'asset',
+  background: 'asset',
   icon: 'asset',
   behavior: 'behavior',
 };

@@ -328,6 +328,8 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, onAct, onQuit, 
               speed={speed}
               vision={shownWorld.board?.vision}
               markers={markers}
+              art={catalog.art}
+              background={snapshot.scene?.background}
             />
           ) : (
             <p className="ccg-muted">This game has no board layout; use the debug view.</p>

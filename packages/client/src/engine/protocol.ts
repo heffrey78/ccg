@@ -59,6 +59,8 @@ export interface Catalog {
   names: Record<string, string>;
   cards: Record<string, CardFace>;
   statuses: Record<string, { name: string; description?: string; stacking: string }>;
+  /** Art URLs by content id: unit sprites, tile art, status icons. */
+  art: Record<string, string>;
 }
 
 /** What a visible enemy intent will do, for the telegraph. */
@@ -87,6 +89,8 @@ export interface Snapshot {
   intents: Record<string, IntentSummary>;
   /** A message about what the request did, e.g. how a reload applied changes. */
   notice?: string;
+  /** The scene the current encounter is set in. */
+  scene?: { background?: string };
   /** Progress through a run (#45). */
   run?: RunProgress;
   /** Whether `undo` would take back the player's last action now. */

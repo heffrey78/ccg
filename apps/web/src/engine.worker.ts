@@ -9,9 +9,21 @@ import sandbox from '@ccg/game-sandbox';
 const encoder = new TextEncoder();
 const filesOf = (raw: Record<string, string>, root: string) => Object.fromEntries(Object.entries(raw).map(([path, text]) => [path.replace(root, ''), encoder.encode(text)]));
 const duel = filesOf(import.meta.glob('../../../examples/duel/**/*.json', { eager: true, query: '?raw', import: 'default' }) as Record<string, string>, '../../../examples/duel/');
-const sporeline = filesOf(
-  import.meta.glob(['../../../games/reference/game.json', '../../../games/reference/content/**/*.json'], { eager: true, query: '?raw', import: 'default' }) as Record<string, string>,
+const sporelineText = filesOf(
+  import.meta.glob(['../../../games/reference/game.json', '../../../games/reference/content/**/*.json', '../../../games/reference/assets/**/*.svg'], {
+    eager: true,
+    query: '?raw',
+    import: 'default',
+  }) as Record<string, string>,
   '../../../games/reference/',
 );
+// Raster art (PNG, WebP, JPEG) is bundled as URLs and fetched as bytes.
+const sporelineImages = import.meta.glob('../../../games/reference/assets/**/*.{png,webp,jpg,jpeg}', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
+const sporeline = (async () => {
+  const images = await Promise.all(
+    Object.entries(sporelineImages).map(async ([path, url]) => [path.replace('../../../games/reference/', ''), new Uint8Array(await (await fetch(url)).arrayBuffer())] as const),
+  );
+  return { ...sporelineText, ...Object.fromEntries(images) };
+})();
 
 serveEngine(createEngineHost({ packages: [sandbox as never], files: [duel, sporeline] }), self as unknown as DedicatedWorkerGlobalScope);
