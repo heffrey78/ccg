@@ -15,7 +15,10 @@ import {
   randomPolicy,
   redactEvents,
   COMBAT_NODES,
+  junctionOffer,
   rulesetOf,
+  startingStrains,
+  strainsOf,
   runMapDepths,
   runMapIssues,
   runMapOf,
@@ -94,6 +97,10 @@ interface RunState {
   rewards?: string[];
   /** Nodes the player may go to next, when `status` is `map`. */
   choices?: string[];
+  /** Strains connected so far (#101). */
+  unlocked: string[];
+  /** What the offered rewards are: cards for the deck, or strains to connect at a junction. */
+  offer?: 'card' | 'strain';
 }
 
 const NODE_NAMES: Record<RunNodeKind, string> = { fight: 'Fight', elite: 'Elite fight', boss: 'Boss', junction: 'Junction', spring: 'Spring', fruiting: 'Fruiting log' };
@@ -215,7 +222,8 @@ export function createEngineHost(options: HostOptions = {}): EngineHost {
       stage: run.visited.length,
       total,
       status: run.status,
-      ...(run.rewards && run.status === 'reward' && { rewards: run.rewards }),
+      ...(run.rewards && run.status === 'reward' && { rewards: run.rewards, offer: run.offer ?? 'card' }),
+      ...((rulesetOf(game.resolved).run?.strains ?? []).length > 0 && { strains: { all: rulesetOf(game.resolved).run?.strains ?? [], unlocked: run.unlocked } }),
       ...(run.branching && {
         map: {
           nodes: run.map.nodes.map((n) => ({ id: n.id, kind: n.kind, name: nodeName(n), depth: depths.get(n.id) ?? 0, next: n.next })),
@@ -246,7 +254,8 @@ export function createEngineHost(options: HostOptions = {}): EngineHost {
       return;
     }
     run.status = 'reward';
-    run.rewards = runRewards(rulesetOf(game.resolved), standardInput(game.resolved), node.encounter as string, run.seed, run.visited.length - 1);
+    run.offer = 'card';
+    run.rewards = runRewards(rulesetOf(game.resolved), standardInput(game.resolved), node.encounter as string, run.seed, run.visited.length - 1, { unlocked: run.unlocked, deck: run.deck });
   };
 
   /** Moves the run on after a reward or a non-combat node: straight on if there's one way, else to the map. */
@@ -266,7 +275,7 @@ export function createEngineHost(options: HostOptions = {}): EngineHost {
   const enter = (game: GameListing, previous: RunState, id: string): EngineReply => {
     const node = previous.map.nodes.find((n) => n.id === id);
     if (!node) return { ok: false, error: { code: 'illegal-action', message: `there is no node '${id}'` } };
-    const { rewards: _r, choices: _c, ...kept } = previous;
+    const { rewards: _r, choices: _c, offer: _o, ...kept } = previous;
     const run: RunState = { ...kept, node: id, visited: [...previous.visited, id], status: 'playing' };
     if (!COMBAT_NODES.has(node.kind)) {
       if (!running) return { ok: false, error: { code: 'not-started', message: 'a run must start with a fight' } };
@@ -279,6 +288,15 @@ export function createEngineHost(options: HostOptions = {}): EngineHost {
           run.hp[def] = Math.min(max, hp + Math.ceil(max * 0.3));
         }
         notice = 'The spring restores 30% of your HP.';
+      }
+      if (node.kind === 'junction') {
+        // Another mycelium reaches out: one card from each of up to three unconnected strains.
+        const offer = junctionOffer(rulesetOf(running.resolved), standardInput(running.resolved), run.unlocked, run.seed, run.visited.length - 1);
+        if (offer.length > 0) {
+          running = { ...running, run: { ...run, status: 'reward', offer: 'strain', rewards: offer } };
+          return { ok: true, type: 'snapshot', snapshot: snapshot(running, []) };
+        }
+        notice = 'Junction: there are no more strains to connect with.';
       }
       return onward(running, run, notice);
     }
@@ -438,6 +456,7 @@ export function createEngineHost(options: HostOptions = {}): EngineHost {
                   seed: request.seed,
                   carryHp: ruleset.run?.carryHp ?? true,
                   status: 'playing',
+                  unlocked: startingStrains(ruleset, request.seed),
                 },
                 map.start,
               );
@@ -546,8 +565,10 @@ export function createEngineHost(options: HostOptions = {}): EngineHost {
           if (request.card !== null && !run.rewards?.includes(request.card)) {
             return { ok: false, error: { code: 'illegal-action', message: `'${request.card}' is not one of the rewards` } };
           }
-          const { rewards: _offered, ...rest } = run;
-          return onward(running, { ...rest, deck: request.card === null ? run.deck : [...run.deck, request.card] });
+          const { rewards: _offered, offer, ...rest } = run;
+          // Taking a junction's card connects its strain.
+          const connected = offer === 'strain' && request.card !== null ? strainsOf(rulesetOf(running.resolved), standardInput(running.resolved), request.card) : [];
+          return onward(running, { ...rest, unlocked: [...new Set([...run.unlocked, ...connected])], deck: request.card === null ? run.deck : [...run.deck, request.card] });
         }
 
         case 'chooseNode': {

@@ -36,7 +36,7 @@ export interface RulesetDef {
   enemy?: { side?: string };
   responses?: { itemAnnounced?: boolean; itemTop?: boolean };
   permanents?: { maxPerSide?: number; summoningSickness?: boolean };
-  run?: { encounters?: string[]; map?: RunMap; rewards?: { pool: string[]; choices?: number }; carryHp?: boolean };
+  run?: { encounters?: string[]; map?: RunMap; strains?: string[]; startStrains?: number; rewards?: { pool: string[]; choices?: number }; carryHp?: boolean };
   undo?: 'off' | 'turn';
 }
 
@@ -45,6 +45,8 @@ export interface StandardGameInput {
   definitions: Definitions;
   /** Encounter items, in package order, with qualified ids. */
   encounters: { id: string; units: { unit: string; side: string; pos: string; facing?: string }[]; tiles?: Record<string, string>; rewards?: { cards?: string[] } }[];
+  /** Each card's tags, by qualified id (for strains, #101). */
+  cardTags?: Record<string, string[]>;
   /** Saved playtest setups (#42), with qualified ids. */
   scenarios?: { id: string; encounter: string; seed: string | number; hand?: string[]; deck?: string[] }[];
   modules?: RulesModule<StandardWorld>[];
@@ -195,10 +197,53 @@ export function standardSetup(ruleset: RulesetDef, input: StandardGameInput, opt
 }
 
 /** The cards offered after winning an encounter of a run: its own reward cards, else the run's pool, drawn by seed. */
-export function runRewards(ruleset: RulesetDef, input: StandardGameInput, encounter: string, seed: string | number, stage: number): string[] {
+export function runRewards(
+  ruleset: RulesetDef,
+  input: StandardGameInput,
+  encounter: string,
+  seed: string | number,
+  stage: number,
+  strains?: { unlocked: string[]; deck: string[] },
+): string[] {
   const own = input.encounters.find((e) => e.id === encounter)?.rewards?.cards;
-  const pool = [...new Set(own && own.length > 0 ? own : (ruleset.run?.rewards?.pool ?? []))];
+  const pool = [...new Set(own && own.length > 0 ? own : (ruleset.run?.rewards?.pool ?? []))].filter((card) => !strains || eligible(ruleset, input, card, strains));
   return new Rng(seedRng(`reward:${seed}:${stage}`)).shuffle(pool).slice(0, ruleset.run?.rewards?.choices ?? 3);
+}
+
+/** A card's strains: its tags that the run lists as strains. */
+export function strainsOf(ruleset: RulesetDef, input: StandardGameInput, card: string): string[] {
+  const strains = ruleset.run?.strains ?? [];
+  return (input.cardTags?.[card] ?? []).filter((t) => strains.includes(t));
+}
+
+/** Whether a card can be offered: all its strains connected, and the deck holds every tag it requires. */
+export function eligible(ruleset: RulesetDef, input: StandardGameInput, card: string, strains: { unlocked: string[]; deck: string[] }): boolean {
+  if (!strainsOf(ruleset, input, card).every((s) => strains.unlocked.includes(s))) return false;
+  const requires = input.definitions.cards[card]?.requires ?? [];
+  if (requires.length === 0) return true;
+  const held = new Set(strains.deck.flatMap((c) => input.cardTags?.[c] ?? []));
+  return requires.every((t) => held.has(t));
+}
+
+/** Strains connected at the start of a run: `startStrains` of them, chosen by seed. */
+export function startingStrains(ruleset: RulesetDef, seed: string | number): string[] {
+  const all = ruleset.run?.strains ?? [];
+  return new Rng(seedRng(`strains:${seed}`)).shuffle([...all]).slice(0, ruleset.run?.startStrains ?? 0);
+}
+
+/** A junction's offer: one card from each of up to three strains not yet connected (single-strain cards only). */
+export function junctionOffer(ruleset: RulesetDef, input: StandardGameInput, unlocked: string[], seed: string | number, stage: number): string[] {
+  const rng = new Rng(seedRng(`junction:${seed}:${stage}`));
+  const byStrain = new Map<string, string[]>();
+  for (const card of new Set(ruleset.run?.rewards?.pool ?? [])) {
+    const strains = strainsOf(ruleset, input, card);
+    if (strains.length !== 1 || unlocked.includes(strains[0] as string) || (input.definitions.cards[card]?.requires ?? []).length > 0) continue;
+    byStrain.set(strains[0] as string, [...(byStrain.get(strains[0] as string) ?? []), card]);
+  }
+  return rng
+    .shuffle([...byStrain.keys()].sort())
+    .slice(0, 3)
+    .map((strain) => rng.pick(byStrain.get(strain) as string[]));
 }
 
 export type RunNodeKind = 'fight' | 'elite' | 'boss' | 'junction' | 'spring' | 'fruiting';

@@ -43,6 +43,8 @@ export interface CardFace {
   cost: Record<string, number>;
   timing: 'main' | 'reaction' | 'any';
   keywords: string[];
+  /** The card's tags, e.g. its strain. */
+  tags: string[];
   /** Activated ability names by ability index, for a permanent card. */
   abilities: Record<string, string>;
   art?: string;
@@ -96,6 +98,10 @@ export interface RunProgress {
   status: 'playing' | 'reward' | 'map' | 'won' | 'lost';
   /** Card ids on offer when `status` is `reward`. */
   rewards?: string[];
+  /** `strain`: a junction's offer, where taking a card connects its strain (#101). */
+  offer?: 'card' | 'strain';
+  /** The run's strains and which are connected. */
+  strains?: { all: string[]; unlocked: string[] };
   /** A branching run's map (#100). */
   map?: {
     nodes: { id: string; kind: string; name: string; depth: number; next: string[] }[];

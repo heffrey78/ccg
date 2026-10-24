@@ -16,6 +16,7 @@ import {
   randomPolicy,
   rulesetOf,
   runRewards,
+  junctionOffer,
   runMapDepths,
   runMapIssues,
   runMapOf,
@@ -25,6 +26,8 @@ import {
   summarize,
   Session,
   standardInput,
+  startingStrains,
+  strainsOf,
   topologyOf,
   viewState,
   zone,
@@ -461,5 +464,38 @@ describe('run maps (#100)', () => {
     expect(runMapIssues({ start: 'a', nodes: [node('a', 'fight', ['b'], 'e'), node('b', 'fight', ['a'], 'e')] }).map((i) => i.message)).toContain(
       'the map loops back on itself; every path must lead onward',
     );
+  });
+});
+
+describe('strains and hybrids (#101)', () => {
+  const tagged = (id: string, tags: string[], extra: object = {}) => item('card', id, { targeting: { kind: 'none' }, effects: [], tags, ...extra });
+  function setup() {
+    const pkg = contentGame({ run: { encounters: ['duel'], strains: ['rot', 'spore'], startStrains: 1, rewards: { pool: ['strike', 'rot1', 'rot2', 'spore1', 'hybrid'], choices: 9 } } });
+    pkg.content.push(tagged('rot1', ['rot']), tagged('rot2', ['rot']), tagged('spore1', ['spore']), tagged('hybrid', ['rot', 'spore'], { requires: ['rot', 'spore'] }));
+    const registry = new PackageRegistry();
+    registry.register(pkg);
+    const resolved = registry.resolve('plain');
+    if (!resolved.ok) throw new Error(resolved.issues[0]?.message);
+    return { ruleset: rulesetOf(resolved.game), input: standardInput(resolved.game) };
+  }
+  const offer = (unlocked: string[], deck: string[]) => {
+    const { ruleset, input } = setup();
+    return runRewards(ruleset, input, 'plain:duel', 1, 0, { unlocked, deck: deck.map((c) => `plain:${c}`) }).map((c) => c.slice(6)).sort();
+  };
+
+  it('offers only cards whose strains are connected; hybrids once the deck holds both parents', () => {
+    expect(offer([], [])).toEqual(['strike']);
+    expect(offer(['rot'], [])).toEqual(['rot1', 'rot2', 'strike']);
+    expect(offer(['rot', 'spore'], ['rot1'])).toEqual(['rot1', 'rot2', 'spore1', 'strike']);
+    expect(offer(['rot', 'spore'], ['rot1', 'spore1'])).toEqual(['hybrid', 'rot1', 'rot2', 'spore1', 'strike']);
+  });
+
+  it('a junction offers one card from each unconnected strain; runs start with some strains connected', () => {
+    const { ruleset, input } = setup();
+    expect(junctionOffer(ruleset, input, ['rot'], 1, 2)).toEqual(['plain:spore1']);
+    expect(junctionOffer(ruleset, input, ['rot', 'spore'], 1, 2)).toEqual([]);
+    expect(junctionOffer(ruleset, input, [], 1, 2).map((c) => strainsOf(ruleset, input, c)[0]).sort()).toEqual(['rot', 'spore']);
+    expect(startingStrains(ruleset, 5)).toHaveLength(1);
+    expect(startingStrains(ruleset, 5)).toEqual(startingStrains(ruleset, 5));
   });
 });

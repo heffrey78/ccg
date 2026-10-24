@@ -141,6 +141,7 @@ export const CSS = `
 .ccg-node:focus-visible { outline: none; }
 .ccg-node-glyph { font-size: 15px; fill: var(--ink); pointer-events: none; }
 .ccg-node-name { font-size: 10px; fill: var(--ink); pointer-events: none; }
+.ccg-strain { display: block; margin-top: 4px; font-size: .8rem; font-weight: 700; color: var(--reaction); text-transform: capitalize; }
 .ccg-run-progress { font-weight: 600; color: var(--accent); }
 
 @media (prefers-reduced-motion: reduce) {
