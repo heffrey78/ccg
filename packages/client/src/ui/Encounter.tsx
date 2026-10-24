@@ -18,21 +18,9 @@ import { Inspector, Piles, Resources, StackPanel } from './play/Panels.js';
 import { Playback, effectOf, unitsAfter, type PlaybackState } from './play/playback.js';
 import { anchorCell, choicesFor, offers, type Selection } from './play/selection.js';
 import { layoutOf, permanentOfUnit, type UnitView, type WorldView } from './play/world.js';
+import { SPEEDS, VIEWS, type ViewMode } from './settings.js';
 
-export const SPEEDS = [
-  { value: 0, label: 'Instant' },
-  { value: 1, label: '1×' },
-  { value: 2, label: '2×' },
-  { value: 4, label: '4×' },
-] as const;
 
-/** How big the board is drawn: beside the panels at page width, across a wide window, or filling the screen. */
-export type BoardView = 'standard' | 'wide' | 'full';
-export const VIEWS: { value: BoardView; label: string }[] = [
-  { value: 'standard', label: 'Standard' },
-  { value: 'wide', label: 'Wide' },
-  { value: 'full', label: 'Full screen' },
-];
 
 export interface EncounterProps {
   snapshot: Snapshot;
@@ -42,8 +30,8 @@ export interface EncounterProps {
   speed: number;
   onSpeed(speed: number): void;
   /** Board size; standard when absent. */
-  view?: BoardView;
-  onView?(view: BoardView): void;
+  view?: ViewMode;
+  onView?(view: ViewMode): void;
   onAct(action: Action): void;
   onQuit(): void;
   onDebug(): void;
@@ -187,8 +175,8 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, view: boardView
   }, [countdown, o.pass, act]);
 
   // ---- board view: full screen fills the window and asks the browser for the whole screen ----
-  const windowed = useRef<BoardView>(boardView === 'full' ? 'wide' : boardView);
-  const changeView = (next: BoardView) => {
+  const windowed = useRef<ViewMode>(boardView === 'full' ? 'wide' : boardView);
+  const changeView = (next: ViewMode) => {
     if (!onView || next === boardView) return;
     if (next === 'full') {
       windowed.current = boardView;
@@ -319,7 +307,7 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, view: boardView
         {onView && (
           <label className="ccg-speed">
             View{' '}
-            <select value={boardView} aria-keyshortcuts="F" onChange={(e) => changeView(e.target.value as BoardView)}>
+            <select value={boardView} aria-keyshortcuts="F" onChange={(e) => changeView(e.target.value as ViewMode)}>
               {VIEWS.map((v) => (
                 <option key={v.value} value={v.value}>
                   {v.label}

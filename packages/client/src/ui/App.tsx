@@ -7,7 +7,7 @@ import { DebugEncounter } from './DebugEncounter.js';
 import { Encounter } from './Encounter.js';
 import { GameSelect } from './GameSelect.js';
 import type { BoardRenderer } from './play/Board.js';
-import type { BoardView } from './Encounter.js';
+import type { ViewMode } from './settings.js';
 import { CSS } from './styles.js';
 
 export interface AppProps {
@@ -33,14 +33,14 @@ export function App({ engine, platform, seed, renderers, encounter }: AppProps) 
   const [debug, setDebug] = useState(false);
   const [speed, setSpeed] = useState(reducedMotion() ? 0 : 1);
   const [autoPass, setAutoPass] = useState(0);
-  const [view, setView] = useState<BoardView>('standard');
+  const [view, setView] = useState<ViewMode>('standard');
 
   useEffect(() => {
     void engine.listGames().then(setGames, (e: Error) => setError(e.message));
     void platform.settings.get<string | null>('lastPlayed', null).then(setLastPlayed);
     void platform.settings.get<number | null>('animationSpeed', null).then((s) => s !== null && setSpeed(s));
     void platform.settings.get<number>('autoPass', 0).then(setAutoPass);
-    void platform.settings.get<BoardView>('boardView', 'standard').then((v) => v !== 'full' && setView(v));
+    void platform.settings.get<ViewMode>('boardView', 'standard').then((v) => v !== 'full' && setView(v));
   }, [engine, platform]);
 
   const changeSpeed = (s: number) => {
@@ -48,7 +48,7 @@ export function App({ engine, platform, seed, renderers, encounter }: AppProps) 
     void platform.settings.set('animationSpeed', s);
   };
   // Full screen needs a click to enter, so only the windowed views are remembered.
-  const changeView = (v: BoardView) => {
+  const changeView = (v: ViewMode) => {
     setView(v);
     if (v !== 'full') void platform.settings.set('boardView', v);
   };

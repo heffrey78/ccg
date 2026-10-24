@@ -3,7 +3,8 @@ export { SettingsStore, memoryStorage, type KeyValueStorage, type Platform } fro
 export { App, type AppProps } from './ui/App.js';
 export { DebugEncounter, type DebugEncounterProps } from './ui/DebugEncounter.js';
 export { describeAction, describeEvent, type EventContext } from './ui/describe.js';
-export { Encounter, SPEEDS, type EncounterProps } from './ui/Encounter.js';
+export { Encounter, type EncounterProps } from './ui/Encounter.js';
+export { SPEEDS, VIEWS, type ViewMode } from './ui/settings.js';
 export { GameSelect, type GameSelectProps } from './ui/GameSelect.js';
 export { CardFaceContent, CardPreview } from './ui/play/CardFace.js';
 export { RunMap } from './ui/play/RunMap.js';
