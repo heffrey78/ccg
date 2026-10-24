@@ -170,6 +170,9 @@ export const CSS = `
 .ccg-app .ccg-deck-pick > button { padding: 0; border: none; background: none; }
 .ccg-app .ccg-deck-pick > button:last-child { padding: 6px 12px; border: 1px solid var(--line); background: var(--panel); }
 .ccg-run-progress { font-weight: 600; color: var(--accent); }
+.ccg-game { display: flex; gap: 12px; align-items: stretch; flex-wrap: wrap; }
+.ccg-difficulty { display: flex; flex-direction: column; justify-content: center; gap: 4px; max-width: 220px; }
+.ccg-difficulty select { font: inherit; }
 
 /* Beat motions (#123): durations divide by the animation speed. */
 .ccg-unit-figure { --ccg-beat: calc(420ms / var(--ccg-speed, 1)); }

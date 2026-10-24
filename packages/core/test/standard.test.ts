@@ -24,6 +24,7 @@ import {
   runScenarios,
   simulate,
   simulateRun,
+  scaleDamage,
   summarize,
   Session,
   standardInput,
@@ -570,5 +571,79 @@ describe('whole-run simulation', () => {
     expect(run).toMatchObject({ won: true, path: ['stage-1', 'stage-2'] });
     expect(run.deck.filter((c) => c === 'plain:strike')).toHaveLength(6);
     expect(simulateRun(resolved.game, 3)).toEqual(run);
+  });
+});
+
+describe('difficulty levels (#125)', () => {
+  const levels: RulesetDef['difficulty'] = {
+    default: 'normal',
+    levels: [
+      { id: 'story', name: 'Story', enemyHp: 50, enemyDamage: 50, playerHp: 200 },
+      { id: 'normal', name: 'Normal' },
+      { id: 'hard', name: 'Hard', enemyHp: 150, enemyDamage: 143 },
+    ],
+  };
+  const begin = (difficulty?: string) => {
+    const registry = new PackageRegistry();
+    registry.register(contentGame({ difficulty: levels }));
+    const resolved = registry.resolve('plain');
+    if (!resolved.ok) throw new Error('resolve');
+    const rules = resolved.game.createRules();
+    const created = createGame(rules, resolved.game.createSetup({ seed: 1, ...(difficulty && { difficulty }) }));
+    if (!created.ok) throw new Error(created.error.message);
+    return { game: resolved.game, rules, state: created.state as GameState<StandardWorld> };
+  };
+  const hp = (state: GameState<StandardWorld>) => Object.fromEntries(Object.values(state.world.board.units).map((u) => [u.def, [u.hp, u.maxHp]]));
+
+  it('the default level leaves the content as written', () => {
+    const { state } = begin();
+    expect(hp(state)).toEqual({ 'plain:hero': [30, 30], 'plain:foe': [20, 20] });
+    expect(state.world.board.scale).toBeUndefined();
+  });
+
+  it('scales enemy and player HP when units are placed', () => {
+    expect(hp(begin('hard').state)).toEqual({ 'plain:hero': [30, 30], 'plain:foe': [30, 30] });
+    expect(hp(begin('story').state)).toEqual({ 'plain:hero': [60, 60], 'plain:foe': [10, 10] });
+  });
+
+  it('scales the damage enemy intents declare, so the telegraph shows what lands', () => {
+    // Walk the hero up to the foe so it declares its 7-damage hit.
+    const started = begin('hard');
+    const rules = started.rules;
+    let state = started.state;
+    for (let i = 0; i < 4 && state.world.intents.declared[0]?.name !== 'Hit'; i++) {
+      const moves = legalActions(rules, state, 'player').filter((a) => a.type === 'move');
+      const next = apply(rules, state, moves.at(-1) ?? { type: 'endTurn', side: 'player' });
+      if (!next.ok) throw new Error(next.error.message);
+      state = next.state as GameState<StandardWorld>;
+      if (moves.length > 0) {
+        const ended = apply(rules, state, { type: 'endTurn', side: 'player' });
+        if (!ended.ok) throw new Error(ended.error.message);
+        state = ended.state as GameState<StandardWorld>;
+      }
+    }
+    const hit = state.world.intents.declared.find((i) => i.name === 'Hit');
+    expect(hit?.effects).toEqual([{ op: 'damage', amount: 10 }]);
+  });
+
+  it('scales literal damage anywhere in nested effects, keeps hits of 1 or more at least 1, and leaves other ops alone', () => {
+    const effects = [{ op: 'damage', amount: 3 }, { op: 'if', then: [{ op: 'damage', amount: 1 }], else: [{ op: 'heal', amount: 4 }] }, { op: 'damage', amount: { var: 'x' } }];
+    expect(scaleDamage(effects, 10)).toEqual([{ op: 'damage', amount: 1 }, { op: 'if', then: [{ op: 'damage', amount: 1 }], else: [{ op: 'heal', amount: 4 }] }, { op: 'damage', amount: { var: 'x' } }]);
+    expect(scaleDamage(effects, 100)).toBe(effects);
+  });
+
+  it('rejects a level the ruleset does not have', () => {
+    expect(() => begin('nightmare')).toThrow(/no difficulty 'nightmare'/);
+  });
+
+  it('simulates a run at a chosen level', () => {
+    const registry = new PackageRegistry();
+    registry.register(contentGame({ difficulty: levels, run: { encounters: ['duel', 'duel'] } }));
+    const resolved = registry.resolve('plain');
+    if (!resolved.ok) throw new Error('resolve');
+    const easy = simulateRun(resolved.game, 3, 'greedy', 1000, 'story');
+    const hard = simulateRun(resolved.game, 3, 'greedy', 1000, 'hard');
+    expect(easy.won).toBe(true);
+    expect(easy.hp).toBeGreaterThan(hard.hp);
   });
 });

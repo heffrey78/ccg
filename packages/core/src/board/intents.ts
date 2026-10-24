@@ -15,7 +15,7 @@ import { z } from 'zod';
 import type { Effect, GameState, PhaseContext, PhaseDef, SideId, Step } from '../kernel/types.js';
 import { defineOp, type RulesModule } from '../rules/compose.js';
 import { findPath, type Dir, type PatternShape, type Pos, type Topology } from './topology.js';
-import { NEUTRAL_SIDE, unitAt, type BoardWorld, type UnitState } from './units.js';
+import { NEUTRAL_SIDE, scaleDamage, unitAt, type BoardWorld, type UnitState } from './units.js';
 
 export type Selector = 'nearestEnemy' | 'weakestEnemy' | 'strongestEnemy';
 
@@ -181,7 +181,8 @@ export function intentsModule<W extends BoardWorld & IntentsWorld>(config: Inten
       side: unit.side,
       name: def.name,
       ...(def.icon && { icon: def.icon }),
-      effects: def.effects,
+      // Difficulty scales the damage when it is declared, so the telegraph shows what will land.
+      effects: scaleDamage(def.effects, state.world.board.scale?.[unit.side]?.damage),
       bound: 'none',
       visibility: def.visibility ?? 'full',
       onInvalidTarget: def.onInvalidTarget ?? 'skip',

@@ -34,12 +34,14 @@ export function App({ engine, platform, seed, renderers, encounter }: AppProps) 
   const [speed, setSpeed] = useState(reducedMotion() ? 0 : 1);
   const [autoPass, setAutoPass] = useState(0);
   const [view, setView] = useState<ViewMode>('standard');
+  const [difficulties, setDifficulties] = useState<Record<string, string>>({});
 
   useEffect(() => {
     void engine.listGames().then(setGames, (e: Error) => setError(e.message));
     void platform.settings.get<string | null>('lastPlayed', null).then(setLastPlayed);
     void platform.settings.get<number | null>('animationSpeed', null).then((s) => s !== null && setSpeed(s));
     void platform.settings.get<number>('autoPass', 0).then(setAutoPass);
+    void platform.settings.get<Record<string, string>>('difficulties', {}).then(setDifficulties);
     void platform.settings.get<ViewMode>('boardView', 'standard').then((v) => v !== 'full' && setView(v));
   }, [engine, platform]);
 
@@ -67,11 +69,21 @@ export function App({ engine, platform, seed, renderers, encounter }: AppProps) 
     }
   }, []);
 
-  const start = (game: string) => {
+  const start = (game: string, difficulty?: string) => {
     setLog([]);
     void platform.settings.set('lastPlayed', game);
     setLastPlayed(game);
-    void run(() => engine.start(game, seed ?? Math.floor(Math.random() * 2 ** 31), encounter?.startsWith(`${game}:`) ? { encounter } : {}));
+    void run(() =>
+      engine.start(game, seed ?? Math.floor(Math.random() * 2 ** 31), {
+        ...(encounter?.startsWith(`${game}:`) && { encounter }),
+        ...(difficulty && { difficulty }),
+      }),
+    );
+  };
+  const chooseDifficulty = (game: string, level: string) => {
+    const next = { ...difficulties, [game]: level };
+    setDifficulties(next);
+    void platform.settings.set('difficulties', next);
   };
 
   return (
@@ -114,6 +126,8 @@ export function App({ engine, platform, seed, renderers, encounter }: AppProps) 
         <GameSelect
           games={games}
           lastPlayed={lastPlayed}
+          difficulties={difficulties}
+          onDifficulty={chooseDifficulty}
           onStart={start}
           onImport={(file) =>
             void file

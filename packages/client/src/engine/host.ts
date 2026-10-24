@@ -15,9 +15,12 @@ import {
   randomPolicy,
   redactEvents,
   COMBAT_NODES,
+  difficultyOf,
+  difficultyScale,
   fruitingOffer,
   junctionOffer,
   rulesetOf,
+  scaledHp,
   startingStrains,
   strainsOf,
   runMapDepths,
@@ -37,6 +40,7 @@ import {
   type GameRules,
   type GameState,
   type ResolvedGame,
+  type RulesetDef,
   type SetupOptions,
   type SideId,
   type StatePolicy,
@@ -95,6 +99,8 @@ interface RunState {
   hp: Record<string, number>;
   seed: string | number;
   carryHp: boolean;
+  /** The difficulty level's id (#125), kept for every encounter of the run. */
+  difficulty?: string;
   status: 'playing' | 'reward' | 'map' | 'service' | 'won' | 'lost';
   /** At a spring or fruiting log: what it offers (#103). */
   service?: { kind: 'spring' | 'fruiting'; offer: string[] };
@@ -170,12 +176,22 @@ export function createEngineHost(options: HostOptions = {}): EngineHost {
   let loading: Promise<void> | null = null;
   let running: Running | null = null;
 
-  const listing = (pkg: GamePackage<unknown>): GameListing => ({
-    id: pkg.manifest.id,
-    name: pkg.manifest.name,
-    version: pkg.manifest.version,
-    ...(pkg.manifest.description && { description: pkg.manifest.description }),
-  });
+  const listing = (pkg: GamePackage<unknown>): GameListing => {
+    const difficulty = (pkg.content.find((i) => i.kind === 'ruleset') as Partial<RulesetDef> | undefined)?.difficulty;
+    return {
+      id: pkg.manifest.id,
+      name: pkg.manifest.name,
+      version: pkg.manifest.version,
+      ...(pkg.manifest.description && { description: pkg.manifest.description }),
+      ...(difficulty && {
+        difficulties: difficulty.levels.map((l) => ({ id: l.id, name: l.name, ...(l.description && { description: l.description }) })),
+        ...(difficulty.default && { defaultDifficulty: difficulty.default }),
+      }),
+    };
+  };
+
+  /** The level a game is played at, if its ruleset has levels. */
+  const levelOf = (game: Running) => safely(() => difficultyOf(rulesetOf(game.resolved), game.options.difficulty)) ?? undefined;
 
   /** Lets AI sides act until the decision is the UI side's again (or nobody's). */
   const runAi = (game: Running): GameEvent[] => {
@@ -197,6 +213,7 @@ export function createEngineHost(options: HostOptions = {}): EngineHost {
     const deciding = decidingSide(game.rules, state);
     const view = viewState(game.rules, state, game.side);
     const declared = (view.world as { intents?: { declared: Partial<DeclaredIntent>[] } }).intents?.declared ?? [];
+    const level = levelOf(game);
     return {
       game: game.game,
       side: game.side,
@@ -208,6 +225,7 @@ export function createEngineHost(options: HostOptions = {}): EngineHost {
       presentation: game.rules.presentation ?? {},
       intents: intentSummaries(game, declared),
       ...scene(game),
+      ...(level && { difficulty: level.name }),
       canUndo: game.rules.undo === 'turn' && !state.outcome && game.session.log.actions.length > (game.undoFloor ?? 0),
       ...(game.run && { run: runProgress(game, game.run) }),
     };
@@ -323,6 +341,7 @@ export function createEngineHost(options: HostOptions = {}): EngineHost {
       encounter: node.encounter as string,
       deck: run.deck,
       ...(Object.keys(run.hp).length > 0 && { hp: run.hp }),
+      ...(run.difficulty && { difficulty: run.difficulty }),
     };
     const built = build(game, setupOptions);
     if ('error' in built) return built.error;
@@ -483,6 +502,7 @@ export function createEngineHost(options: HostOptions = {}): EngineHost {
                   hp: {},
                   seed: request.seed,
                   carryHp: ruleset.run?.carryHp ?? true,
+                  ...(request.difficulty && { difficulty: request.difficulty }),
                   status: 'playing',
                   unlocked: startingStrains(ruleset, request.seed),
                 },
@@ -495,6 +515,7 @@ export function createEngineHost(options: HostOptions = {}): EngineHost {
             ...(request.encounter && { encounter: request.encounter }),
             ...(request.scenario && { scenario: request.scenario }),
             ...(request.hand && { hand: request.hand }),
+            ...(request.difficulty && { difficulty: request.difficulty }),
           };
           const built = build(listing(pkg), options);
           if ('error' in built) return built.error;
@@ -610,7 +631,10 @@ export function createEngineHost(options: HostOptions = {}): EngineHost {
           if (choice.action === 'leave') return onward(running, rest);
           if (service.kind === 'spring' && choice.action === 'heal') {
             const units = running.resolved.definitions.units;
-            const hp = Object.fromEntries(Object.entries(run.hp).map(([def, now]) => [def, Math.min(units[def]?.hp ?? now, now + Math.ceil((units[def]?.hp ?? now) * 0.3))]));
+            const ruleset = rulesetOf(running.resolved);
+            const scale = difficultyScale(ruleset, difficultyOf(ruleset, run.difficulty))[ruleset.player.side ?? 'player'];
+            const max = (def: string, now: number) => scaledHp(units[def]?.hp ?? now, scale);
+            const hp = Object.fromEntries(Object.entries(run.hp).map(([def, now]) => [def, Math.min(max(def, now), now + Math.ceil(max(def, now) * 0.3))]));
             return onward(running, { ...rest, hp }, 'The spring restores 30% of your HP.');
           }
           if (service.kind === 'spring' && choice.action === 'remove') {

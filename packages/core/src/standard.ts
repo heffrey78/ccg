@@ -11,7 +11,7 @@ import { permanentsModule, type PermanentsWorld } from './board/permanents.js';
 import { SquareTopology } from './board/square.js';
 import { statusesModule } from './board/statuses.js';
 import type { Topology } from './board/topology.js';
-import { boardModule, boardTargeting, createBoardState, type BoardConfig, type BoardWorld } from './board/units.js';
+import { boardModule, boardTargeting, createBoardState, type BoardConfig, type BoardWorld, type SideScale } from './board/units.js';
 import { createCardsState, zonesModule, type CardsWorld } from './cards/zones.js';
 import type { Definitions } from './content.js';
 import { ContentError } from './kernel/params.js';
@@ -38,6 +38,39 @@ export interface RulesetDef {
   permanents?: { maxPerSide?: number; summoningSickness?: boolean };
   run?: { encounters?: string[]; map?: RunMap; strains?: string[]; startStrains?: number; rewards?: { pool: string[]; choices?: number }; carryHp?: boolean };
   undo?: 'off' | 'turn';
+  difficulty?: { default?: string; levels: DifficultyLevel[] };
+}
+
+/** A difficulty level (#125): percentages applied to the content's numbers. */
+export interface DifficultyLevel {
+  id: string;
+  name: string;
+  description?: string;
+  enemyHp?: number;
+  enemyDamage?: number;
+  playerHp?: number;
+}
+
+/** The level a game starts on: the one asked for, else the ruleset's default, else its first; none if it has no levels. */
+export function difficultyOf(ruleset: RulesetDef, id?: string): DifficultyLevel | undefined {
+  const levels = ruleset.difficulty?.levels ?? [];
+  if (id !== undefined) {
+    const level = levels.find((l) => l.id === id);
+    if (!level) throw new ContentError(`no difficulty '${id}'`);
+    return level;
+  }
+  return levels.find((l) => l.id === ruleset.difficulty?.default) ?? levels[0];
+}
+
+/** How a level scales each side (#125). */
+export function difficultyScale(ruleset: RulesetDef, level: DifficultyLevel | undefined): Record<string, SideScale> {
+  if (!level) return {};
+  const { player, enemy } = sidesOf(ruleset);
+  const scale: Record<string, SideScale> = {};
+  const enemyScale: SideScale = { ...(level.enemyHp !== undefined && level.enemyHp !== 100 && { hp: level.enemyHp }), ...(level.enemyDamage !== undefined && level.enemyDamage !== 100 && { damage: level.enemyDamage }) };
+  if (Object.keys(enemyScale).length > 0) scale[enemy] = enemyScale;
+  if (level.playerHp !== undefined && level.playerHp !== 100) scale[player] = { hp: level.playerHp };
+  return scale;
 }
 
 /** What the standard game needs from a resolved game. */
@@ -48,7 +81,7 @@ export interface StandardGameInput {
   /** Each card's tags, by qualified id (for strains, #101). */
   cardTags?: Record<string, string[]>;
   /** Saved playtest setups (#42), with qualified ids. */
-  scenarios?: { id: string; encounter: string; seed: string | number; hand?: string[]; deck?: string[] }[];
+  scenarios?: { id: string; encounter: string; seed: string | number; difficulty?: string; hand?: string[]; deck?: string[] }[];
   modules?: RulesModule<StandardWorld>[];
 }
 
@@ -157,6 +190,8 @@ export interface SetupOptions {
   deck?: (string | RunCard)[];
   /** Player units' HP by unit definition, e.g. carried between a run's encounters. */
   hp?: Record<string, number>;
+  /** A difficulty level's id (#125); the ruleset's default when absent. */
+  difficulty?: string;
 }
 
 export function standardSetup(ruleset: RulesetDef, input: StandardGameInput, options: SetupOptions): GameSetup<StandardWorld> {
@@ -192,6 +227,7 @@ export function standardSetup(ruleset: RulesetDef, input: StandardGameInput, opt
           return { id: `${u.side}${counts[u.side]}`, def: u.unit, side: u.side, pos: u.pos, facing: u.facing ?? (u.side === player ? 'e' : 'w'), ...(hp !== undefined && { hp }) };
         }),
         encounter.tiles ?? {},
+        difficultyScale(ruleset, difficultyOf(ruleset, scenario?.difficulty ?? options.difficulty)),
       ),
       cards: upgradeCards(createCardsState({ [player]: deck, [enemy]: [] }), player, entries),
       intents: createIntentsState(),

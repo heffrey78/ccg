@@ -64,7 +64,7 @@ export function SchemaField({ node, root, value, onChange, pointer, label, hint:
   const errors = ctx.issues.get(pointer) ?? [];
   const flagged = ctx.flagged === pointer;
   const row = (control: React.ReactNode, block = false) => (
-    <Row label={label} pointer={pointer} errors={errors} flagged={flagged} actions={actions} block={block}>
+    <Row label={label} pointer={pointer} errors={errors} flagged={flagged} actions={actions} block={block} help={node.description}>
       {control}
     </Row>
   );

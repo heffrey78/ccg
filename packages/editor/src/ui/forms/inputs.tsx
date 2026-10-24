@@ -45,7 +45,7 @@ export function NumberInput({ value, onCommit, label, min, max, integer }: { val
 }
 
 /** A labelled row with its validation messages, addressable by JSON Pointer for jump-to-field. */
-export function Row({ label, pointer, errors, flagged, actions, children, block }: { label: string; pointer: string; errors: string[]; flagged: boolean; actions?: ReactNode; children: ReactNode; block?: boolean }) {
+export function Row({ label, pointer, errors, flagged, actions, children, block, help }: { label: string; pointer: string; errors: string[]; flagged: boolean; actions?: ReactNode; children: ReactNode; block?: boolean; help?: string | undefined }) {
   return (
     <div className={['ccg-form-row', block && 'is-block', errors.length > 0 && 'has-error', flagged && 'is-flagged'].filter(Boolean).join(' ')} data-pointer={pointer}>
       <div className="ccg-form-label">
@@ -54,6 +54,7 @@ export function Row({ label, pointer, errors, flagged, actions, children, block 
       </div>
       <div className="ccg-form-control">
         {children}
+        {help && <p className="ccg-muted ccg-form-help">{help}</p>}
         {errors.map((e, i) => (
           <p key={i} className="ccg-error">
             {e}

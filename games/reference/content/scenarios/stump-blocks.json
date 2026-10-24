@@ -3,6 +3,7 @@
   "kind": "scenario",
   "id": "stump-blocks",
   "name": "A stump is no one's enemy",
+  "difficulty": "easy",
   "encounter": "borer-nest",
   "expect": [
     {

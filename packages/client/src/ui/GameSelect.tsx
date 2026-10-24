@@ -3,12 +3,15 @@ import type { GameListing } from '../engine/protocol.js';
 export interface GameSelectProps {
   games: GameListing[];
   lastPlayed: string | null;
-  onStart(game: string): void;
+  /** The difficulty chosen for each game, by game id (#125); a game's default when absent. */
+  difficulties?: Record<string, string>;
+  onDifficulty?(game: string, level: string): void;
+  onStart(game: string, difficulty?: string): void;
   /** Loads a zipped game package (as the editor exports). */
   onImport?(file: File): void;
 }
 
-export function GameSelect({ games, lastPlayed, onStart, onImport }: GameSelectProps) {
+export function GameSelect({ games, lastPlayed, difficulties = {}, onDifficulty, onStart, onImport }: GameSelectProps) {
   return (
     <section aria-labelledby="games-heading">
       <h1 id="games-heading">Choose a game</h1>
@@ -28,15 +31,34 @@ export function GameSelect({ games, lastPlayed, onStart, onImport }: GameSelectP
       )}
       {games.length === 0 && <p>No games are installed.</p>}
       <ul style={{ listStyle: 'none', padding: 0, display: 'grid', gap: 12 }}>
-        {games.map((game) => (
-          <li key={game.id}>
-            <button type="button" onClick={() => onStart(game.id)} style={{ width: '100%', textAlign: 'left', padding: 16 }}>
-              <strong>{game.name}</strong> <small>v{game.version}</small>
-              {game.id === lastPlayed && <small> · last played</small>}
-              {game.description && <div>{game.description}</div>}
-            </button>
-          </li>
-        ))}
+        {games.map((game) => {
+          const levels = game.difficulties ?? [];
+          const chosen = levels.find((l) => l.id === difficulties[game.id]) ?? levels.find((l) => l.id === game.defaultDifficulty) ?? levels[0];
+          return (
+            <li key={game.id} className="ccg-game">
+              <button type="button" onClick={() => onStart(game.id, chosen?.id)} style={{ flex: 1, textAlign: 'left', padding: 16 }}>
+                <strong>{game.name}</strong> <small>v{game.version}</small>
+                {game.id === lastPlayed && <small> · last played</small>}
+                {game.description && <div>{game.description}</div>}
+              </button>
+              {chosen && (
+                <div className="ccg-difficulty">
+                  <label>
+                    Difficulty{' '}
+                    <select value={chosen.id} aria-label={`${game.name} difficulty`} onChange={(e) => onDifficulty?.(game.id, e.target.value)}>
+                      {levels.map((l) => (
+                        <option key={l.id} value={l.id}>
+                          {l.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {chosen.description && <small className="ccg-muted">{chosen.description}</small>}
+                </div>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </section>
   );

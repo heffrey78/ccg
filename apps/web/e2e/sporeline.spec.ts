@@ -77,7 +77,8 @@ test('a hit plays out on the board: the shot flies, the target flashes, the atta
     await expect(page.locator('header').getByText(`Round ${round}`)).toBeVisible();
     await expect(page.getByRole('status')).toHaveText('Your decision');
   }
-  await expect(page.getByRole('region', { name: 'Log' })).toContainText('The Knot takes 4 damage');
+  // Normal, the default level, scales the spit's 4 damage to 6.
+  await expect(page.getByRole('region', { name: 'Log' })).toContainText('The Knot takes 6 damage');
   // The log updates at once; the board plays the hit out after it.
   await expect.poll(() => page.evaluate(() => [...(window as unknown as { seen: Set<string> }).seen])).toEqual(expect.arrayContaining([':ccg-projectile', 'The Knot:is-hit', 'The Knot:is-ranged', 'Leafcutter:is-lunging']));
 });
@@ -104,4 +105,19 @@ test('the board can be drawn wide or full screen, and the choice of windowed vie
   await page.reload();
   await page.getByRole('button', { name: /^Sporeline/ }).click();
   await expect(page.locator('.ccg-encounter.is-view-wide')).toBeVisible();
+});
+
+test('a difficulty picked on the game list scales the fights and is remembered (#125)', async ({ page }) => {
+  await page.goto('/?seed=3');
+  const level = page.getByLabel('Sporeline difficulty');
+  await expect(level).toHaveValue('normal');
+  await expect(page.getByText('Tougher bugs that hit harder.')).toBeVisible();
+  await level.selectOption('story');
+  await page.getByRole('button', { name: /^Sporeline/ }).click();
+  await expect(page.locator('header').getByText('Story')).toBeVisible();
+  // The leafcutter's 4-damage spit is telegraphed at Story's 75%.
+  await page.getByRole('button', { name: 'End turn' }).click();
+  await expect(page.locator('[data-unit][aria-label^="Leafcutter"] .ccg-intent').first()).toHaveText('⚔ 3');
+  await page.reload();
+  await expect(page.getByLabel('Sporeline difficulty')).toHaveValue('story');
 });

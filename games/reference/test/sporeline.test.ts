@@ -88,4 +88,13 @@ describe('Sporeline balance guards', () => {
     expect(runs.some((r) => !r.won)).toBe(true);
     expect(runs.filter((r) => r.won).every((r) => r.path.at(-1) === 'chamber')).toBe(true);
   }, 60_000);
+
+  it('harder difficulty levels win less often (#125)', () => {
+    const wins = (level: string) => Array.from({ length: 12 }, (_, i) => simulateRun(game, i + 1, 'greedy', 1000, level)).filter((r) => r.won).length;
+    const [story, easy, normal, hard] = ['story', 'easy', 'normal', 'hard'].map(wins) as [number, number, number, number];
+    expect(story).toBeGreaterThanOrEqual(easy);
+    expect(easy).toBeGreaterThanOrEqual(normal);
+    expect(normal).toBeGreaterThanOrEqual(hard);
+    expect(story).toBeGreaterThan(hard);
+  }, 120_000);
 });

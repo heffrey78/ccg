@@ -25,6 +25,15 @@ export interface PlaytestPaneProps {
 
 type Mode = 'hot' | 'replay';
 
+/** How a playtest was set up, enough to save it as a scenario. */
+interface Setup {
+  encounter: string;
+  seed: string | number;
+  hand?: string[];
+  deck?: string[];
+  difficulty?: string;
+}
+
 export function PlaytestPane({ project, problems, engine, tryCard, onSaveScenario }: PlaytestPaneProps) {
   const encounters = itemsOfKind(project, 'encounter');
   const scenarios = itemsOfKind(project, 'scenario');
@@ -36,7 +45,13 @@ export function PlaytestPane({ project, problems, engine, tryCard, onSaveScenari
   const [debug, setDebug] = useState(false);
   const [debugger_, setDebugger] = useState(false);
   // How the running game was set up, to save it as a scenario (a run or a tried card can't be).
-  const [setupOf, setSetupOf] = useState<{ encounter: string; seed: string | number; hand?: string[]; deck?: string[] } | null>(null);
+  const [setupOf, setSetupOf] = useState<Setup | null>(null);
+  // Difficulty levels (#125): '' plays the ruleset's default.
+  const difficulty = (itemsOfKind(project, 'ruleset')[0]?.[1] as { difficulty?: { default?: string; levels: { id: string; name: string }[] } } | undefined)?.difficulty;
+  const levels = difficulty?.levels ?? [];
+  const [level, setLevel] = useState('');
+  // The level a game starts at, pinned in saved scenarios and tests so their numbers hold if the default changes.
+  const playedLevel = levels.length === 0 ? undefined : (levels.find((l) => l.id === level) ?? levels.find((l) => l.id === difficulty?.default) ?? levels[0])?.id;
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [log, setLog] = useState<GameEvent[]>([]);
   const [busy, setBusy] = useState(false);
@@ -69,16 +84,17 @@ export function PlaytestPane({ project, problems, engine, tryCard, onSaveScenari
       await engine.loadFiles(projectFiles(project));
       // Trying a card plays it in an encounter: the selected one, or the first.
       const encounter = kind === 'encounter' ? id : encounters[0]?.[1].id;
+      const at = level ? { difficulty: level } : {};
       if (hand || kind === 'run') setSetupOf(null);
-      if (hand) return engine.start(pkg, seedValue, { ...(encounter && { encounter: `${pkg}:${encounter}` }), hand });
-      if (kind === 'run') return engine.start(pkg, seedValue);
+      if (hand) return engine.start(pkg, seedValue, { ...(encounter && { encounter: `${pkg}:${encounter}` }), hand, ...at });
+      if (kind === 'run') return engine.start(pkg, seedValue, at);
       if (kind === 'scenario') {
-        const s = project.items[`scenario:${id}`] as unknown as { encounter: string; seed: string | number; hand?: string[]; deck?: string[] } | undefined;
-        setSetupOf(s ? { encounter: s.encounter, seed: s.seed, ...(s.hand && { hand: s.hand }), ...(s.deck && { deck: s.deck }) } : null);
+        const s = project.items[`scenario:${id}`] as unknown as Setup | undefined;
+        setSetupOf(s ? { encounter: s.encounter, seed: s.seed, ...(s.hand && { hand: s.hand }), ...(s.deck && { deck: s.deck }), ...(s.difficulty && { difficulty: s.difficulty }) } : null);
         return engine.start(pkg, seedValue, { scenario: `${pkg}:${id}` });
       }
-      setSetupOf({ encounter: id, seed: seedValue });
-      return engine.start(pkg, seedValue, { encounter: `${pkg}:${id}` });
+      setSetupOf({ encounter: id, seed: seedValue, ...(playedLevel && { difficulty: playedLevel }) });
+      return engine.start(pkg, seedValue, { encounter: `${pkg}:${id}`, ...at });
     }, false);
 
   useEffect(() => {
@@ -107,7 +123,7 @@ export function PlaytestPane({ project, problems, engine, tryCard, onSaveScenari
     let scenarioId = slug(`${encounter}-seed-${seed}`) || 'scenario';
     for (let n = 2; project.items[`scenario:${scenarioId}`]; n++) scenarioId = `${slug(`${encounter}-seed-${seed}`)}-${n}`;
     const name = `${project.items[`encounter:${encounter}`]?.name ?? encounter} (seed ${seed})`;
-    onSaveScenario({ formatVersion: 1, kind: 'scenario', id: scenarioId, name, encounter, seed: seedValue } as ContentItem);
+    onSaveScenario({ formatVersion: 1, kind: 'scenario', id: scenarioId, name, encounter, seed: seedValue, ...(playedLevel && { difficulty: playedLevel }) } as ContentItem);
     setTarget(`scenario:${scenarioId}`);
   };
 
@@ -133,6 +149,19 @@ export function PlaytestPane({ project, problems, engine, tryCard, onSaveScenari
             </option>
           ))}
         </select>
+        {kind !== 'scenario' && levels.length > 0 && (
+          <label>
+            Difficulty{' '}
+            <select aria-label="Difficulty" value={level} onChange={(e) => setLevel(e.target.value)}>
+              <option value="">Default</option>
+              {levels.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         {kind !== 'scenario' && (
           <label>
             Seed <input aria-label="Seed" value={seed} size={8} onChange={(e) => setSeed(e.target.value)} />
@@ -213,7 +242,7 @@ export function PlaytestPane({ project, problems, engine, tryCard, onSaveScenari
  */
 export function testScenario(
   project: Project,
-  setup: { encounter: string; seed: string | number; hand?: string[]; deck?: string[] },
+  setup: Setup,
   actions: Action[],
   state: GameState<unknown>,
 ): ContentItem {
@@ -235,6 +264,7 @@ export function testScenario(
     name: `${project.items[`encounter:${local(setup.encounter)}`]?.name ?? setup.encounter}: ${actions.length} actions`,
     encounter: local(setup.encounter),
     seed: setup.seed,
+    ...(setup.difficulty && { difficulty: setup.difficulty }),
     ...(setup.hand && { hand: setup.hand }),
     ...(setup.deck && { deck: setup.deck }),
     actions,
