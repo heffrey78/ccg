@@ -34,6 +34,24 @@ test('hovering a unit shows its details without moving the log or the hand', asy
   expect([(await log.boundingBox())?.y, (await hand.boundingBox())?.y]).toEqual(before);
 });
 
+test('the log scrolls in its box as it fills, so the hand stays put', async ({ page }) => {
+  // Tall enough that clicking End turn doesn't scroll the page.
+  await page.setViewportSize({ width: 1280, height: 1100 });
+  await page.goto('/?seed=3');
+  await page.getByRole('button', { name: /^Sporeline/ }).click();
+  await expect(page.getByRole('status')).toHaveText('Your decision');
+  const hand = page.getByRole('list', { name: 'Hand' });
+  const log = page.getByRole('region', { name: 'Log' }).getByRole('list');
+  const before = (await hand.boundingBox())?.y;
+  for (let round = 2; round <= 4; round++) {
+    await page.getByRole('button', { name: 'End turn' }).click();
+    await expect(page.locator('header').getByText(`Round ${round}`)).toBeVisible();
+  }
+  await expect(log.getByRole('listitem')).not.toHaveCount(0);
+  expect(await log.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true);
+  expect((await hand.boundingBox())?.y).toBe(before);
+});
+
 test('a hit plays out on the board: the shot flies, the target flashes, the attacker recoils', async ({ page }) => {
   await page.goto('/?seed=3');
   await page.getByRole('button', { name: /^Sporeline/ }).click();

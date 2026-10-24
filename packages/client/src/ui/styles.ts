@@ -34,7 +34,13 @@ export const CSS = `
 .ccg-speed select { font: inherit; }
 
 .ccg-main { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 12px; }
-@media (max-width: 760px) { .ccg-main { grid-template-columns: 1fr; } }
+@media (max-width: 760px) { .ccg-main { grid-template-columns: 1fr; } .ccg-log ol { max-height: 12rem; overflow-y: auto; } }
+/* Beside the board, the side panel takes the board's height and the log scrolls in what is left, so nothing in it pushes the hand down. */
+@media (min-width: 761px) {
+  .ccg-side { contain: size; overflow-y: auto; }
+  .ccg-log { flex: 1 1 0; min-height: 7rem; display: flex; flex-direction: column; }
+  .ccg-log ol { flex: 1 1 0; min-height: 0; overflow-y: auto; }
+}
 .ccg-stage { position: relative; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px; box-shadow: var(--shadow); }
 .ccg-banner { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); margin: 0; padding: 4px 14px; border-radius: 999px; background: var(--ink); color: var(--bg); font-weight: 600; z-index: 1; animation: ccg-pop .2s ease-out; }
 .ccg-side { display: flex; flex-direction: column; gap: 12px; }
