@@ -29,6 +29,8 @@ test('a three-encounter run with rewards plays end to end from the editor', asyn
   // The run: those encounters in order, with Guard as a reward.
   await content(page).getByRole('button', { name: /^Rules main/ }).click();
   await page.getByRole('button', { name: '+ Run' }).click();
+  await expect(page.getByRole('region', { name: /Problems/ })).toContainText('a run needs encounters in order or a map');
+  await page.getByRole('button', { name: '+ Encounters' }).click();
   await page.getByLabel('Encounters 1', { exact: true }).selectOption('first-fight');
   await page.getByRole('button', { name: '+ Add encounters' }).click();
   await page.getByLabel('Encounters 2', { exact: true }).selectOption('first-fight-2');

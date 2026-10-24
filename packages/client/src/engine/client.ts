@@ -104,6 +104,11 @@ export class EngineClient {
     return this.snapshot({ type: 'chooseReward', card });
   }
 
+  /** In a branching run: go to one of the offered next nodes. */
+  chooseNode(node: string): Promise<Snapshot> {
+    return this.snapshot({ type: 'chooseNode', node });
+  }
+
   /** Takes back the player's last action, when the game allows it. */
   undo(): Promise<Snapshot> {
     return this.snapshot({ type: 'undo' });

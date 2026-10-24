@@ -84,6 +84,10 @@ export function App({ engine, platform, seed, renderers, encounter }: AppProps) 
           onQuit={() => setSnapshot(null)}
           onDebug={() => setDebug(true)}
           onUndo={() => void run(() => engine.undo())}
+          onChooseNode={(node) => {
+            setLog([]);
+            void run(() => engine.chooseNode(node));
+          }}
           autoPass={autoPass}
           onAutoPass={(seconds) => {
             setAutoPass(seconds);

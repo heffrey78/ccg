@@ -36,7 +36,7 @@ export interface RulesetDef {
   enemy?: { side?: string };
   responses?: { itemAnnounced?: boolean; itemTop?: boolean };
   permanents?: { maxPerSide?: number; summoningSickness?: boolean };
-  run?: { encounters: string[]; rewards?: { pool: string[]; choices?: number }; carryHp?: boolean };
+  run?: { encounters?: string[]; map?: RunMap; rewards?: { pool: string[]; choices?: number }; carryHp?: boolean };
   undo?: 'off' | 'turn';
 }
 
@@ -199,4 +199,89 @@ export function runRewards(ruleset: RulesetDef, input: StandardGameInput, encoun
   const own = input.encounters.find((e) => e.id === encounter)?.rewards?.cards;
   const pool = [...new Set(own && own.length > 0 ? own : (ruleset.run?.rewards?.pool ?? []))];
   return new Rng(seedRng(`reward:${seed}:${stage}`)).shuffle(pool).slice(0, ruleset.run?.rewards?.choices ?? 3);
+}
+
+export type RunNodeKind = 'fight' | 'elite' | 'boss' | 'junction' | 'spring' | 'fruiting';
+
+export interface RunNode {
+  id: string;
+  kind: RunNodeKind;
+  encounter?: string;
+  next: string[];
+}
+
+/** A run as a graph (#100). A linear run is a chain of fight nodes. */
+export interface RunMap {
+  start: string;
+  nodes: RunNode[];
+}
+
+export const COMBAT_NODES: ReadonlySet<RunNodeKind> = new Set(['fight', 'elite', 'boss']);
+
+/** The run's map: its own, or its encounter list as a chain. Null when there is no run. */
+export function runMapOf(ruleset: RulesetDef): RunMap | null {
+  const run = ruleset.run;
+  if (!run) return null;
+  if (run.map) return run.map;
+  const encounters = run.encounters ?? [];
+  if (encounters.length === 0) return null;
+  return {
+    start: 'stage-1',
+    nodes: encounters.map((encounter, i) => ({
+      id: `stage-${i + 1}`,
+      kind: i === encounters.length - 1 ? 'boss' : 'fight',
+      encounter,
+      next: i < encounters.length - 1 ? [`stage-${i + 2}`] : [],
+    })),
+  };
+}
+
+/** Problems with a run map, as JSON Pointers within `run.map`: unknown nodes, missing fights, cycles, no way to finish. */
+export function runMapIssues(map: RunMap): { pointer: string; message: string }[] {
+  const issues: { pointer: string; message: string }[] = [];
+  const index = new Map(map.nodes.map((n, i) => [n.id, i]));
+  map.nodes.forEach((n, i) => {
+    if (map.nodes.findIndex((m) => m.id === n.id) !== i) issues.push({ pointer: `/nodes/${i}/id`, message: `two nodes are called '${n.id}'` });
+    if (COMBAT_NODES.has(n.kind) && !n.encounter) issues.push({ pointer: `/nodes/${i}/encounter`, message: `a ${n.kind} node needs an encounter` });
+    n.next.forEach((id, j) => {
+      if (!index.has(id)) issues.push({ pointer: `/nodes/${i}/next/${j}`, message: `there is no node '${id}'` });
+    });
+  });
+  const start = map.nodes.find((n) => n.id === map.start);
+  if (!start) issues.push({ pointer: '/start', message: `there is no node '${map.start}'` });
+  else if (!COMBAT_NODES.has(start.kind)) issues.push({ pointer: '/start', message: 'the run must start with a fight' });
+  // Walk from the start: no cycles, and every path must end.
+  const state = new Map<string, 'visiting' | 'done'>();
+  let cycle = false;
+  const walk = (id: string) => {
+    if (state.get(id) === 'done' || !index.has(id)) return;
+    if (state.get(id) === 'visiting') {
+      cycle = true;
+      return;
+    }
+    state.set(id, 'visiting');
+    for (const next of map.nodes[index.get(id) as number]?.next ?? []) walk(next);
+    state.set(id, 'done');
+  };
+  if (start) walk(start.id);
+  if (cycle) issues.push({ pointer: '/nodes', message: 'the map loops back on itself; every path must lead onward' });
+  map.nodes.forEach((n, i) => {
+    if (start && !state.has(n.id)) issues.push({ pointer: `/nodes/${i}/id`, message: `node '${n.id}' can't be reached from the start` });
+  });
+  return issues;
+}
+
+/** Each node's depth: its longest distance from the start (for laying the map out and counting stages). */
+export function runMapDepths(map: RunMap): Map<string, number> {
+  const depth = new Map<string, number>([[map.start, 0]]);
+  const byId = new Map(map.nodes.map((n) => [n.id, n]));
+  // Relax edges repeatedly: the graph is acyclic and small.
+  for (let pass = 0; pass < map.nodes.length; pass++) {
+    for (const n of map.nodes) {
+      const d = depth.get(n.id);
+      if (d === undefined) continue;
+      for (const next of n.next) if (byId.has(next) && (depth.get(next) ?? -1) < d + 1) depth.set(next, d + 1);
+    }
+  }
+  return depth;
 }
