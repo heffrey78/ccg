@@ -34,7 +34,7 @@ export function EncounterBoard({ project, item, onChange }: { project: Project; 
   const topology = board?.topology ?? topologyOf(PREVIEW_BOARDS[previewKind] as RulesetDef['board']);
   const layout = topology.layout?.();
   const ruleset = board ? (project.items[`ruleset:${board.ruleset}`] as unknown as RulesetDef | undefined) : undefined;
-  const sides = [ruleset?.player.side ?? 'player', ruleset?.enemy?.side ?? 'enemy'];
+  const sides = [ruleset?.player.side ?? 'player', ruleset?.enemy?.side ?? 'enemy', 'neutral'];
   const tileItems = itemsOfKind(project, 'tile');
   const unitItems = itemsOfKind(project, 'unit');
 
@@ -157,7 +157,7 @@ export function EncounterBoard({ project, item, onChange }: { project: Project; 
               )}
               {placed && (
                 <>
-                  <circle r={r * 0.62} className={placed.side === sides[0] ? 'ccg-paint-unit is-player' : 'ccg-paint-unit is-enemy'} />
+                  <circle r={r * 0.62} className={placed.side === sides[0] ? 'ccg-paint-unit is-player' : placed.side === 'neutral' ? 'ccg-paint-unit is-neutral' : 'ccg-paint-unit is-enemy'} />
                   {dir && <path d="M -4 -3 L 4 0 L -4 3 Z" className="ccg-paint-facing" transform={`translate(${dir.x * r * 0.78} ${dir.y * r * 0.78}) rotate(${(Math.atan2(dir.y, dir.x) * 180) / Math.PI})`} />}
                   <text className="ccg-paint-label" textAnchor="middle" dy="0.35em">
                     {initials(name('unit', placed.unit))}

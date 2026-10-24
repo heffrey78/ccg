@@ -61,6 +61,7 @@ export const CSS = `
 .ccg-unit-body { stroke: var(--panel); stroke-width: 3; }
 .ccg-unit.is-mine .ccg-unit-body { fill: var(--mine); }
 .ccg-unit.is-enemy .ccg-unit-body { fill: var(--enemy); }
+.ccg-unit.is-neutral .ccg-unit-body { fill: var(--muted); }
 .ccg-unit.is-passable { opacity: .55; }
 .ccg-unit.is-dying { opacity: .25; }
 .ccg-unit.is-selected .ccg-unit-body { stroke: var(--target); stroke-width: 4; }

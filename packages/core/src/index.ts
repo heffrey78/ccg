@@ -59,6 +59,7 @@ export {
   type ZonesOptions,
 } from './cards/zones.js';
 export {
+  NEUTRAL_SIDE,
   boardModule,
   boardPresentation,
   boardTargeting,
