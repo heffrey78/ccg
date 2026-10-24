@@ -82,8 +82,11 @@ export function standardRules(ruleset: RulesetDef, input: StandardGameInput): Ga
 
   return composeRules<StandardWorld>(
     {
+      // Units on the player's side with a behaviour (thralls, summons) declare
+      // after the enemy and act right after the player's turn (#102).
       round: [
         intents.declarePhase(enemy),
+        intents.declarePhase(player),
         {
           id: 'turn',
           side: player,
@@ -108,6 +111,7 @@ export function standardRules(ruleset: RulesetDef, input: StandardGameInput): Ga
             });
           },
         },
+        intents.resolvePhase(player),
         intents.resolvePhase(enemy),
       ],
       ...(ruleset.responses && { windows: ruleset.responses }),

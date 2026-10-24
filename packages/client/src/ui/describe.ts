@@ -72,6 +72,8 @@ export function describeEvent(e: GameEvent, ctx: EventContext): string | null {
       return `${unit(e.unit)} collides`;
     case 'UnitSpawned':
       return `${name(e.def as string)} enters`;
+    case 'UnitConverted':
+      return e.side === ctx.side ? `${unit(e.unit)} turns to your side` : `${unit(e.unit)} turns against you`;
     case 'UnitDied':
       return `${unit(e.unit)} is defeated`;
     case 'UnitFell':
