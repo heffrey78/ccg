@@ -57,7 +57,14 @@ export const CSS = `
 .ccg-stack .is-countered { text-decoration: line-through; color: var(--muted); }
 .ccg-prompt { margin: 0; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-weight: 600; color: var(--reaction); }
 
-.ccg-board { display: block; margin: 0 auto; user-select: none; }
+.ccg-board { display: block; margin: 0 auto; user-select: none; width: 100%; max-height: 56vh; }
+/* Board views (#124): wide lifts the page width and lets the board grow taller; full screen fills the window. */
+.is-view-wide .ccg-board { max-height: 72vh; }
+.ccg-encounter.is-view-full { position: fixed; inset: 0; z-index: 10; box-sizing: border-box; padding: 12px 16px; background: var(--bg); overflow: hidden; }
+.is-view-full .ccg-main { flex: 1 1 0; min-height: 0; }
+.is-view-full .ccg-stage { display: flex; min-height: 0; }
+.is-view-full .ccg-board { max-height: none; height: 100%; }
+.is-view-full .ccg-tray { flex: none; }
 .ccg-cell { fill: var(--cell); stroke: var(--line); stroke-width: 1.5; }
 .ccg-cell.is-special { fill: var(--cell-special); }
 .ccg-cell.is-blocking { fill: var(--cell-blocking); }

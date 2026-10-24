@@ -136,7 +136,7 @@ export function Board(props: BoardProps) {
       viewBox={`${box.x} ${box.y} ${box.w} ${box.h}`}
       role="group"
       aria-label={`${layout.kind} board`}
-      style={{ width: '100%', maxHeight: '56vh', ['--ccg-speed' as string]: Math.max(speed, 0.01) }}
+      style={{ ['--ccg-speed' as string]: Math.max(speed, 0.01) }}
     >
       {background && <image className="ccg-scene" href={background} x={box.x} y={box.y} width={box.w} height={box.h} preserveAspectRatio="xMidYMid slice" />}
       <g className={background ? 'has-scene' : undefined}>

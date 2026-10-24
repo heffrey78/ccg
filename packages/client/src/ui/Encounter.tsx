@@ -4,7 +4,7 @@
  * works with the mouse and the keyboard:
  *
  *   1–9 select a hand card · ←/→ cycle targets · Enter confirm · Esc cancel
- *   M select a unit to move · E end turn · P pass · Z undo
+ *   M select a unit to move · E end turn · P pass · Z undo · F full screen
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { Action, GameEvent } from '@ccg/core';
@@ -26,6 +26,14 @@ export const SPEEDS = [
   { value: 4, label: '4×' },
 ] as const;
 
+/** How big the board is drawn: beside the panels at page width, across a wide window, or filling the screen. */
+export type BoardView = 'standard' | 'wide' | 'full';
+export const VIEWS: { value: BoardView; label: string }[] = [
+  { value: 'standard', label: 'Standard' },
+  { value: 'wide', label: 'Wide' },
+  { value: 'full', label: 'Full screen' },
+];
+
 export interface EncounterProps {
   snapshot: Snapshot;
   log: GameEvent[];
@@ -33,6 +41,9 @@ export interface EncounterProps {
   /** Animation speed multiplier; 0 shows results at once. */
   speed: number;
   onSpeed(speed: number): void;
+  /** Board size; standard when absent. */
+  view?: BoardView;
+  onView?(view: BoardView): void;
   onAct(action: Action): void;
   onQuit(): void;
   onDebug(): void;
@@ -54,7 +65,7 @@ export interface EncounterProps {
 const isTyping = (target: EventTarget | null) => target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
 const isControl = (target: EventTarget | null) => target instanceof Element && (target.tagName === 'BUTTON' || target.getAttribute('role') === 'button');
 
-export function Encounter({ snapshot, log, busy, speed, onSpeed, onAct, onQuit, onDebug, renderers, onChooseReward, autoPass = 0, onAutoPass, onUndo, onChooseNode, onChooseService }: EncounterProps) {
+export function Encounter({ snapshot, log, busy, speed, onSpeed, view: boardView = 'standard', onView, onAct, onQuit, onDebug, renderers, onChooseReward, autoPass = 0, onAutoPass, onUndo, onChooseNode, onChooseService }: EncounterProps) {
   const { view, side, legal, deciding, catalog, run } = snapshot;
   const world = view.world as WorldView;
   const layout = layoutOf(snapshot.presentation);
@@ -175,6 +186,29 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, onAct, onQuit, 
     if (countdown === 0 && o.pass) act(o.pass);
   }, [countdown, o.pass, act]);
 
+  // ---- board view: full screen fills the window and asks the browser for the whole screen ----
+  const windowed = useRef<BoardView>(boardView === 'full' ? 'wide' : boardView);
+  const changeView = (next: BoardView) => {
+    if (!onView || next === boardView) return;
+    if (next === 'full') {
+      windowed.current = boardView;
+      // The whole page goes full screen (the browser's own full-screen styles would override the section's); the view's fixed layout fills it.
+      void document.documentElement.requestFullscreen?.().catch(() => undefined);
+    } else if (document.fullscreenElement) {
+      void document.exitFullscreen().catch(() => undefined);
+    }
+    onView(next);
+  };
+  useEffect(() => {
+    if (boardView !== 'full') windowed.current = boardView;
+    // Leaving the browser's full screen (Esc) leaves the view too.
+    const onChange = () => {
+      if (!document.fullscreenElement && boardView === 'full') onView?.(windowed.current);
+    };
+    document.addEventListener('fullscreenchange', onChange);
+    return () => document.removeEventListener('fullscreenchange', onChange);
+  }, [boardView, onView]);
+
   // ---- keyboard ----
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -184,7 +218,10 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, onAct, onQuit, 
         const card = hand[Number(key) - 1];
         if (card && o.cards.has(card)) choose({ kind: 'card', card });
       } else if (key === 'escape') {
+        if (!selection && boardView === 'full') changeView(windowed.current);
         setSelection(null);
+      } else if (key === 'f' && onView) {
+        changeView(boardView === 'full' ? windowed.current : 'full');
       } else if ((key === 'arrowright' || key === 'arrowleft') && choices.length > 0) {
         e.preventDefault();
         setFocus((f) => (f + (key === 'arrowright' ? 1 : choices.length - 1)) % choices.length);
@@ -255,7 +292,7 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, onAct, onQuit, 
   }, [logLines.length]);
 
   return (
-    <section className="ccg-encounter" aria-labelledby="encounter-heading">
+    <section className={`ccg-encounter is-view-${boardView}`} aria-labelledby="encounter-heading">
       <header className="ccg-topbar">
         <h1 id="encounter-heading">{snapshot.game.name}</h1>
         {run && (
@@ -279,6 +316,18 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, onAct, onQuit, 
             ))}
           </select>
         </label>
+        {onView && (
+          <label className="ccg-speed">
+            View{' '}
+            <select value={boardView} aria-keyshortcuts="F" onChange={(e) => changeView(e.target.value as BoardView)}>
+              {VIEWS.map((v) => (
+                <option key={v.value} value={v.value}>
+                  {v.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         {onAutoPass && (
           <label className="ccg-speed">
             Auto-pass{' '}
