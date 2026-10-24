@@ -152,6 +152,8 @@ export function createContentSchemas(ops: OpRegistry, { formatVersion: version =
         .object({ name: z.string().min(1).optional(), cost: cost.optional(), effects: effects.optional() })
         .strict()
         .optional(),
+      /** Offered as a run reward only once the deck holds cards with all these tags, e.g. a hybrid's parent strains (#101). */
+      requires: z.array(z.string().min(1)).optional(),
       /** Overrides the generated card text. */
       text: z.string().optional(),
       art: assetPath.optional(),
@@ -344,6 +346,10 @@ export function createContentSchemas(ops: OpRegistry, { formatVersion: version =
             })
             .strict()
             .optional(),
+          /** Tags that mark card families (strains, #101): a card tagged with one is offered only once its strains are connected. */
+          strains: z.array(z.string().min(1)).optional(),
+          /** How many strains, chosen at random, are connected when the run starts. */
+          startStrains: count.optional(),
           /** Cards offered after a win; an encounter's own `rewards.cards` replace this pool. */
           rewards: z.object({ pool: z.array(ref), choices: z.number().int().min(1).optional() }).strict().optional(),
           /** Player units keep their HP between encounters (default true). */

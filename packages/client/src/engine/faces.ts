@@ -26,6 +26,7 @@ export function cardFace(item: ContentItem, ops: OpRegistry, options: FaceOption
     cost: def.cost ?? {},
     timing: def.timing ?? 'main',
     keywords: ((item.keywords as string[] | undefined) ?? []).map((k) => options.name(k) ?? k),
+    tags: (item.tags as string[] | undefined) ?? [],
     abilities,
   };
   const art = typeof item.art === 'string' ? options.art?.(item.art) : undefined;

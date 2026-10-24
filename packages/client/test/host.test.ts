@@ -360,6 +360,53 @@ describe('engine host', () => {
       expect(snap.run?.status).toBe('won');
     });
 
+    it('a junction connects a strain, and later rewards come from it', async () => {
+      const card = (id: string, tags: string[]) => json({ formatVersion: 1, kind: 'card', id, name: id, targeting: { kind: 'none' }, effects: [], tags });
+      const encounter = (id: string) => json({ formatVersion: 1, kind: 'encounter', id, name: id, units: [{ unit: 'hero', side: 'player', pos: '0' }, { unit: 'weak', side: 'enemy', pos: '3' }] });
+      const runFiles = {
+        ...files(5),
+        'content/units/weak.json': json({ formatVersion: 1, kind: 'unit', id: 'weak', name: 'Weak', hp: 3 }),
+        'content/cards/rot1.json': card('rot1', ['rot']),
+        'content/cards/spore1.json': card('spore1', ['spore']),
+        'content/encounters/one.json': encounter('one'),
+        'content/encounters/two.json': encounter('two'),
+        'content/rulesets/main.json': json({
+          formatVersion: 1,
+          kind: 'ruleset',
+          id: 'main',
+          name: 'Main',
+          board: { topology: 'lane', length: 4 },
+          player: { resources: {}, handSize: 3, deck: ['zap', 'zap', 'zap'] },
+          run: {
+            strains: ['rot', 'spore'],
+            map: {
+              start: 'a',
+              nodes: [
+                { id: 'a', kind: 'fight', encounter: 'one', next: ['j'] },
+                { id: 'j', kind: 'junction', next: ['b'] },
+                { id: 'b', kind: 'boss', encounter: 'two', next: [] },
+              ],
+            },
+            rewards: { pool: ['rot1', 'spore1'], choices: 3 },
+          },
+        }),
+      };
+      const engine = client();
+      await engine.loadFiles(runFiles);
+      await engine.start('live', 1);
+      let snap = await zap(engine);
+      // No strain is connected yet, so there is nothing to offer.
+      expect(snap.run).toMatchObject({ status: 'reward', rewards: [], offer: 'card', strains: { all: ['rot', 'spore'], unlocked: [] } });
+      await engine.chooseReward(null);
+      snap = await engine.chooseNode('j');
+      expect(snap.run).toMatchObject({ status: 'reward', offer: 'strain' });
+      expect([...(snap.run?.rewards ?? [])].sort()).toEqual(['live:rot1', 'live:spore1']);
+      snap = await engine.chooseReward('live:spore1');
+      expect(snap.run?.strains?.unlocked).toEqual(['spore']);
+      await engine.chooseNode('b');
+      expect((await zap(engine)).run?.status).toBe('won');
+    });
+
     it('starts a saved scenario', async () => {
       const engine = client();
       const scenario = json({ formatVersion: 1, kind: 'scenario', id: 'opening', name: 'Opening', encounter: 'one', seed: 'x', hand: ['zap'], deck: [] });

@@ -92,6 +92,10 @@ export { buildDefinitions, type Definitions } from './content.js';
 export { isGamePackage, isPlayable, qualify, type AssetResolver, type GamePackage } from './packages/package.js';
 export {
   COMBAT_NODES,
+  eligible,
+  junctionOffer,
+  startingStrains,
+  strainsOf,
   runMapDepths,
   runMapIssues,
   runMapOf,

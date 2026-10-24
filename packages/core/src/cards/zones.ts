@@ -162,6 +162,8 @@ export interface CardDef {
   /** Goes to the exhaust zone instead of discard after it resolves. */
   exhausts?: boolean;
   upgrade?: { cost?: Record<string, number>; effects?: Effect[] };
+  /** Run rewards only: the tags the deck must hold before this card is offered (#101). */
+  requires?: string[];
 }
 
 /**

@@ -265,6 +265,7 @@ export function standardInput<W>(game: ResolvedGame<W>): StandardGameInput {
     definitions: game.definitions,
     encounters: game.items.filter((i) => i.kind === 'encounter' && i.id.startsWith(prefix)) as unknown as StandardGameInput['encounters'],
     scenarios: game.items.filter((i) => i.kind === 'scenario' && i.id.startsWith(prefix)) as unknown as NonNullable<StandardGameInput['scenarios']>,
+    cardTags: Object.fromEntries(game.items.filter((i) => i.kind === 'card').map((i) => [i.id, (i.tags as string[] | undefined) ?? []])),
     modules: game.modules as unknown as RulesModule<StandardWorld>[],
   };
 }

@@ -446,8 +446,8 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, onAct, onQuit, 
             </>
           ) : run?.status === 'reward' ? (
             <>
-              <h2 id="outcome-heading">Victory</h2>
-              <p>Choose a card to add to your deck.</p>
+              <h2 id="outcome-heading">{run.offer === 'strain' ? 'A mycelium reaches out' : 'Victory'}</h2>
+              <p>{run.offer === 'strain' ? 'Connect with a strain: take one of its cards, and its cards can be offered from now on.' : 'Choose a card to add to your deck.'}</p>
               {run.map && <RunMap map={run.map} />}
               <div className="ccg-rewards">
                 {(run.rewards ?? []).map((card) => {
@@ -455,6 +455,9 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, onAct, onQuit, 
                   return (
                     <button key={card} type="button" className="ccg-reward" aria-label={`Take ${face?.name ?? card}`} disabled={busy} onClick={() => onChooseReward?.(card)}>
                       {face ? <CardPreview face={face} /> : card}
+                      {face && run.strains && (
+                        <span className="ccg-strain">{face.tags.filter((t) => run.strains?.all.includes(t)).join(' × ') || 'any strain'}</span>
+                      )}
                     </button>
                   );
                 })}
