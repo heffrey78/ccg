@@ -30,15 +30,47 @@
     ]
   },
   "run": {
-    "encounters": [
-      "practice",
-      "close-quarters",
-      "first-fight"
-    ],
+    "map": {
+      "start": "practice",
+      "nodes": [
+        {
+          "id": "practice",
+          "kind": "fight",
+          "encounter": "practice",
+          "next": [
+            "spring",
+            "close"
+          ]
+        },
+        {
+          "id": "spring",
+          "kind": "spring",
+          "next": [
+            "boss"
+          ]
+        },
+        {
+          "id": "close",
+          "kind": "elite",
+          "encounter": "close-quarters",
+          "next": [
+            "boss"
+          ]
+        },
+        {
+          "id": "boss",
+          "kind": "boss",
+          "encounter": "first-fight",
+          "next": []
+        }
+      ]
+    },
     "rewards": {
       "pool": [
         "strike",
-        "guard"
+        "guard",
+        "brace",
+        "snare"
       ],
       "choices": 2
     }

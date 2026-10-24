@@ -176,6 +176,7 @@ const ITEM_HINTS: Record<ContentKind, [string, WidgetHint][]> = {
   ruleset: [
     ['/player/deck/*', 'cardDef'],
     ['/run/encounters/*', 'encounterDef'],
+    ['/run/map/nodes/*/encounter', 'encounterDef'],
     ['/run/rewards/pool/*', 'cardDef'],
   ],
   scenario: [

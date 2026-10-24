@@ -6,6 +6,7 @@ export { describeAction, describeEvent, type EventContext } from './ui/describe.
 export { Encounter, SPEEDS, type EncounterProps } from './ui/Encounter.js';
 export { GameSelect, type GameSelectProps } from './ui/GameSelect.js';
 export { CardFaceContent, CardPreview } from './ui/play/CardFace.js';
+export { RunMap } from './ui/play/RunMap.js';
 export { Board, type BoardEffect, type BoardProps, type BoardRenderer, type BoardTarget } from './ui/play/Board.js';
 export { Playback, beats, unitsAfter, BEAT_MS, type Beat, type PlaybackState, type ShownUnit } from './ui/play/playback.js';
 export { offers, choicesFor, anchorCell, type Anchor, type Choice, type Offers, type Selection } from './ui/play/selection.js';

@@ -14,9 +14,16 @@ import {
   legalActions,
   randomPolicy,
   redactEvents,
+  COMBAT_NODES,
   rulesetOf,
+  runMapDepths,
+  runMapIssues,
+  runMapOf,
   runRewards,
   standardInput,
+  type RunMap,
+  type RunNode,
+  type RunNodeKind,
   viewState,
   type Action,
   type DeclaredIntent,
@@ -31,6 +38,7 @@ import {
 } from '@ccg/core';
 import { filesSource, unzipFiles } from '@ccg/content';
 import { cardFace } from './faces.js';
+import type { RunProgress } from './protocol.js';
 import type { Catalog, EngineReply, EngineRequest, GameListing, IntentSummary, Snapshot } from './protocol.js';
 
 export interface HostOptions {
@@ -70,16 +78,25 @@ interface Running {
 }
 
 interface RunState {
-  /** Index of the current encounter. */
-  stage: number;
-  encounters: string[];
+  /** The run as a graph (#100), with qualified encounter ids; a linear run is a chain. */
+  map: RunMap;
+  /** Whether the ruleset drew a map, so the client shows it. */
+  branching: boolean;
+  /** The node being played (or just finished). */
+  node: string;
+  /** Nodes entered so far, in order. */
+  visited: string[];
   deck: string[];
   hp: Record<string, number>;
   seed: string | number;
   carryHp: boolean;
-  status: 'playing' | 'reward' | 'won' | 'lost';
+  status: 'playing' | 'reward' | 'map' | 'won' | 'lost';
   rewards?: string[];
+  /** Nodes the player may go to next, when `status` is `map`. */
+  choices?: string[];
 }
+
+const NODE_NAMES: Record<RunNodeKind, string> = { fight: 'Fight', elite: 'Elite fight', boss: 'Boss', junction: 'Junction', spring: 'Spring', fruiting: 'Fruiting log' };
 
 function catalogOf(game: ResolvedGame<unknown>, topology: string | undefined): Catalog {
   const name = (ref: string) => game.name(ref);
@@ -166,15 +183,8 @@ export function createEngineHost(options: HostOptions = {}): EngineHost {
       catalog: game.catalog,
       presentation: game.rules.presentation ?? {},
       intents: intentSummaries(game, declared),
-      canUndo: game.rules.undo === 'turn' && game.session.log.actions.length > (game.undoFloor ?? 0),
-      ...(game.run && {
-        run: {
-          stage: game.run.stage + 1,
-          total: game.run.encounters.length,
-          status: game.run.status,
-          ...(game.run.rewards && { rewards: game.run.rewards }),
-        },
-      }),
+      canUndo: game.rules.undo === 'turn' && !state.outcome && game.session.log.actions.length > (game.undoFloor ?? 0),
+      ...(game.run && { run: runProgress(game, game.run) }),
     };
   };
 
@@ -196,6 +206,27 @@ export function createEngineHost(options: HostOptions = {}): EngineHost {
     return [...knowledge(game, after)].every((k) => known.has(k));
   };
 
+  /** What the client sees of a run: its progress and, for a branching run, the map. */
+  const runProgress = (game: Running, run: RunState): RunProgress => {
+    const depths = runMapDepths(run.map);
+    const total = Math.max(...depths.values()) + 1;
+    const nodeName = (n: RunNode) => (n.encounter ? (game.catalog.names[n.encounter] ?? n.encounter) : NODE_NAMES[n.kind]);
+    return {
+      stage: run.visited.length,
+      total,
+      status: run.status,
+      ...(run.rewards && run.status === 'reward' && { rewards: run.rewards }),
+      ...(run.branching && {
+        map: {
+          nodes: run.map.nodes.map((n) => ({ id: n.id, kind: n.kind, name: nodeName(n), depth: depths.get(n.id) ?? 0, next: n.next })),
+          visited: run.visited,
+          current: run.node,
+          choices: run.status === 'map' ? (run.choices ?? []) : [],
+        },
+      }),
+    };
+  };
+
   /** After an action in a run: on a win, offer rewards (or finish); on a loss, end the run. */
   const advanceRun = (game: Running): void => {
     const run = game.run;
@@ -209,19 +240,51 @@ export function createEngineHost(options: HostOptions = {}): EngineHost {
       const units = Object.values((game.session.state.world as { board?: { units: Record<string, { def: string; side: string; hp: number }> } }).board?.units ?? {});
       for (const u of units) if (u.side === game.side) run.hp[u.def] = u.hp;
     }
-    if (run.stage + 1 >= run.encounters.length) {
+    const node = run.map.nodes.find((n) => n.id === run.node);
+    if (!node || node.kind === 'boss' || node.next.length === 0) {
       run.status = 'won';
       return;
     }
     run.status = 'reward';
-    run.rewards = runRewards(rulesetOf(game.resolved), standardInput(game.resolved), run.encounters[run.stage] as string, run.seed, run.stage);
+    run.rewards = runRewards(rulesetOf(game.resolved), standardInput(game.resolved), node.encounter as string, run.seed, run.visited.length - 1);
   };
 
-  /** Starts encounter `run.stage` of a run with the run's deck and carried HP. */
-  const startStage = (game: GameListing, run: RunState, seed: string | number): EngineReply => {
+  /** Moves the run on after a reward or a non-combat node: straight on if there's one way, else to the map. */
+  const onward = (game: Running, run: RunState, notice?: string): EngineReply => {
+    const node = run.map.nodes.find((n) => n.id === run.node);
+    const next = node?.next ?? [];
+    if (next.length === 0) {
+      running = { ...game, run: { ...run, status: 'won' } };
+      return { ok: true, type: 'snapshot', snapshot: { ...snapshot(running, []), ...(notice && { notice }) } };
+    }
+    if (next.length === 1 && !run.branching) return enter(game.game, run, next[0] as string);
+    running = { ...game, run: { ...run, status: 'map', choices: next } };
+    return { ok: true, type: 'snapshot', snapshot: { ...snapshot(running, []), ...(notice && { notice }) } };
+  };
+
+  /** Enters a run node: fights start an encounter; a spring heals; other nodes pass on for now. */
+  const enter = (game: GameListing, previous: RunState, id: string): EngineReply => {
+    const node = previous.map.nodes.find((n) => n.id === id);
+    if (!node) return { ok: false, error: { code: 'illegal-action', message: `there is no node '${id}'` } };
+    const { rewards: _r, choices: _c, ...kept } = previous;
+    const run: RunState = { ...kept, node: id, visited: [...previous.visited, id], status: 'playing' };
+    if (!COMBAT_NODES.has(node.kind)) {
+      if (!running) return { ok: false, error: { code: 'not-started', message: 'a run must start with a fight' } };
+      let notice = `${NODE_NAMES[node.kind]}: nothing happens here yet.`;
+      if (node.kind === 'spring') {
+        // Heal 30% of max HP for each carried unit.
+        const units = running.resolved.definitions.units;
+        for (const [def, hp] of Object.entries(run.hp)) {
+          const max = units[def]?.hp ?? hp;
+          run.hp[def] = Math.min(max, hp + Math.ceil(max * 0.3));
+        }
+        notice = 'The spring restores 30% of your HP.';
+      }
+      return onward(running, run, notice);
+    }
     const setupOptions: SetupOptions = {
-      seed: `${String(run.seed)}:${run.stage}`,
-      encounter: run.encounters[run.stage] as string,
+      seed: `${String(run.seed)}:${run.visited.length - 1}`,
+      encounter: node.encounter as string,
       deck: run.deck,
       ...(Object.keys(run.hp).length > 0 && { hp: run.hp }),
     };
@@ -230,7 +293,7 @@ export function createEngineHost(options: HostOptions = {}): EngineHost {
     const started = Session.start(built.rules, built.setup, built.versions);
     if (!started.ok) return { ok: false, error: started.error };
     const side = built.setup.sides.find((s) => s.controller === 'human')?.id ?? (built.setup.sides[0]?.id as SideId);
-    running = { ...built.parts, session: started.session, side, options: setupOptions, ai: aiFor(game, seed), run: { ...run, status: 'playing' } };
+    running = { ...built.parts, session: started.session, side, options: setupOptions, ai: aiFor(game, run.seed), run };
     const events = runAi(running);
     running.undoFloor = running.session.log.actions.length;
     advanceRun(running);
@@ -355,13 +418,28 @@ export function createEngineHost(options: HostOptions = {}): EngineHost {
           if (!request.encounter && !request.scenario && !pkg.createRules) {
             const resolved = registry.resolve(request.game);
             const ruleset = resolved.ok ? safely(() => rulesetOf(resolved.game)) : null;
-            if (ruleset?.run && resolved.ok) {
+            const map = ruleset ? runMapOf(ruleset) : null;
+            if (ruleset && map && resolved.ok) {
+              const problems = runMapIssues(map);
+              if (problems.length > 0) return { ok: false, error: { code: 'invalid-package', message: `run map: ${problems.map((p) => `${p.pointer} ${p.message}`).join('; ')}` } };
               const prefix = `${pkg.manifest.id}:`;
               const q = (ref: string) => (ref.includes(':') ? ref : `${prefix}${ref}`);
-              return startStage(
+              const qualified: RunMap = { start: map.start, nodes: map.nodes.map((n) => ({ ...n, ...(n.encounter && { encounter: q(n.encounter) }) })) };
+              running = null;
+              return enter(
                 listing(pkg),
-                { stage: 0, encounters: ruleset.run.encounters.map(q), deck: ruleset.player.deck.map(q), hp: {}, seed: request.seed, carryHp: ruleset.run.carryHp ?? true, status: 'playing' },
-                request.seed,
+                {
+                  map: qualified,
+                  branching: ruleset.run?.map !== undefined,
+                  node: map.start,
+                  visited: [],
+                  deck: ruleset.player.deck.map(q),
+                  hp: {},
+                  seed: request.seed,
+                  carryHp: ruleset.run?.carryHp ?? true,
+                  status: 'playing',
+                },
+                map.start,
               );
             }
           }
@@ -401,7 +479,7 @@ export function createEngineHost(options: HostOptions = {}): EngineHost {
         case 'undo': {
           if (!running) return { ok: false, error: { code: 'not-started', message: 'no game is running' } };
           const log = running.session.log;
-          if (running.rules.undo !== 'turn' || log.actions.length <= (running.undoFloor ?? 0)) {
+          if (running.rules.undo !== 'turn' || running.session.state.outcome || log.actions.length <= (running.undoFloor ?? 0)) {
             return { ok: false, error: { code: 'illegal-action', message: 'there is nothing to undo' } };
           }
           const started = Session.start(running.rules, log.setup, log.packages);
@@ -469,7 +547,14 @@ export function createEngineHost(options: HostOptions = {}): EngineHost {
             return { ok: false, error: { code: 'illegal-action', message: `'${request.card}' is not one of the rewards` } };
           }
           const { rewards: _offered, ...rest } = run;
-          return startStage(running.game, { ...rest, stage: run.stage + 1, deck: request.card === null ? run.deck : [...run.deck, request.card] }, run.seed);
+          return onward(running, { ...rest, deck: request.card === null ? run.deck : [...run.deck, request.card] });
+        }
+
+        case 'chooseNode': {
+          const run = running?.run;
+          if (!running || !run || run.status !== 'map') return { ok: false, error: { code: 'illegal-action', message: 'there is no path to choose' } };
+          if (!run.choices?.includes(request.node)) return { ok: false, error: { code: 'illegal-action', message: `'${request.node}' is not one of the paths` } };
+          return enter(running.game, run, request.node);
         }
 
         case 'view':

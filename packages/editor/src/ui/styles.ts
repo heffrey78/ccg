@@ -183,5 +183,6 @@ export const CSS = `
 .ccg-bar-cell { width: 100%; padding: 2px 0; }
 .ccg-bar { display: block; height: 10px; min-width: 2px; background: var(--accent); border-radius: 0 4px 4px 0; }
 .ccg-bar-value { padding-left: 8px; text-align: right; color: var(--ink); font-variant-numeric: tabular-nums; }
+.ccg-map-preview { width: 300px; }
 .ccg-raw summary { cursor: pointer; color: var(--muted); margin: 8px 0; }
 `;

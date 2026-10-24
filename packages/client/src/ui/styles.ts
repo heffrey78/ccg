@@ -128,6 +128,19 @@ export const CSS = `
 .ccg-permanents h2 { margin: 0 0 4px; font-size: 1rem; }
 .ccg-permanents ul { margin: 0; padding-left: 16px; }
 .ccg-permanents li { margin-bottom: 4px; }
+.ccg-run-map { width: min(640px, 90vw); margin: 8px auto; display: block; }
+.ccg-thread { fill: none; stroke: color-mix(in srgb, var(--muted) 50%, transparent); stroke-width: 2; }
+.ccg-thread.is-walked { stroke: var(--reaction); stroke-width: 3; }
+.ccg-thread.is-open { stroke: var(--target); stroke-dasharray: 5 4; }
+.ccg-node circle { fill: var(--panel); stroke: var(--line); stroke-width: 2; }
+.ccg-node.is-visited circle { fill: color-mix(in srgb, var(--reaction) 25%, var(--panel)); stroke: var(--reaction); }
+.ccg-node.is-current circle { stroke-width: 4; }
+.ccg-node.is-choice { cursor: pointer; }
+.ccg-node.is-choice circle { stroke: var(--target); stroke-width: 3; filter: drop-shadow(0 0 4px var(--target)); }
+.ccg-node.is-choice:hover circle, .ccg-node.is-choice:focus-visible circle { fill: color-mix(in srgb, var(--target) 25%, var(--panel)); }
+.ccg-node:focus-visible { outline: none; }
+.ccg-node-glyph { font-size: 15px; fill: var(--ink); pointer-events: none; }
+.ccg-node-name { font-size: 10px; fill: var(--ink); pointer-events: none; }
 .ccg-run-progress { font-weight: 600; color: var(--accent); }
 
 @media (prefers-reduced-motion: reduce) {

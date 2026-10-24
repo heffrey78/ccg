@@ -91,12 +91,19 @@ export { statusesModule, type DamageModifier, type StatusDef, type StatusHook } 
 export { buildDefinitions, type Definitions } from './content.js';
 export { isGamePackage, isPlayable, qualify, type AssetResolver, type GamePackage } from './packages/package.js';
 export {
+  COMBAT_NODES,
+  runMapDepths,
+  runMapIssues,
+  runMapOf,
   runRewards,
   sidesOf,
   standardRules,
   standardSetup,
   topologyOf,
   type RulesetDef,
+  type RunMap,
+  type RunNode,
+  type RunNodeKind,
   type SetupOptions,
   type StandardGameInput,
   type StandardWorld,

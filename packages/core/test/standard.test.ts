@@ -16,6 +16,9 @@ import {
   randomPolicy,
   rulesetOf,
   runRewards,
+  runMapDepths,
+  runMapIssues,
+  runMapOf,
   runScenario,
   runScenarios,
   simulate,
@@ -26,6 +29,7 @@ import {
   viewState,
   zone,
   type Action,
+  type RunNode,
   type GamePackage,
   type GameState,
   type RulesetDef,
@@ -427,5 +431,35 @@ describe('allied units that act (#102)', () => {
     expect(declared).toEqual({ enemy1: ['player', 'Bite', 'enemy2'], enemy2: ['enemy', 'Bite', 'enemy1'] });
     run({ type: 'endTurn', side: 'player' });
     expect([state.world.board.units.enemy1?.hp, state.world.board.units.enemy2?.hp]).toEqual([2, 2]);
+  });
+});
+
+describe('run maps (#100)', () => {
+  const node = (id: string, kind: RunNode['kind'], next: string[], encounter?: string): RunNode => ({ id, kind, next, ...(encounter && { encounter }) });
+
+  it('a linear run is a chain of fights ending in a boss', () => {
+    expect(runMapOf({ ...RULESET, run: { encounters: ['x', 'y'] } })).toEqual({
+      start: 'stage-1',
+      nodes: [node('stage-1', 'fight', ['stage-2'], 'x'), node('stage-2', 'boss', [], 'y')],
+    });
+    expect(runMapOf(RULESET)).toBeNull();
+  });
+
+  it('finds the map’s problems and each node’s depth', () => {
+    const good = { start: 'a', nodes: [node('a', 'fight', ['b', 'c'], 'e'), node('b', 'spring', ['d']), node('c', 'fight', ['d'], 'e'), node('d', 'boss', [], 'e')] };
+    expect(runMapIssues(good)).toEqual([]);
+    expect(Object.fromEntries(runMapDepths(good))).toEqual({ a: 0, b: 1, c: 1, d: 2 });
+    const bad = { start: 's', nodes: [node('s', 'spring', ['x']), node('a', 'fight', ['a']), node('b', 'boss', [])] };
+    expect(runMapIssues(bad).map((i) => `${i.pointer} ${i.message}`)).toEqual([
+      "/nodes/0/next/0 there is no node 'x'",
+      '/nodes/1/encounter a fight node needs an encounter',
+      '/nodes/2/encounter a boss node needs an encounter',
+      '/start the run must start with a fight',
+      "/nodes/1/id node 'a' can't be reached from the start",
+      "/nodes/2/id node 'b' can't be reached from the start",
+    ]);
+    expect(runMapIssues({ start: 'a', nodes: [node('a', 'fight', ['b'], 'e'), node('b', 'fight', ['a'], 'e')] }).map((i) => i.message)).toContain(
+      'the map loops back on itself; every path must lead onward',
+    );
   });
 });

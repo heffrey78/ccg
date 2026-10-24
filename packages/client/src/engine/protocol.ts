@@ -24,6 +24,8 @@ export type EngineRequest =
   | { type: 'reload'; files: Record<string, Uint8Array>; mode: 'hot' | 'replay' }
   /** In a run, between encounters: take one of the offered cards (or none) and go on. */
   | { type: 'chooseReward'; card: string | null }
+  /** In a branching run: go to one of the next nodes. */
+  | { type: 'chooseNode'; node: string }
   /** Takes back the player's last action, when the game allows it (#83). */
   | { type: 'undo' }
   /** Debug hosts only (#46): the authoritative state after `at` actions (default: now), with every action's events. */
@@ -86,13 +88,22 @@ export interface Snapshot {
 }
 
 export interface RunProgress {
-  /** The current encounter, from 1. */
+  /** Nodes entered so far (the current one included). */
   stage: number;
+  /** The run's length: the most nodes any path visits. */
   total: number;
-  /** `reward`: the encounter is won and a card can be chosen; `won`/`lost`: the run is over. */
-  status: 'playing' | 'reward' | 'won' | 'lost';
+  /** `reward`: won, choose a card; `map`: choose the next node; `won`/`lost`: the run is over. */
+  status: 'playing' | 'reward' | 'map' | 'won' | 'lost';
   /** Card ids on offer when `status` is `reward`. */
   rewards?: string[];
+  /** A branching run's map (#100). */
+  map?: {
+    nodes: { id: string; kind: string; name: string; depth: number; next: string[] }[];
+    visited: string[];
+    current: string;
+    /** Nodes the player may go to now. */
+    choices: string[];
+  };
 }
 
 /** What the debugger sees (#46): the full game, not one side's view. */

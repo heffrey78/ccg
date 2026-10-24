@@ -306,6 +306,60 @@ describe('engine host', () => {
       expect((await zap(strict)).canUndo).toBe(false);
     });
 
+    it('walks a branching run map: fight, choose a path, a spring, then the boss', async () => {
+      const encounter = (id: string) =>
+        json({ formatVersion: 1, kind: 'encounter', id, name: `Fight ${id}`, units: [{ unit: 'hero', side: 'player', pos: '0' }, { unit: 'weak', side: 'enemy', pos: '3' }] });
+      const mapFiles = {
+        ...files(5),
+        'content/units/weak.json': json({ formatVersion: 1, kind: 'unit', id: 'weak', name: 'Weak', hp: 3 }),
+        'content/encounters/one.json': encounter('one'),
+        'content/encounters/two.json': encounter('two'),
+        'content/encounters/three.json': encounter('three'),
+        'content/rulesets/main.json': json({
+          formatVersion: 1,
+          kind: 'ruleset',
+          id: 'main',
+          name: 'Main',
+          board: { topology: 'lane', length: 4 },
+          player: { resources: {}, handSize: 3, deck: ['zap', 'zap', 'zap'] },
+          run: {
+            map: {
+              start: 'a',
+              nodes: [
+                { id: 'a', kind: 'fight', encounter: 'one', next: ['b', 'c'] },
+                { id: 'b', kind: 'spring', next: ['d'] },
+                { id: 'c', kind: 'elite', encounter: 'two', next: ['d'] },
+                { id: 'd', kind: 'boss', encounter: 'three', next: [] },
+              ],
+            },
+            rewards: { pool: ['zap'], choices: 1 },
+          },
+        }),
+      };
+      const engine = client();
+      await engine.loadFiles(mapFiles);
+      let snap = await engine.start('live', 1);
+      expect(snap.run).toMatchObject({ stage: 1, total: 3, status: 'playing' });
+      expect(snap.run?.map?.nodes.map((n) => [n.id, n.name, n.depth])).toEqual([
+        ['a', 'Fight one', 0],
+        ['b', 'Spring', 1],
+        ['c', 'Fight two', 1],
+        ['d', 'Fight three', 2],
+      ]);
+      await zap(engine);
+      snap = await engine.chooseReward(null);
+      expect(snap.run).toMatchObject({ status: 'map', map: { choices: ['b', 'c'], visited: ['a'] } });
+      await expect(engine.chooseNode('d')).rejects.toMatchObject({ code: 'illegal-action' });
+
+      snap = await engine.chooseNode('b');
+      expect(snap.notice).toBe('The spring restores 30% of your HP.');
+      expect(snap.run).toMatchObject({ stage: 2, status: 'map', map: { choices: ['d'] } });
+      snap = await engine.chooseNode('d');
+      expect(snap.run).toMatchObject({ stage: 3, status: 'playing', map: { current: 'd', visited: ['a', 'b', 'd'] } });
+      snap = await zap(engine);
+      expect(snap.run?.status).toBe('won');
+    });
+
     it('starts a saved scenario', async () => {
       const engine = client();
       const scenario = json({ formatVersion: 1, kind: 'scenario', id: 'opening', name: 'Opening', encounter: 'one', seed: 'x', hand: ['zap'], deck: [] });

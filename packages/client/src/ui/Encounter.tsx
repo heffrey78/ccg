@@ -12,6 +12,7 @@ import type { Snapshot } from '../engine/protocol.js';
 import { describeAction, describeEvent, type EventContext } from './describe.js';
 import { Board, type BoardEffect, type BoardMarker, type BoardRenderer, type BoardTarget } from './play/Board.js';
 import { CardPreview } from './play/CardFace.js';
+import { RunMap } from './play/RunMap.js';
 import { Hand } from './play/Hand.js';
 import { Inspector, Piles, Resources, StackPanel } from './play/Panels.js';
 import { Playback, unitsAfter, type PlaybackState } from './play/playback.js';
@@ -44,12 +45,14 @@ export interface EncounterProps {
   onAutoPass?(seconds: number): void;
   /** Takes back the last action, offered when the snapshot allows it. */
   onUndo?(): void;
+  /** In a branching run: go to the chosen next node. */
+  onChooseNode?(node: string): void;
 }
 
 const isTyping = (target: EventTarget | null) => target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
 const isControl = (target: EventTarget | null) => target instanceof Element && (target.tagName === 'BUTTON' || target.getAttribute('role') === 'button');
 
-export function Encounter({ snapshot, log, busy, speed, onSpeed, onAct, onQuit, onDebug, renderers, onChooseReward, autoPass = 0, onAutoPass, onUndo }: EncounterProps) {
+export function Encounter({ snapshot, log, busy, speed, onSpeed, onAct, onQuit, onDebug, renderers, onChooseReward, autoPass = 0, onAutoPass, onUndo, onChooseNode }: EncounterProps) {
   const { view, side, legal, deciding, catalog, run } = snapshot;
   const world = view.world as WorldView;
   const layout = layoutOf(snapshot.presentation);
@@ -435,10 +438,17 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, onAct, onQuit, 
 
       {view.outcome && !playing && (
         <div className="ccg-outcome" role="dialog" aria-labelledby="outcome-heading">
-          {run?.status === 'reward' ? (
+          {run?.status === 'map' && run.map ? (
+            <>
+              <h2 id="outcome-heading">Choose your path</h2>
+              {snapshot.notice && <p>{snapshot.notice}</p>}
+              <RunMap map={run.map} {...(onChooseNode && { onChoose: onChooseNode })} />
+            </>
+          ) : run?.status === 'reward' ? (
             <>
               <h2 id="outcome-heading">Victory</h2>
               <p>Choose a card to add to your deck.</p>
+              {run.map && <RunMap map={run.map} />}
               <div className="ccg-rewards">
                 {(run.rewards ?? []).map((card) => {
                   const face = catalog.cards[card];

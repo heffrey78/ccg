@@ -322,7 +322,28 @@ export function createContentSchemas(ops: OpRegistry, { formatVersion: version =
       /** A run (#45): encounters played in order, with a card reward after each win. */
       run: z
         .object({
-          encounters: z.array(ref).min(1),
+          /** Encounters in order; or give a `map` for a branching run. */
+          encounters: z.array(ref).min(1).optional(),
+          /** A branching run (#100): nodes the player walks from `start`, choosing among each node's `next`. */
+          map: z
+            .object({
+              start: id,
+              nodes: z
+                .array(
+                  z
+                    .object({
+                      id,
+                      kind: z.enum(['fight', 'elite', 'boss', 'junction', 'spring', 'fruiting']),
+                      /** The fight at fight, elite and boss nodes. */
+                      encounter: ref.optional(),
+                      next: z.array(id),
+                    })
+                    .strict(),
+                )
+                .min(1),
+            })
+            .strict()
+            .optional(),
           /** Cards offered after a win; an encounter's own `rewards.cards` replace this pool. */
           rewards: z.object({ pool: z.array(ref), choices: z.number().int().min(1).optional() }).strict().optional(),
           /** Player units keep their HP between encounters (default true). */

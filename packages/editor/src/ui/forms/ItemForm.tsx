@@ -7,7 +7,8 @@ import { useMemo, useState } from 'react';
 import { previewIntents } from '../../behavior.js';
 import { previewSetup } from '../../forms/patterns.js';
 import { createContentSchemas, type ContentItem, type ContentKind, type OpRegistry } from '@ccg/content';
-import { CardPreview } from '@ccg/client';
+import { CardPreview, RunMap } from '@ccg/client';
+import { runMapDepths, type RunMap as RunMapData } from '@ccg/core';
 import { cardFace } from '@ccg/client/engine';
 import { describe, jsonSchemaOf } from '../../forms/schema.js';
 import type { PreviewBoard } from '../../forms/patterns.js';
@@ -120,6 +121,7 @@ export function ItemForm({ project, ops, item, issues, flagged, board, setBoard,
         {item.kind === 'card' && <CardPreviewPane project={project} ops={ops} item={item} board={board} />}
         {item.kind === 'status' && <StatusPreview project={project} item={item} />}
         {item.kind === 'unit' && <IntentPreview project={project} ops={ops} item={item} board={board} />}
+        {item.kind === 'ruleset' && <MapPreview project={project} item={item} />}
       </div>
     </Form.Provider>
   );
@@ -200,6 +202,28 @@ function IntentPreview({ project, ops, item, board }: { project: Project; ops: O
       </ol>
       {preview.error && <p className="ccg-error">{preview.error}</p>}
       <p className="ccg-muted">The unit is in blue; click a tile to move its target. Red tiles are telegraphed this round.</p>
+    </aside>
+  );
+}
+
+/** A ruleset's run map, drawn as players will see it (#100). */
+function MapPreview({ project, item }: { project: Project; item: ContentItem }) {
+  const map = (item.run as { map?: RunMapData } | undefined)?.map;
+  if (!map || !Array.isArray(map.nodes) || map.nodes.length === 0) return null;
+  const depths = runMapDepths(map);
+  const nodes = map.nodes.map((n) => ({
+    id: n.id,
+    kind: n.kind,
+    name: (n.encounter && project.items[`encounter:${n.encounter}`]?.name) || n.id,
+    depth: depths.get(n.id) ?? 0,
+    next: n.next ?? [],
+  }));
+  return (
+    <aside className="ccg-preview ccg-map-preview" aria-label="Map preview">
+      <strong>Run map</strong>
+      <div className="ccg-app ccg-preview-host">
+        <RunMap map={{ nodes, visited: [map.start], current: map.start, choices: [] }} />
+      </div>
     </aside>
   );
 }

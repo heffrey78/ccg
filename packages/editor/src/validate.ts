@@ -4,7 +4,7 @@
  * Pure and async, so the web app runs it in a worker.
  */
 import { createContentSchemas, loadPackage, mapRefs, parseRef, REF_PATTERN, type OpRegistry } from '@ccg/content';
-import { PackageRegistry, builtinOps, runScenarios, simulate, type GameRecord, type ScenarioResult, type SimOptions } from '@ccg/core';
+import { PackageRegistry, builtinOps, runMapIssues, runScenarios, simulate, type RunMap, type GameRecord, type ScenarioResult, type SimOptions } from '@ccg/core';
 import { boardIssues, projectBoard } from './encounters.js';
 import { projectFiles, type Project } from './project.js';
 import { fileSource } from './stores/store.js';
@@ -44,6 +44,17 @@ export async function validateProject(project: Project, ops: OpRegistry = editor
       if (!seen.has(id)) issues.push(issue);
       seen.add(id);
     });
+  }
+  // A run map must be walkable: known nodes, fights with encounters, no loops.
+  for (const [key, item] of Object.entries(project.items)) {
+    const run = item.kind === 'ruleset' ? (item.run as { map?: RunMap; encounters?: string[] } | undefined) : undefined;
+    if (run && !run.map && !(run.encounters && run.encounters.length > 0)) {
+      issues.push({ file: project.paths[key] as string, key, pointer: '/run', message: 'a run needs encounters in order or a map' });
+    }
+    const map = run?.map;
+    if (map && Array.isArray(map.nodes)) {
+      for (const issue of runMapIssues(map)) issues.push({ file: project.paths[key] as string, key, pointer: `/run/map${issue.pointer}`, message: issue.message });
+    }
   }
   // Encounters must fit the board the ruleset describes.
   const board = projectBoard(project);
