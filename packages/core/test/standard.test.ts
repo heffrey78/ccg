@@ -3,6 +3,8 @@ import type { ContentItem } from '@ccg/content';
 import {
   ContentError,
   PackageRegistry,
+  cardText,
+  conditionText,
   apply,
   createGame,
   decidingSide,
@@ -339,5 +341,42 @@ describe('balance simulation', () => {
     expect(random.averageTaken).toBeGreaterThan(0);
     expect(random.enemyLethality.map(([def]) => def)).toEqual(['plain:foe']);
     expect(random.enemyLethality[0]?.[1]).toBeCloseTo(random.averageTaken);
+  });
+});
+
+describe('conditions on a unit’s stats (#105)', () => {
+  const finisher = item('card', 'finisher', {
+    targeting: { kind: 'unit', filter: 'enemy' },
+    effects: [
+      { op: 'readUnit' },
+      { op: 'if', cond: { kind: 'compare', left: { $: 'unit.hp' }, cmp: '<=', right: 8 }, then: [{ op: 'damage', amount: 100 }] },
+    ],
+  });
+
+  function play(enemy: string, hp: number) {
+    const pkg = contentGame({ player: { ...RULESET.player, deck: ['finisher'], handSize: 1 } });
+    pkg.content.push(finisher, item('unit', enemy, { hp }), item('encounter', 'test', { units: [{ unit: 'hero', side: 'player', pos: '0' }, { unit: enemy, side: 'enemy', pos: '1' }] }));
+    const registry = new PackageRegistry();
+    registry.register(pkg);
+    const resolved = registry.resolve('plain');
+    if (!resolved.ok) throw new Error(resolved.issues[0]?.message);
+    const rules = resolved.game.createRules();
+    const created = createGame(rules, resolved.game.createSetup({ seed: 1, encounter: 'plain:test' }));
+    if (!created.ok) throw new Error(created.error.message);
+    const action = legalActions(rules, created.state, 'player').find((a) => a.type === 'playCard');
+    const result = apply(rules, created.state, action!);
+    if (!result.ok) throw new Error(result.error.message);
+    return { state: result.state as GameState<StandardWorld>, game: resolved.game };
+  }
+
+  it('an effect branches on the target’s HP', () => {
+    expect(play('weakling', 8).state.outcome?.winners).toEqual(['player']);
+    expect(play('sturdy', 9).state.world.board.units.enemy1?.hp).toBe(9);
+  });
+
+  it('reads as words on the card', () => {
+    const { game } = play('weakling', 8);
+    expect(cardText(finisher as never, game.ops)).toBe('If its HP is at most 8: Deal 100 damage.');
+    expect(conditionText({ kind: 'compare', left: { $: 'unit.stacks.plain:rot' }, cmp: '>=', right: 2 }, { name: () => 'Rot' })).toBe('its Rot stacks is at least 2');
   });
 });
