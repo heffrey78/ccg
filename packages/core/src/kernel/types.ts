@@ -304,6 +304,11 @@ export interface GameRules<W = unknown> {
   /** Redacts an event for a viewer, or returns null to withhold it. */
   redact?(event: GameEvent, viewer: SideId | null, state: GameState<W>): GameEvent | null;
   /**
+   * `turn`: players may take back their own actions within a turn, as long as
+   * nothing new was revealed or randomized (#83). Hosts enforce it.
+   */
+  undo?: 'turn';
+  /**
    * Static, serializable facts clients need to draw the game, keyed by module
    * (e.g. `board`: the board layout). Never part of state; safe to send to any viewer.
    */

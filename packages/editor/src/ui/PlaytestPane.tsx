@@ -180,6 +180,7 @@ export function PlaytestPane({ project, problems, engine, tryCard, onSaveScenari
               onQuit={() => setSnapshot(null)}
               onDebug={() => setDebug(true)}
               onChooseReward={(card) => void attempt(() => engine.chooseReward(card), false)}
+              onUndo={() => void attempt(() => engine.undo())}
             />
           )}
         </div>

@@ -65,6 +65,8 @@ interface Running {
   ai: StatePolicy<unknown>;
   /** Set when playing a run (#45): its encounters in order, with rewards between them. */
   run?: RunState;
+  /** Undo can't take back actions before this many (#83). */
+  undoFloor?: number;
 }
 
 interface RunState {
@@ -164,6 +166,7 @@ export function createEngineHost(options: HostOptions = {}): EngineHost {
       catalog: game.catalog,
       presentation: game.rules.presentation ?? {},
       intents: intentSummaries(game, declared),
+      canUndo: game.rules.undo === 'turn' && game.session.log.actions.length > (game.undoFloor ?? 0),
       ...(game.run && {
         run: {
           stage: game.run.stage + 1,
@@ -173,6 +176,24 @@ export function createEngineHost(options: HostOptions = {}): EngineHost {
         },
       }),
     };
+  };
+
+  /** What the human side knows: the card identities and units its view shows. */
+  const knowledge = (game: Running, state: GameState<unknown>): Set<string> => {
+    const world = viewState(game.rules, state, game.side).world as { cards?: { instances: Record<string, { def: string }> }; board?: { units: Record<string, unknown> } };
+    return new Set([
+      ...Object.entries(world.cards?.instances ?? {}).map(([id, c]) => `card:${id}:${c.def}`),
+      ...Object.keys(world.board?.units ?? {}).map((id) => `unit:${id}`),
+    ]);
+  };
+
+  /** Whether the player's action can be taken back: their own move, no chance, nothing new seen. */
+  const takeBackable = (game: Running, before: GameState<unknown>, action: Action): boolean => {
+    if (game.rules.undo !== 'turn' || action.type === 'endTurn' || action.type === 'pass') return false;
+    const after = game.session.state;
+    if (JSON.stringify(after.rng) !== JSON.stringify(before.rng)) return false;
+    const known = knowledge(game, before);
+    return [...knowledge(game, after)].every((k) => known.has(k));
   };
 
   /** After an action in a run: on a win, offer rewards (or finish); on a loss, end the run. */
@@ -211,6 +232,7 @@ export function createEngineHost(options: HostOptions = {}): EngineHost {
     const side = built.setup.sides.find((s) => s.controller === 'human')?.id ?? (built.setup.sides[0]?.id as SideId);
     running = { ...built.parts, session: started.session, side, options: setupOptions, ai: aiFor(game, seed), run: { ...run, status: 'playing' } };
     const events = runAi(running);
+    running.undoFloor = running.session.log.actions.length;
     advanceRun(running);
     return { ok: true, type: 'snapshot', snapshot: snapshot(running, events) };
   };
@@ -283,7 +305,7 @@ export function createEngineHost(options: HostOptions = {}): EngineHost {
       }
       replayed++;
     }
-    running = { ...game, ...built.parts, session: started.session };
+    running = { ...game, ...built.parts, session: started.session, undoFloor: started.session.log.actions.length };
     const events = runAi(running);
     const notice =
       failure === null
@@ -355,7 +377,9 @@ export function createEngineHost(options: HostOptions = {}): EngineHost {
           if (!started.ok) return { ok: false, error: started.error };
           const side = built.setup.sides.find((s) => s.controller === 'human')?.id ?? (built.setup.sides[0]?.id as SideId);
           running = { ...built.parts, session: started.session, side, options, ai: aiFor(built.parts.game, request.seed) };
-          return { ok: true, type: 'snapshot', snapshot: snapshot(running, runAi(running)) };
+          const events = runAi(running);
+          running.undoFloor = running.session.log.actions.length;
+          return { ok: true, type: 'snapshot', snapshot: snapshot(running, events) };
         }
 
         case 'act': {
@@ -363,11 +387,31 @@ export function createEngineHost(options: HostOptions = {}): EngineHost {
           if (request.action.side !== running.side) {
             return { ok: false, error: { code: 'illegal-action', message: `the UI plays side '${running.side}'` } };
           }
+          const before = running.session.state;
           const result = running.session.apply(request.action);
           if (!result.ok) return { ok: false, error: result.error };
+          const logged = running.session.log.actions.length;
           const events = [...result.events, ...runAi(running)];
+          // Undo stops at anything that showed the player something new, used chance, or let the other side act.
+          if (!takeBackable(running, before, request.action) || running.session.log.actions.length !== logged) running.undoFloor = running.session.log.actions.length;
           advanceRun(running);
           return { ok: true, type: 'snapshot', snapshot: snapshot(running, events) };
+        }
+
+        case 'undo': {
+          if (!running) return { ok: false, error: { code: 'not-started', message: 'no game is running' } };
+          const log = running.session.log;
+          if (running.rules.undo !== 'turn' || log.actions.length <= (running.undoFloor ?? 0)) {
+            return { ok: false, error: { code: 'illegal-action', message: 'there is nothing to undo' } };
+          }
+          const started = Session.start(running.rules, log.setup, log.packages);
+          if (!started.ok) return { ok: false, error: started.error };
+          for (const action of log.actions.slice(0, -1)) {
+            const result = started.session.apply(action);
+            if (!result.ok) return { ok: false, error: result.error };
+          }
+          running = { ...running, session: started.session };
+          return { ok: true, type: 'snapshot', snapshot: snapshot(running, []) };
         }
 
         case 'debug':
@@ -386,7 +430,7 @@ export function createEngineHost(options: HostOptions = {}): EngineHost {
               const result = started.session.apply(action);
               if (!result.ok) return { ok: false, error: result.error };
             }
-            running = { ...running, session: started.session };
+            running = { ...running, session: started.session, undoFloor: at };
             if (running.run) running.run = { ...running.run, status: 'playing' };
             const events = runAi(running);
             advanceRun(running);

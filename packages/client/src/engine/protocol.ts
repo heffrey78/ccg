@@ -24,6 +24,8 @@ export type EngineRequest =
   | { type: 'reload'; files: Record<string, Uint8Array>; mode: 'hot' | 'replay' }
   /** In a run, between encounters: take one of the offered cards (or none) and go on. */
   | { type: 'chooseReward'; card: string | null }
+  /** Takes back the player's last action, when the game allows it (#83). */
+  | { type: 'undo' }
   /** Debug hosts only (#46): the authoritative state after `at` actions (default: now), with every action's events. */
   | { type: 'debug'; at?: number }
   /** Debug hosts only: rewind to after `at` actions and play on from there, dropping the later ones. */
@@ -79,6 +81,8 @@ export interface Snapshot {
   notice?: string;
   /** Progress through a run (#45). */
   run?: RunProgress;
+  /** Whether `undo` would take back the player's last action now. */
+  canUndo: boolean;
 }
 
 export interface RunProgress {
