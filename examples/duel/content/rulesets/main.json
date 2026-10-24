@@ -49,5 +49,6 @@
   },
   "responses": {
     "itemAnnounced": true
-  }
+  },
+  "undo": "turn"
 }

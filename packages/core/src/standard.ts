@@ -37,6 +37,7 @@ export interface RulesetDef {
   responses?: { itemAnnounced?: boolean; itemTop?: boolean };
   permanents?: { maxPerSide?: number; summoningSickness?: boolean };
   run?: { encounters: string[]; rewards?: { pool: string[]; choices?: number }; carryHp?: boolean };
+  undo?: 'off' | 'turn';
 }
 
 /** What the standard game needs from a resolved game. */
@@ -110,6 +111,7 @@ export function standardRules(ruleset: RulesetDef, input: StandardGameInput): Ga
         intents.resolvePhase(enemy),
       ],
       ...(ruleset.responses && { windows: ruleset.responses }),
+      ...(ruleset.undo === 'turn' && { undo: 'turn' as const }),
       outcome(state) {
         // Passable units (traps) don't count: a side is beaten when its real units are gone.
         const sides = new Set(Object.values(state.world.board.units).filter((u) => !u.passable).map((u) => u.side));

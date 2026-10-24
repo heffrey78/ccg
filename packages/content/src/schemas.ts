@@ -317,6 +317,8 @@ export function createContentSchemas(ops: OpRegistry, { formatVersion: version =
       /** Response windows (#57): when the other side may answer an item on the stack. */
       responses: z.object({ itemAnnounced: z.boolean().optional(), itemTop: z.boolean().optional() }).strict().optional(),
       permanents: z.object({ maxPerSide: count.optional(), summoningSickness: z.boolean().optional() }).strict().optional(),
+      /** `turn`: players may take back actions within their turn unless something was revealed (#83). */
+      undo: z.enum(['off', 'turn']).optional(),
       /** A run (#45): encounters played in order, with a card reward after each win. */
       run: z
         .object({

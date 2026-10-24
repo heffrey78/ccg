@@ -265,6 +265,47 @@ describe('engine host', () => {
       await expect(engine.branch(0)).rejects.toMatchObject({ code: 'illegal-action' });
     });
 
+    it('undoes the player’s own actions within a turn, but not past a draw, a turn end, or when the game doesn’t allow it', async () => {
+      const ruleset = (undo?: string) =>
+        json({ formatVersion: 1, kind: 'ruleset', id: 'main', name: 'Main', board: { topology: 'lane', length: 4 }, player: { resources: {}, handSize: 3, deck: ['zap', 'zap', 'insight', 'zap', 'zap'] }, ...(undo && { undo }) });
+      const insight = json({ formatVersion: 1, kind: 'card', id: 'insight', name: 'Insight', targeting: { kind: 'none' }, effects: [{ op: 'draw', n: 1 }] });
+      const play = async (engine: EngineClient, def: string) => {
+        const snap = await engine.view();
+        const world = snap.view.world as World;
+        const action = snap.legal.find((a) => a.type === 'playCard' && world.cards.instances[a.card as string]?.def === def);
+        if (!action) throw new Error(`no ${def} in hand`);
+        return engine.act(action);
+      };
+      const engine = client();
+      await engine.loadFiles(files(5, { 'content/rulesets/main.json': ruleset('turn'), 'content/cards/insight.json': insight }));
+      // The first seed whose opening hand has Insight and two Zaps.
+      let start = await engine.start('live', 1);
+      const opening = (snap: typeof start) => Object.values((snap.view.world as World).cards.instances).map((c) => c.def).sort();
+      for (let seed = 2; opening(start)[0] !== 'live:insight'; seed++) start = await engine.start('live', seed);
+      expect(opening(start)).toEqual(['live:insight', 'live:zap', 'live:zap']);
+      expect(start.canUndo).toBe(false);
+
+      const zapped = await play(engine, 'live:zap');
+      expect(dummyHp(zapped)).toBe(35);
+      expect(zapped.canUndo).toBe(true);
+      const undone = await engine.undo();
+      expect(undone.view).toEqual(start.view);
+      expect(undone.canUndo).toBe(false);
+      await expect(engine.undo()).rejects.toMatchObject({ code: 'illegal-action' });
+
+      // Drawing shows a new card: no going back past it.
+      await play(engine, 'live:zap');
+      expect((await play(engine, 'live:insight')).canUndo).toBe(false);
+      expect((await play(engine, 'live:zap')).canUndo).toBe(true);
+      expect((await engine.act({ type: 'endTurn', side: 'player' })).canUndo).toBe(false);
+
+      // Without the ruleset's permission there is no undo at all.
+      const strict = client();
+      await strict.loadFiles(files(5));
+      await strict.start('live', 1);
+      expect((await zap(strict)).canUndo).toBe(false);
+    });
+
     it('starts a saved scenario', async () => {
       const engine = client();
       const scenario = json({ formatVersion: 1, kind: 'scenario', id: 'opening', name: 'Opening', encounter: 'one', seed: 'x', hand: ['zap'], deck: [] });

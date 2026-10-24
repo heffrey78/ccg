@@ -4,7 +4,7 @@
  * works with the mouse and the keyboard:
  *
  *   1–9 select a hand card · ←/→ cycle targets · Enter confirm · Esc cancel
- *   M select a unit to move · E end turn · P pass · S or Space skip animation
+ *   M select a unit to move · E end turn · P pass · Z undo · S or Space skip animation
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { Action, GameEvent } from '@ccg/core';
@@ -42,12 +42,14 @@ export interface EncounterProps {
   /** Seconds before an unanswered response prompt passes on its own; 0 waits for the player. */
   autoPass?: number;
   onAutoPass?(seconds: number): void;
+  /** Takes back the last action, offered when the snapshot allows it. */
+  onUndo?(): void;
 }
 
 const isTyping = (target: EventTarget | null) => target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
 const isControl = (target: EventTarget | null) => target instanceof Element && (target.tagName === 'BUTTON' || target.getAttribute('role') === 'button');
 
-export function Encounter({ snapshot, log, busy, speed, onSpeed, onAct, onQuit, onDebug, renderers, onChooseReward, autoPass = 0, onAutoPass }: EncounterProps) {
+export function Encounter({ snapshot, log, busy, speed, onSpeed, onAct, onQuit, onDebug, renderers, onChooseReward, autoPass = 0, onAutoPass, onUndo }: EncounterProps) {
   const { view, side, legal, deciding, catalog, run } = snapshot;
   const world = view.world as WorldView;
   const layout = layoutOf(snapshot.presentation);
@@ -192,6 +194,9 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, onAct, onQuit, 
       } else if (key === 'm') {
         const units = [...o.units.keys()];
         if (units.length > 0) choose({ kind: 'unit', unit: units[0] as string });
+      } else if (key === 'z' && snapshot.canUndo && onUndo && !busy) {
+        playback.skip();
+        onUndo();
       } else if (key === 'e' && o.endTurn) {
         act(o.endTurn);
       } else if (key === 'p' && o.pass) {
@@ -415,6 +420,11 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, onAct, onQuit, 
                 {describeAction(a, labelNames, eventContext.cardDefs, layout?.kind)}
               </button>
             ))}
+          {onUndo && snapshot.canUndo && (
+            <button type="button" disabled={busy} aria-keyshortcuts="Z" onClick={onUndo}>
+              Undo
+            </button>
+          )}
           {o.endTurn && (
             <button type="button" className="ccg-primary" disabled={!canAct} aria-keyshortcuts="E" onClick={() => o.endTurn && act(o.endTurn)}>
               End turn

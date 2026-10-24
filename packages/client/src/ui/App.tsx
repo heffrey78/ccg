@@ -83,6 +83,7 @@ export function App({ engine, platform, seed, renderers, encounter }: AppProps) 
           onAct={(a: Action) => void run(() => engine.act(a))}
           onQuit={() => setSnapshot(null)}
           onDebug={() => setDebug(true)}
+          onUndo={() => void run(() => engine.undo())}
           autoPass={autoPass}
           onAutoPass={(seconds) => {
             setAutoPass(seconds);

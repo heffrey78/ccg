@@ -104,6 +104,11 @@ export class EngineClient {
     return this.snapshot({ type: 'chooseReward', card });
   }
 
+  /** Takes back the player's last action, when the game allows it. */
+  undo(): Promise<Snapshot> {
+    return this.snapshot({ type: 'undo' });
+  }
+
   /** Debug hosts only: the authoritative state after `at` actions (default: now). */
   async debug(at?: number): Promise<DebugInfo> {
     const reply = await this.transport.request({ type: 'debug', ...(at !== undefined && { at }) });
