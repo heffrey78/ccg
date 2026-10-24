@@ -153,8 +153,8 @@ export interface SetupOptions {
   scenario?: string;
   /** Cards drawn first (qualified ids), ahead of the shuffled deck, e.g. to try a card out. */
   hand?: string[];
-  /** The player's deck, replacing the ruleset's (e.g. a run's deck with its rewards). */
-  deck?: string[];
+  /** The player's deck, replacing the ruleset's (e.g. a run's deck with its rewards and upgrades). */
+  deck?: (string | RunCard)[];
   /** Player units' HP by unit definition, e.g. carried between a run's encounters. */
   hp?: Record<string, number>;
 }
@@ -168,10 +168,14 @@ export function standardSetup(ruleset: RulesetDef, input: StandardGameInput, opt
   const encounter = encounterId ? input.encounters.find((e) => e.id === encounterId) : input.encounters[0];
   if (!encounter) throw new ContentError(encounterId ? `no encounter '${encounterId}'` : 'the game has no encounters');
   // A scenario that fixes the hand or deck sets the draw pile exactly; otherwise the ruleset's deck is shuffled.
-  const deck =
+  const entries: RunCard[] =
     scenario && (scenario.hand || scenario.deck)
-      ? [...(scenario.hand ?? []), ...(scenario.deck ?? [])]
-      : [...(options.hand ?? []), ...new Rng(seedRng(`deck:${seed}`)).shuffle([...(options.deck ?? ruleset.player.deck)])];
+      ? [...(scenario.hand ?? []), ...(scenario.deck ?? [])].map((def) => ({ def }))
+      : [
+          ...(options.hand ?? []).map((def) => ({ def })),
+          ...new Rng(seedRng(`deck:${seed}`)).shuffle((options.deck ?? ruleset.player.deck).map((c) => (typeof c === 'string' ? { def: c } : c))),
+        ];
+  const deck = entries.map((c) => c.def);
   const counts: Record<string, number> = {};
   return {
     seed,
@@ -189,11 +193,33 @@ export function standardSetup(ruleset: RulesetDef, input: StandardGameInput, opt
         }),
         encounter.tiles ?? {},
       ),
-      cards: createCardsState({ [player]: deck, [enemy]: [] }),
+      cards: upgradeCards(createCardsState({ [player]: deck, [enemy]: [] }), player, entries),
       intents: createIntentsState(),
       permanents: {},
     },
   };
+}
+
+/** A card in a run's deck. */
+export interface RunCard {
+  def: string;
+  upgraded?: boolean;
+}
+
+/** Marks the draw pile's cards upgraded where the deck entries say so (the pile is in deck order). */
+function upgradeCards(cards: ReturnType<typeof createCardsState>, side: string, entries: RunCard[]) {
+  const pile = cards.zones[side]?.draw ?? [];
+  entries.forEach((entry, i) => {
+    const instance = cards.instances[pile[i] as string];
+    if (entry.upgraded && instance) instance.upgraded = true;
+  });
+  return cards;
+}
+
+/** A fruiting log's offer: hybrids (cards with requirements) the deck qualifies for, up to three, by seed. */
+export function fruitingOffer(ruleset: RulesetDef, input: StandardGameInput, strains: { unlocked: string[]; deck: string[] }, seed: string | number, stage: number): string[] {
+  const pool = [...new Set(ruleset.run?.rewards?.pool ?? [])].filter((card) => (input.definitions.cards[card]?.requires ?? []).length > 0 && eligible(ruleset, input, card, strains));
+  return new Rng(seedRng(`fruiting:${seed}:${stage}`)).shuffle(pool).slice(0, 3);
 }
 
 /** The cards offered after winning an encounter of a run: its own reward cards, else the run's pool, drawn by seed. */

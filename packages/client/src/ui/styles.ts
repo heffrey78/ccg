@@ -142,6 +142,10 @@ export const CSS = `
 .ccg-node-glyph { font-size: 15px; fill: var(--ink); pointer-events: none; }
 .ccg-node-name { font-size: 10px; fill: var(--ink); pointer-events: none; }
 .ccg-strain { display: block; margin-top: 4px; font-size: .8rem; font-weight: 700; color: var(--reaction); text-transform: capitalize; }
+.ccg-services { display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.ccg-deck-pick { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; max-height: 60vh; overflow: auto; }
+.ccg-app .ccg-deck-pick > button { padding: 0; border: none; background: none; }
+.ccg-app .ccg-deck-pick > button:last-child { padding: 6px 12px; border: 1px solid var(--line); background: var(--panel); }
 .ccg-run-progress { font-weight: 600; color: var(--accent); }
 
 @media (prefers-reduced-motion: reduce) {

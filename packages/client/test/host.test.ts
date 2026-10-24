@@ -207,21 +207,21 @@ describe('engine host', () => {
       const engine = client();
       await engine.loadFiles(runFiles);
       let snap = await engine.start('live', 4);
-      expect(snap.run).toEqual({ stage: 1, total: 3, status: 'playing' });
+      expect(snap.run).toMatchObject({ stage: 1, total: 3, status: 'playing' });
       snap = await zap(engine);
       expect(snap.run).toMatchObject({ stage: 1, status: 'reward' });
       expect([...(snap.run?.rewards ?? [])].sort()).toEqual(['live:bolt', 'live:zap']);
       await expect(engine.chooseReward('live:nope')).rejects.toMatchObject({ code: 'illegal-action' });
 
       snap = await engine.chooseReward('live:bolt');
-      expect(snap.run).toEqual({ stage: 2, total: 3, status: 'playing' });
+      expect(snap.run).toMatchObject({ stage: 2, total: 3, status: 'playing' });
       const cards = (snap.view.world as World).cards.zones.player as Record<string, string[]>;
       expect(Object.values(cards).flat()).toHaveLength(4);
       expect((await zap(engine)).run?.status).toBe('reward');
       snap = await engine.chooseReward(null);
       expect(snap.run).toMatchObject({ stage: 3, status: 'playing' });
       snap = await zap(engine);
-      expect(snap.run).toEqual({ stage: 3, total: 3, status: 'won' });
+      expect(snap.run).toMatchObject({ stage: 3, total: 3, status: 'won' });
       // Asking for one encounter plays just that one.
       expect((await engine.start('live', 4, { encounter: 'live:two' })).run).toBeUndefined();
     });
@@ -352,12 +352,66 @@ describe('engine host', () => {
       await expect(engine.chooseNode('d')).rejects.toMatchObject({ code: 'illegal-action' });
 
       snap = await engine.chooseNode('b');
+      expect(snap.run).toMatchObject({ stage: 2, status: 'service', service: { kind: 'spring', offer: [] } });
+      snap = await engine.chooseService({ action: 'heal' });
       expect(snap.notice).toBe('The spring restores 30% of your HP.');
       expect(snap.run).toMatchObject({ stage: 2, status: 'map', map: { choices: ['d'] } });
       snap = await engine.chooseNode('d');
       expect(snap.run).toMatchObject({ stage: 3, status: 'playing', map: { current: 'd', visited: ['a', 'b', 'd'] } });
       snap = await zap(engine);
       expect(snap.run?.status).toBe('won');
+    });
+
+    it('a fruiting log upgrades a card or offers a hybrid; a spring removes a card', async () => {
+      const encounter = (id: string) => json({ formatVersion: 1, kind: 'encounter', id, name: id, units: [{ unit: 'hero', side: 'player', pos: '0' }, { unit: 'weak', side: 'enemy', pos: '3' }] });
+      const runFiles = {
+        ...files(5),
+        'content/cards/zap.json': json({ formatVersion: 1, kind: 'card', id: 'zap', name: 'Zap', tags: ['zappy'], targeting: { kind: 'unit', filter: 'enemy' }, effects: [{ op: 'damage', amount: 5 }], upgrade: { name: 'Zap+', effects: [{ op: 'damage', amount: 9 }] } }),
+        'content/cards/hybrid.json': json({ formatVersion: 1, kind: 'card', id: 'hybrid', name: 'Hybrid', requires: ['zappy'], targeting: { kind: 'none' }, effects: [] }),
+        'content/units/weak.json': json({ formatVersion: 1, kind: 'unit', id: 'weak', name: 'Weak', hp: 3 }),
+        'content/encounters/one.json': encounter('one'),
+        'content/encounters/two.json': encounter('two'),
+        'content/rulesets/main.json': json({
+          formatVersion: 1,
+          kind: 'ruleset',
+          id: 'main',
+          name: 'Main',
+          board: { topology: 'lane', length: 4 },
+          player: { resources: {}, handSize: 3, deck: ['zap', 'zap', 'zap'] },
+          run: {
+            map: {
+              start: 'a',
+              nodes: [
+                { id: 'a', kind: 'fight', encounter: 'one', next: ['f'] },
+                { id: 'f', kind: 'fruiting', next: ['s'] },
+                { id: 's', kind: 'spring', next: ['b'] },
+                { id: 'b', kind: 'boss', encounter: 'two', next: [] },
+              ],
+            },
+            rewards: { pool: ['hybrid'], choices: 1 },
+          },
+        }),
+      };
+      const engine = client();
+      await engine.loadFiles(runFiles);
+      await engine.start('live', 1);
+      await zap(engine);
+      await engine.chooseReward(null);
+      let snap = await engine.chooseNode('f');
+      expect(snap.run).toMatchObject({ status: 'service', service: { kind: 'fruiting', offer: ['live:hybrid'] } });
+      expect(snap.catalog.cards['live:zap']?.upgrade).toMatchObject({ name: 'Zap+', text: 'Deal 9 damage.' });
+      await expect(engine.chooseService({ action: 'heal' })).rejects.toMatchObject({ code: 'illegal-action' });
+      snap = await engine.chooseService({ action: 'upgrade', index: 0 });
+      expect(snap.notice).toBe('Zap is upgraded.');
+      expect(snap.run?.deck).toEqual([{ def: 'live:zap', upgraded: true }, { def: 'live:zap' }, { def: 'live:zap' }]);
+      await engine.chooseNode('s');
+      snap = await engine.chooseService({ action: 'remove', index: 2 });
+      expect(snap.run?.deck).toHaveLength(2);
+      snap = await engine.chooseNode('b');
+      // The upgraded Zap is upgraded in play.
+      const instances = Object.values((snap.view.world as World).cards.instances) as { def: string; upgraded?: boolean }[];
+      expect(instances.filter((c) => c.upgraded)).toHaveLength(1);
+      expect(instances).toHaveLength(2);
     });
 
     it('a junction connects a strain, and later rewards come from it', async () => {

@@ -8,7 +8,7 @@
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { Action, GameEvent } from '@ccg/core';
-import type { Snapshot } from '../engine/protocol.js';
+import type { RunProgress, ServiceChoice, Snapshot } from '../engine/protocol.js';
 import { describeAction, describeEvent, type EventContext } from './describe.js';
 import { Board, type BoardEffect, type BoardMarker, type BoardRenderer, type BoardTarget } from './play/Board.js';
 import { CardPreview } from './play/CardFace.js';
@@ -47,12 +47,14 @@ export interface EncounterProps {
   onUndo?(): void;
   /** In a branching run: go to the chosen next node. */
   onChooseNode?(node: string): void;
+  /** At a spring or fruiting log. */
+  onChooseService?(choice: ServiceChoice): void;
 }
 
 const isTyping = (target: EventTarget | null) => target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
 const isControl = (target: EventTarget | null) => target instanceof Element && (target.tagName === 'BUTTON' || target.getAttribute('role') === 'button');
 
-export function Encounter({ snapshot, log, busy, speed, onSpeed, onAct, onQuit, onDebug, renderers, onChooseReward, autoPass = 0, onAutoPass, onUndo, onChooseNode }: EncounterProps) {
+export function Encounter({ snapshot, log, busy, speed, onSpeed, onAct, onQuit, onDebug, renderers, onChooseReward, autoPass = 0, onAutoPass, onUndo, onChooseNode, onChooseService }: EncounterProps) {
   const { view, side, legal, deciding, catalog, run } = snapshot;
   const world = view.world as WorldView;
   const layout = layoutOf(snapshot.presentation);
@@ -396,8 +398,9 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, onAct, onQuit, 
         </div>
         <Hand
           cards={hand.map((id) => {
-            const def = world.cards?.instances[id]?.def;
-            const face = def ? catalog.cards[def] : undefined;
+            const instance = world.cards?.instances[id];
+            const base = instance ? catalog.cards[instance.def] : undefined;
+            const face = instance?.upgraded ? (base?.upgrade ?? base) : base;
             return { id, ...(face && { face }), playable: canAct && o.cards.has(id) };
           })}
           selected={selection?.kind === 'card' ? selection.card : null}
@@ -438,7 +441,9 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, onAct, onQuit, 
 
       {view.outcome && !playing && (
         <div className="ccg-outcome" role="dialog" aria-labelledby="outcome-heading">
-          {run?.status === 'map' && run.map ? (
+          {run?.status === 'service' && run.service ? (
+            <ServicePanel run={run} catalog={catalog} busy={busy} onChoose={(c) => onChooseService?.(c)} />
+          ) : run?.status === 'map' && run.map ? (
             <>
               <h2 id="outcome-heading">Choose your path</h2>
               {snapshot.notice && <p>{snapshot.notice}</p>}
@@ -525,4 +530,74 @@ function respondText(view: Snapshot['view'], side: string, ctx: EventContext): s
           ? `${item.controller === side ? 'You play' : 'They play'} ${ctx.names[ctx.cardDefs[item.source] as string] ?? 'a card'}`
           : 'Something happens';
   return `${what}. Respond with a reaction, or pass.`;
+}
+
+/** A spring (heal or remove a card) or fruiting log (take a hybrid or upgrade a card) between fights (#103). */
+function ServicePanel({ run, catalog, busy, onChoose }: { run: RunProgress; catalog: Snapshot['catalog']; busy: boolean; onChoose(choice: ServiceChoice): void }) {
+  const [mode, setMode] = useState<'remove' | 'upgrade' | null>(null);
+  const service = run.service as NonNullable<RunProgress['service']>;
+  const face = (def: string, upgraded?: boolean) => {
+    const base = catalog.cards[def];
+    return upgraded ? (base?.upgrade ?? base) : base;
+  };
+  const upgradable = run.deck.map((c, i) => [c, i] as const).filter(([c]) => !c.upgraded && catalog.cards[c.def]?.upgrade);
+  return (
+    <>
+      <h2 id="outcome-heading">{service.kind === 'spring' ? 'A spring' : 'A fruiting log'}</h2>
+      <p>{service.kind === 'spring' ? 'Pump water to heal, or let a card wash out of your deck.' : 'Cross-breed a hybrid, or grow one of your cards stronger.'}</p>
+      {mode === null && (
+        <div className="ccg-services">
+          {service.kind === 'spring' ? (
+            <>
+              <button type="button" disabled={busy} onClick={() => onChoose({ action: 'heal' })}>
+                Heal 30% of your HP
+              </button>
+              <button type="button" disabled={busy || run.deck.length === 0} onClick={() => setMode('remove')}>
+                Remove a card…
+              </button>
+            </>
+          ) : (
+            <>
+              {service.offer.length > 0 && (
+                <div className="ccg-rewards">
+                  {service.offer.map((card) => {
+                    const f = catalog.cards[card];
+                    return (
+                      <button key={card} type="button" className="ccg-reward" aria-label={`Take ${f?.name ?? card}`} disabled={busy} onClick={() => onChoose({ action: 'take', card })}>
+                        {f ? <CardPreview face={f} /> : card}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              <button type="button" disabled={busy || upgradable.length === 0} onClick={() => setMode('upgrade')}>
+                Upgrade a card…
+              </button>
+            </>
+          )}
+          <button type="button" disabled={busy} onClick={() => onChoose({ action: 'leave' })}>
+            Leave
+          </button>
+        </div>
+      )}
+      {mode !== null && (
+        <div className="ccg-deck-pick" role="group" aria-label={mode === 'remove' ? 'Choose a card to remove' : 'Choose a card to upgrade'}>
+          {(mode === 'remove' ? run.deck.map((c, i) => [c, i] as const) : upgradable).map(([c, i]) => (
+            <button
+              key={i}
+              type="button"
+              disabled={busy}
+              aria-label={mode === 'remove' ? `Remove ${face(c.def, c.upgraded)?.name ?? c.def}` : `Upgrade ${face(c.def)?.name ?? c.def}`}
+              onClick={() => onChoose(mode === 'remove' ? { action: 'remove', index: i } : { action: 'upgrade', index: i })}
+            >
+              {face(c.def, mode === 'upgrade' ? true : c.upgraded) ? <CardPreview face={face(c.def, mode === 'upgrade' ? true : c.upgraded) as NonNullable<ReturnType<typeof face>>} /> : c.def}
+            </button>
+          ))}
+          <button type="button" onClick={() => setMode(null)}>
+            Back
+          </button>
+        </div>
+      )}
+    </>
+  );
 }

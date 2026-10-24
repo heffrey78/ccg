@@ -15,6 +15,7 @@ import {
   randomPolicy,
   redactEvents,
   COMBAT_NODES,
+  fruitingOffer,
   junctionOffer,
   rulesetOf,
   startingStrains,
@@ -24,6 +25,7 @@ import {
   runMapOf,
   runRewards,
   standardInput,
+  type RunCard,
   type RunMap,
   type RunNode,
   type RunNodeKind,
@@ -89,11 +91,13 @@ interface RunState {
   node: string;
   /** Nodes entered so far, in order. */
   visited: string[];
-  deck: string[];
+  deck: RunCard[];
   hp: Record<string, number>;
   seed: string | number;
   carryHp: boolean;
-  status: 'playing' | 'reward' | 'map' | 'won' | 'lost';
+  status: 'playing' | 'reward' | 'map' | 'service' | 'won' | 'lost';
+  /** At a spring or fruiting log: what it offers (#103). */
+  service?: { kind: 'spring' | 'fruiting'; offer: string[] };
   rewards?: string[];
   /** Nodes the player may go to next, when `status` is `map`. */
   choices?: string[];
@@ -223,6 +227,8 @@ export function createEngineHost(options: HostOptions = {}): EngineHost {
       total,
       status: run.status,
       ...(run.rewards && run.status === 'reward' && { rewards: run.rewards, offer: run.offer ?? 'card' }),
+      ...(run.service && run.status === 'service' && { service: run.service }),
+      deck: run.deck,
       ...((rulesetOf(game.resolved).run?.strains ?? []).length > 0 && { strains: { all: rulesetOf(game.resolved).run?.strains ?? [], unlocked: run.unlocked } }),
       ...(run.branching && {
         map: {
@@ -255,7 +261,7 @@ export function createEngineHost(options: HostOptions = {}): EngineHost {
     }
     run.status = 'reward';
     run.offer = 'card';
-    run.rewards = runRewards(rulesetOf(game.resolved), standardInput(game.resolved), node.encounter as string, run.seed, run.visited.length - 1, { unlocked: run.unlocked, deck: run.deck });
+    run.rewards = runRewards(rulesetOf(game.resolved), standardInput(game.resolved), node.encounter as string, run.seed, run.visited.length - 1, { unlocked: run.unlocked, deck: run.deck.map((c) => c.def) });
   };
 
   /** Moves the run on after a reward or a non-combat node: straight on if there's one way, else to the map. */
@@ -275,19 +281,17 @@ export function createEngineHost(options: HostOptions = {}): EngineHost {
   const enter = (game: GameListing, previous: RunState, id: string): EngineReply => {
     const node = previous.map.nodes.find((n) => n.id === id);
     if (!node) return { ok: false, error: { code: 'illegal-action', message: `there is no node '${id}'` } };
-    const { rewards: _r, choices: _c, offer: _o, ...kept } = previous;
+    const { rewards: _r, choices: _c, offer: _o, service: _s, ...kept } = previous;
     const run: RunState = { ...kept, node: id, visited: [...previous.visited, id], status: 'playing' };
     if (!COMBAT_NODES.has(node.kind)) {
       if (!running) return { ok: false, error: { code: 'not-started', message: 'a run must start with a fight' } };
-      let notice = `${NODE_NAMES[node.kind]}: nothing happens here yet.`;
-      if (node.kind === 'spring') {
-        // Heal 30% of max HP for each carried unit.
-        const units = running.resolved.definitions.units;
-        for (const [def, hp] of Object.entries(run.hp)) {
-          const max = units[def]?.hp ?? hp;
-          run.hp[def] = Math.min(max, hp + Math.ceil(max * 0.3));
-        }
-        notice = 'The spring restores 30% of your HP.';
+      let notice = `${NODE_NAMES[node.kind]}: nothing happens here.`;
+      if (node.kind === 'spring' || node.kind === 'fruiting') {
+        // A spring heals or thins the deck; a fruiting log cross-breeds a hybrid or upgrades a card.
+        const offer =
+          node.kind === 'fruiting' ? fruitingOffer(rulesetOf(running.resolved), standardInput(running.resolved), { unlocked: run.unlocked, deck: run.deck.map((c) => c.def) }, run.seed, run.visited.length - 1) : [];
+        running = { ...running, run: { ...run, status: 'service', service: { kind: node.kind, offer } } };
+        return { ok: true, type: 'snapshot', snapshot: snapshot(running, []) };
       }
       if (node.kind === 'junction') {
         // Another mycelium reaches out: one card from each of up to three unconnected strains.
@@ -451,7 +455,7 @@ export function createEngineHost(options: HostOptions = {}): EngineHost {
                   branching: ruleset.run?.map !== undefined,
                   node: map.start,
                   visited: [],
-                  deck: ruleset.player.deck.map(q),
+                  deck: ruleset.player.deck.map((def) => ({ def: q(def) })),
                   hp: {},
                   seed: request.seed,
                   carryHp: ruleset.run?.carryHp ?? true,
@@ -568,7 +572,38 @@ export function createEngineHost(options: HostOptions = {}): EngineHost {
           const { rewards: _offered, offer, ...rest } = run;
           // Taking a junction's card connects its strain.
           const connected = offer === 'strain' && request.card !== null ? strainsOf(rulesetOf(running.resolved), standardInput(running.resolved), request.card) : [];
-          return onward(running, { ...rest, unlocked: [...new Set([...run.unlocked, ...connected])], deck: request.card === null ? run.deck : [...run.deck, request.card] });
+          return onward(running, { ...rest, unlocked: [...new Set([...run.unlocked, ...connected])], deck: request.card === null ? run.deck : [...run.deck, { def: request.card }] });
+        }
+
+        case 'chooseService': {
+          const run = running?.run;
+          const service = run?.service;
+          if (!running || !run || run.status !== 'service' || !service) return { ok: false, error: { code: 'illegal-action', message: 'there is nothing here to choose' } };
+          const refuse = (message: string): EngineReply => ({ ok: false, error: { code: 'illegal-action', message } });
+          const { service: _done, ...rest } = run;
+          const choice = request.choice;
+          const cards = running.resolved.definitions.cards;
+          if (choice.action === 'leave') return onward(running, rest);
+          if (service.kind === 'spring' && choice.action === 'heal') {
+            const units = running.resolved.definitions.units;
+            const hp = Object.fromEntries(Object.entries(run.hp).map(([def, now]) => [def, Math.min(units[def]?.hp ?? now, now + Math.ceil((units[def]?.hp ?? now) * 0.3))]));
+            return onward(running, { ...rest, hp }, 'The spring restores 30% of your HP.');
+          }
+          if (service.kind === 'spring' && choice.action === 'remove') {
+            const card = run.deck[choice.index];
+            if (!card) return refuse(`there is no card ${choice.index} in the deck`);
+            return onward(running, { ...rest, deck: run.deck.filter((_, i) => i !== choice.index) }, `${running.catalog.names[card.def] ?? card.def} leaves your deck.`);
+          }
+          if (service.kind === 'fruiting' && choice.action === 'take') {
+            if (!service.offer.includes(choice.card)) return refuse(`'${choice.card}' is not on offer`);
+            return onward(running, { ...rest, deck: [...run.deck, { def: choice.card }] });
+          }
+          if (service.kind === 'fruiting' && choice.action === 'upgrade') {
+            const card = run.deck[choice.index];
+            if (!card || card.upgraded || !cards[card.def]?.upgrade) return refuse(`card ${choice.index} can't be upgraded`);
+            return onward(running, { ...rest, deck: run.deck.map((c, i) => (i === choice.index ? { ...c, upgraded: true } : c)) }, `${running.catalog.names[card.def] ?? card.def} is upgraded.`);
+          }
+          return refuse(`a ${service.kind} doesn't offer '${choice.action}'`);
         }
 
         case 'chooseNode': {
