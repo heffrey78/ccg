@@ -723,6 +723,26 @@ export function boardModule<W extends BoardWorld>(config: BoardConfig): RulesMod
           ctx.setVar(str(p.as), picked);
         },
       ),
+      readUnit: defineOp(
+        {
+          displayName: 'Read unit',
+          description:
+            "Store a unit's stats (the target if none is given) in a variable, for conditions: `hp`, `maxHp`, `missing` (HP lost), `block`, `stacks.<status>` and `exists`.",
+          params: z.object({ unit: unitRef.optional(), as: z.string().min(1).optional() }),
+          text: '',
+          widgets: { unit: 'unit', as: 'text' },
+          category: 'variables',
+        },
+        (ctx, p) => {
+          const u = unitOf(ctx, p.unit ?? ctx.item.vars.target);
+          ctx.setVar(
+            str(p.as ?? 'unit'),
+            u
+              ? { exists: true, hp: u.hp, maxHp: u.maxHp, missing: u.maxHp - u.hp, block: u.block, stacks: { ...u.statuses } }
+              : { exists: false, hp: 0, maxHp: 0, missing: 0, block: 0, stacks: {} },
+          );
+        },
+      ),
       measureDistance: defineOp(
         {
           displayName: 'Measure distance',

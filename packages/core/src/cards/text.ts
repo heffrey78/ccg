@@ -59,7 +59,7 @@ function effectText(effect: Effect, registry: OpRegistry, options: TextOptions):
     const value = params[key];
     if (value === undefined || isVarRef(value)) continue;
     if (widget === 'effects') shown[key] = effectsText(value as Effect[], registry, options);
-    else if (widget === 'condition') shown[key] = conditionText(value as Condition);
+    else if (widget === 'condition') shown[key] = conditionText(value as Condition, options);
     else if (widget === 'direction') shown[key] = directionText(String(value), options);
     else if (REF_WIDGETS.has(widget) && typeof value === 'string') shown[key] = options.name?.(value) ?? value;
   }
@@ -70,19 +70,31 @@ export function directionText(dir: string, options: TextOptions = {}): string {
   return (options.topology === 'lane' ? LANE[dir] : COMPASS[dir]) ?? dir;
 }
 
-export function conditionText(cond: Condition): string {
-  const v = (x: unknown) => (isVarRef(x) ? 'X' : String(x));
+/** A unit stat stored by `readUnit`, as a reader says it: "its HP", "its Rot stacks". */
+const STATS: Record<string, string> = { hp: 'HP', maxHp: 'max HP', missing: 'missing HP', block: 'block' };
+function varText(path: string, options: TextOptions): string {
+  const parts = path.split('.');
+  if (parts.length === 2 && STATS[parts[1] as string]) return `its ${STATS[parts[1] as string]}`;
+  if (parts.length >= 3 && parts[1] === 'stacks') {
+    const status = parts.slice(2).join('.');
+    return `its ${options.name?.(status) ?? status} stacks`;
+  }
+  return 'X';
+}
+
+export function conditionText(cond: Condition, options: TextOptions = {}): string {
+  const v = (x: unknown) => (isVarRef(x) ? varText(x.$, options) : String(x));
   switch (cond.kind) {
     case 'compare':
       return `${v(cond.left)} ${COMPARE[cond.cmp]} ${v(cond.right)}`;
     case 'truthy':
       return v(cond.value);
     case 'all':
-      return cond.of.map(conditionText).join(' and ');
+      return cond.of.map((c) => conditionText(c, options)).join(' and ');
     case 'any':
-      return cond.of.map(conditionText).join(' or ');
+      return cond.of.map((c) => conditionText(c, options)).join(' or ');
     case 'not':
-      return `not (${conditionText(cond.cond)})`;
+      return `not (${conditionText(cond.cond, options)})`;
   }
 }
 
