@@ -169,5 +169,19 @@ export const CSS = `
 .ccg-tree-node > summary { cursor: pointer; }
 .ccg-tree-node.has-changes > summary { color: var(--warn); }
 .ccg-tree-leaf.is-changed { background: var(--hl); outline: 1px solid var(--warn); border-radius: 3px; }
+.ccg-balance .ccg-row { margin-bottom: 8px; }
+.ccg-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin: 8px 0; }
+.ccg-tile { display: flex; flex-direction: column; gap: 2px; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: var(--bg); }
+.ccg-tile-label { font-size: .8rem; color: var(--muted); }
+.ccg-tile-value { font-size: 1.6rem; color: var(--ink); }
+.ccg-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.ccg-bars { margin: 0; }
+.ccg-bars figcaption { font-weight: 700; margin-bottom: 4px; }
+.ccg-bars table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+.ccg-bars th { text-align: left; font-weight: 400; color: var(--ink); padding: 2px 8px 2px 0; white-space: nowrap; }
+.ccg-bars tr:hover th, .ccg-bars tr:hover .ccg-bar-value { font-weight: 700; }
+.ccg-bar-cell { width: 100%; padding: 2px 0; }
+.ccg-bar { display: block; height: 10px; min-width: 2px; background: var(--accent); border-radius: 0 4px 4px 0; }
+.ccg-bar-value { padding-left: 8px; text-align: right; color: var(--ink); font-variant-numeric: tabular-nums; }
 .ccg-raw summary { cursor: pointer; color: var(--muted); margin: 8px 0; }
 `;

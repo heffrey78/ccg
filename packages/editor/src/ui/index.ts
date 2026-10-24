@@ -5,3 +5,4 @@ export { Session, useStore, type SessionSource } from './session.js';
 export { Workspace, type Selection, type WorkspaceProps } from './Workspace.js';
 export { JsonView } from './ItemPanel.js';
 export { CSS } from './styles.js';
+export { BalancePanel, type Simulator } from './BalancePanel.js';
