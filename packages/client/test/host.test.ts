@@ -362,6 +362,25 @@ describe('engine host', () => {
       expect(snap.run?.status).toBe('won');
     });
 
+    it('serves unit sprites and the encounter scene as typed object URLs', async () => {
+      const svg = enc.encode('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><circle r="5"/></svg>');
+      const art = {
+        ...files(5),
+        'content/units/dummy.json': json({ formatVersion: 1, kind: 'unit', id: 'dummy', name: 'Dummy', hp: 40, art: 'assets/units/dummy.svg' }),
+        'content/encounters/one.json': json({ formatVersion: 1, kind: 'encounter', id: 'one', name: 'One', background: 'assets/scenes/cave.svg', units: [{ unit: 'hero', side: 'player', pos: '0' }, { unit: 'dummy', side: 'enemy', pos: '3' }] }),
+        'assets/units/dummy.svg': svg,
+        'assets/scenes/cave.svg': svg,
+      };
+      const engine = client();
+      await engine.loadFiles(art);
+      const snap = await engine.start('live', 1);
+      expect(snap.catalog.art['live:dummy']).toMatch(/^blob:/);
+      expect(snap.catalog.art['live:hero']).toBeUndefined();
+      expect(snap.scene?.background).toMatch(/^blob:/);
+      const blob = await (await fetch(snap.catalog.art['live:dummy'] as string)).blob();
+      expect(blob.type).toBe('image/svg+xml');
+    });
+
     it('a fruiting log upgrades a card or offers a hybrid; a spring removes a card', async () => {
       const encounter = (id: string) => json({ formatVersion: 1, kind: 'encounter', id, name: id, units: [{ unit: 'hero', side: 'player', pos: '0' }, { unit: 'weak', side: 'enemy', pos: '3' }] });
       const runFiles = {

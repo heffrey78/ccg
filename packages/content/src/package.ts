@@ -153,7 +153,7 @@ function checkReferences(items: LoadedItem[], assets: Set<string>): ContentIssue
       if (Array.isArray(node)) node.forEach((x, i) => walk(x, `${pointer}/${i}`));
       else if (typeof node === 'object' && node !== null) {
         for (const [key, value] of Object.entries(node)) {
-          if ((key === 'art' || key === 'icon') && typeof value === 'string') expectAsset(value, `${pointer}/${escapePointer(key)}`);
+          if ((key === 'art' || key === 'icon' || key === 'background') && typeof value === 'string') expectAsset(value, `${pointer}/${escapePointer(key)}`);
           else walk(value, `${pointer}/${escapePointer(key)}`);
         }
       }

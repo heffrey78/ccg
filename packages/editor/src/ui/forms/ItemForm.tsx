@@ -37,6 +37,7 @@ const SECTIONS: Partial<Record<ContentKind, [string, string[]][]>> = {
     ['Board', ['tiles']],
     ['Units', ['units']],
     ['Rewards', ['rewards']],
+    ['Scene', ['background']],
   ],
   ruleset: [
     ['Board', ['board', 'move', 'collision', 'bumpDamage', 'edge', 'fog']],

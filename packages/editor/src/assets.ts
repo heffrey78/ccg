@@ -13,7 +13,7 @@ export interface AssetUse {
 
 const escape = (part: string) => part.replace(/~/g, '~0').replace(/\//g, '~1');
 
-/** Every asset reference in the project's items (`art` and `icon` fields, at any depth), by asset path. */
+/** Every asset reference in the project's items (`art`, `icon` and `background` fields, at any depth), by asset path. */
 export function assetRefs(project: Project): Map<string, AssetUse[]> {
   const out = new Map<string, AssetUse[]>();
   for (const [key, item] of Object.entries(project.items)) {
@@ -21,7 +21,7 @@ export function assetRefs(project: Project): Map<string, AssetUse[]> {
       if (Array.isArray(node)) node.forEach((x, i) => walk(x, `${pointer}/${i}`));
       else if (typeof node === 'object' && node !== null) {
         for (const [k, v] of Object.entries(node)) {
-          if ((k === 'art' || k === 'icon') && typeof v === 'string') out.set(v, [...(out.get(v) ?? []), { key, pointer: `${pointer}/${escape(k)}` }]);
+          if ((k === 'art' || k === 'icon' || k === 'background') && typeof v === 'string') out.set(v, [...(out.get(v) ?? []), { key, pointer: `${pointer}/${escape(k)}` }]);
           else walk(v, `${pointer}/${escape(k)}`);
         }
       }

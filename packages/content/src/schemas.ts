@@ -275,6 +275,8 @@ export function createContentSchemas(ops: OpRegistry, { formatVersion: version =
         z.object({ unit: ref, side: id, pos: z.string().min(1), facing: z.string().min(1).optional() }).strict(),
       ),
       rewards: z.object({ cards: z.array(ref).optional() }).strict().optional(),
+      /** The scene behind the board (falls back to the ruleset's). */
+      background: assetPath.optional(),
     })
     .strict();
 
@@ -284,6 +286,8 @@ export function createContentSchemas(ops: OpRegistry, { formatVersion: version =
     .object({
       ...common,
       kind: z.literal('ruleset'),
+      /** The default scene behind the board, for encounters without their own. */
+      background: assetPath.optional(),
       board: z.discriminatedUnion('topology', [
         z.object({ topology: z.literal('lane'), length: size(64) }).strict(),
         z.object({ topology: z.literal('square'), width: size(64), height: size(64), connectivity: z.union([z.literal(4), z.literal(8)]).optional() }).strict(),

@@ -51,8 +51,8 @@ export interface HostOptions {
   packages?: GamePackage<unknown>[];
   /** ES module URLs of packages to import at startup. */
   urls?: string[];
-  /** Content-only packages to load at startup, as their files (e.g. bundled examples). */
-  files?: Record<string, Uint8Array>[];
+  /** Content-only packages to load at startup, as their files (e.g. bundled examples); may still be arriving. */
+  files?: (Record<string, Uint8Array> | Promise<Record<string, Uint8Array>>)[];
   /** Policy for AI-controlled sides. Default: random, seeded per game. */
   ai?: (game: GameListing) => StatePolicy<unknown>;
   /** Stop an AI that keeps acting without handing the decision back. */
@@ -109,11 +109,17 @@ interface RunState {
 
 const NODE_NAMES: Record<RunNodeKind, string> = { fight: 'Fight', elite: 'Elite fight', boss: 'Boss', junction: 'Junction', spring: 'Spring', fruiting: 'Fruiting log' };
 
+const MIME: Record<string, string> = { svg: 'image/svg+xml', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif', avif: 'image/avif', mp3: 'audio/mpeg', ogg: 'audio/ogg', wav: 'audio/wav' };
+/** A file's type from its extension, so object URLs of SVGs render as images. */
+const mimeOf = (path: string) => MIME[path.slice(path.lastIndexOf('.') + 1).toLowerCase()] ?? 'application/octet-stream';
+
 function catalogOf(game: ResolvedGame<unknown>, topology: string | undefined): Catalog {
   const name = (ref: string) => game.name(ref);
-  const catalog: Catalog = { names: {}, cards: {}, statuses: {} };
+  const catalog: Catalog = { names: {}, cards: {}, statuses: {}, art: {} };
   for (const item of game.items) {
     catalog.names[item.id] = item.name;
+    const art = item.art ?? item.icon;
+    if (typeof art === 'string' && item.kind !== 'card') catalog.art[item.id] = game.assetUrl(item.id.split(':')[0] as string, art);
     if (item.kind === 'card') {
       catalog.cards[item.id] = cardFace(item, game.ops, {
         ...(topology && { topology }),
@@ -129,6 +135,18 @@ function catalogOf(game: ResolvedGame<unknown>, topology: string | undefined): C
     }
   }
   return catalog;
+}
+
+/** The current encounter's scene for a snapshot: its background, or the ruleset's. */
+function scene(game: Running): { scene?: { background: string } } {
+  const items = game.resolved.items;
+  const prefix = `${game.resolved.root.id}:`;
+  const scenario = game.options.scenario ? items.find((i) => i.id === game.options.scenario) : undefined;
+  const encounterId = (scenario?.encounter as string | undefined) ?? game.options.encounter ?? items.find((i) => i.kind === 'encounter' && i.id.startsWith(prefix))?.id;
+  const encounter = items.find((i) => i.kind === 'encounter' && i.id === encounterId);
+  const ruleset = items.find((i) => i.kind === 'ruleset' && i.id.startsWith(prefix));
+  const background = (encounter?.background ?? ruleset?.background) as string | undefined;
+  return background ? { scene: { background: game.resolved.assetUrl(game.resolved.root.id, background) } } : {};
 }
 
 /** Text and damage for the intents a viewer can see (hidden ones have no effects in the view). */
@@ -148,13 +166,8 @@ function intentSummaries(game: Running, declared: Partial<DeclaredIntent>[]): Re
 export function createEngineHost(options: HostOptions = {}): EngineHost {
   const registry = new PackageRegistry<unknown>();
   for (const pkg of options.packages ?? []) registry.register(pkg);
-  let loading: Promise<void> | null = (async () => {
-    for (const url of options.urls ?? []) await registry.import(url);
-    for (const files of options.files ?? []) {
-      const loaded = await registry.loadFiles(filesSource(files));
-      if (!loaded.ok) console.warn(`a bundled package failed to load: ${loaded.issues.map((i) => i.message).join('; ')}`);
-    }
-  })();
+  // Set below, once the loaders it uses exist.
+  let loading: Promise<void> | null = null;
   let running: Running | null = null;
 
   const listing = (pkg: GamePackage<unknown>): GameListing => ({
@@ -194,6 +207,7 @@ export function createEngineHost(options: HostOptions = {}): EngineHost {
       catalog: game.catalog,
       presentation: game.rules.presentation ?? {},
       intents: intentSummaries(game, declared),
+      ...scene(game),
       canUndo: game.rules.undo === 'turn' && !state.outcome && game.session.log.actions.length > (game.undoFloor ?? 0),
       ...(game.run && { run: runProgress(game, game.run) }),
     };
@@ -338,12 +352,22 @@ export function createEngineHost(options: HostOptions = {}): EngineHost {
   const load = async (files: Record<string, Uint8Array>): Promise<{ id: string } | { error: EngineReply }> => {
     const urls: Record<string, string> = {};
     for (const [path, data] of Object.entries(files)) {
-      if (path.startsWith('assets/') && typeof URL.createObjectURL === 'function') urls[path] = URL.createObjectURL(new Blob([data as BlobPart]));
+      if (path.startsWith('assets/') && typeof URL.createObjectURL === 'function') urls[path] = URL.createObjectURL(new Blob([data as BlobPart], { type: mimeOf(path) }));
     }
     const loaded = await registry.loadFiles(filesSource(files), { replace: true, assets: { url: (path) => urls[path] ?? path } });
     if (!loaded.ok) return { error: { ok: false, error: { code: 'invalid-package', message: issuesText(loaded.issues) } } };
     return { id: loaded.package.manifest.id };
   };
+
+  // Packages bundled with the host load first; requests wait for them.
+  loading = (async () => {
+    for (const url of options.urls ?? []) await registry.import(url);
+    for (const pending of options.files ?? []) {
+      const files = await pending;
+      const loaded = await load(files);
+      if ('error' in loaded) console.warn(`a bundled package failed to load: ${loaded.error.ok ? '' : loaded.error.error.message}`);
+    }
+  })();
 
   /** Resolves a game and builds its rules and setup. */
   const build = (game: GameListing, setupOptions: SetupOptions) => {

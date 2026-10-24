@@ -56,6 +56,10 @@ export interface BoardProps {
   vision?: string[] | undefined;
   /** Auras and attachments to draw. */
   markers?: BoardMarker[];
+  /** Sprite and tile art URLs by content id; units and tiles without art are drawn as shapes. */
+  art?: Record<string, string>;
+  /** The scene behind the board. */
+  background?: string | undefined;
 }
 
 export type BoardRenderer = (props: BoardProps) => ReactNode;
@@ -78,7 +82,7 @@ const activate = (fn: () => void) => (e: KeyboardEvent) => {
 };
 
 export function Board(props: BoardProps) {
-  const { layout, units, tiles, side, intents, intentSummaries, names, targets, effect, selectable, selected, speed, vision, markers = [] } = props;
+  const { layout, units, tiles, side, intents, intentSummaries, names, targets, effect, selectable, selected, speed, vision, markers = [], art = {}, background } = props;
   const seen = vision ? new Set(vision) : null;
   const hex = layout.cell === 'hex';
   // Cell centres are ~1 apart; a hex's circumradius is 1/√3 of that.
@@ -112,7 +116,8 @@ export function Board(props: BoardProps) {
       aria-label={`${layout.kind} board`}
       style={{ width: '100%', maxHeight: '56vh' }}
     >
-      <g>
+      {background && <image className="ccg-scene" href={background} x={box.x} y={box.y} width={box.w} height={box.h} preserveAspectRatio="xMidYMid slice" />}
+      <g className={background ? 'has-scene' : undefined}>
         {layout.cells.map((c) => {
           const p = at.get(c.pos)!;
           const tile = tiles[c.pos];
@@ -126,7 +131,8 @@ export function Board(props: BoardProps) {
               ) : (
                 <rect className={cls} x={-radius + 2} y={-radius + 2} width={radius * 2 - 4} height={radius * 2 - 4} rx={6} />
               )}
-              {tile && <text className="ccg-tile-label" y={radius - 8} textAnchor="middle">{name(tile)}</text>}
+              {tile && art[tile] && <image href={art[tile]} x={-radius + 2} y={-radius + 2} width={radius * 2 - 4} height={radius * 2 - 4} preserveAspectRatio="xMidYMid slice" />}
+              {tile && !art[tile] && <text className="ccg-tile-label" y={radius - 8} textAnchor="middle">{name(tile)}</text>}
               <title>{[c.pos, tile && name(tile), fogged && 'out of sight'].filter(Boolean).join(' · ')}</title>
             </g>
           );
@@ -172,15 +178,31 @@ export function Board(props: BoardProps) {
               data-unit={u.id}
               data-pos={u.pos}
             >
-              <circle className="ccg-unit-body" cy={-6} r={radius * 0.5} />
-              {dir && (
+              {art[u.def] ? (
+                <>
+                  <ellipse className="ccg-unit-ground" cy={radius * 0.32} rx={radius * 0.62} ry={radius * 0.16} />
+                  <image
+                    className="ccg-unit-sprite"
+                    href={art[u.def]}
+                    x={-radius * 0.78}
+                    y={-radius * 0.98}
+                    width={radius * 1.56}
+                    height={radius * 1.56}
+                    // Sprites face east; units facing west are mirrored.
+                    {...(dir && dir.x < -0.01 && { transform: 'scale(-1 1)' })}
+                  />
+                </>
+              ) : (
+                <circle className="ccg-unit-body" cy={-6} r={radius * 0.5} />
+              )}
+              {dir && !art[u.def] && (
                 <path
                   className="ccg-unit-facing"
                   d="M -6 -5 L 6 0 L -6 5 Z"
                   transform={`translate(${dir.x * radius * 0.62} ${dir.y * radius * 0.62 - 6}) rotate(${(Math.atan2(dir.y, dir.x) * 180) / Math.PI})`}
                 />
               )}
-              <text className="ccg-unit-name" y={-6} textAnchor="middle" dy="0.35em">{initials(name(u.def))}</text>
+              {!art[u.def] && <text className="ccg-unit-name" y={-6} textAnchor="middle" dy="0.35em">{initials(name(u.def))}</text>}
               <g transform={`translate(${-radius * 0.7} ${radius * 0.5})`}>
                 <rect className="ccg-hp-track" width={radius * 1.4} height={12} rx={6} />
                 <rect className="ccg-hp-fill" width={Math.max(0, (radius * 1.4 * Math.max(0, u.hp)) / Math.max(1, u.maxHp))} height={12} rx={6} />

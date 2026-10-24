@@ -104,7 +104,7 @@ export const CSS = `
 .ccg-card-top { display: flex; gap: 6px; align-items: center; }
 .ccg-card-cost { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: #fff; font-weight: 700; font-size: .85rem; }
 .ccg-card-name { font-weight: 700; }
-.ccg-card-art { width: 100%; border-radius: 6px; }
+.ccg-card-art { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 6px; background: var(--cell); }
 .ccg-card-text { font-size: .85rem; }
 .ccg-card-tags { margin-top: auto; font-size: .75rem; color: var(--muted); text-transform: capitalize; }
 .ccg-card-key { position: absolute; right: 6px; bottom: 4px; font-size: .7rem; color: var(--muted); }
@@ -118,6 +118,14 @@ export const CSS = `
 .ccg-app .ccg-reward { padding: 0; border: none; background: none; }
 .ccg-app .ccg-reward:hover .ccg-card { transform: translateY(-4px); border-color: var(--target); }
 .ccg-cell.is-fogged { fill: color-mix(in srgb, var(--ink) 22%, var(--cell)); }
+.has-scene .ccg-cell { fill: color-mix(in srgb, var(--cell) 22%, transparent); stroke: color-mix(in srgb, #fff 28%, transparent); }
+.has-scene .ccg-cell.is-fogged { fill: color-mix(in srgb, #000 55%, transparent); }
+.has-scene .ccg-cell.is-blocking { fill: color-mix(in srgb, var(--cell-blocking) 70%, transparent); }
+.ccg-unit-ground { fill: #000; opacity: .28; }
+.ccg-unit.is-mine .ccg-unit-ground { fill: var(--mine); opacity: .55; }
+.ccg-unit.is-enemy .ccg-unit-ground { fill: var(--enemy); opacity: .5; }
+.ccg-unit.is-selected .ccg-unit-ground { stroke: var(--target); stroke-width: 3; opacity: .9; }
+.ccg-unit.is-dying .ccg-unit-sprite { filter: grayscale(1); }
 .ccg-aura circle { fill: color-mix(in srgb, var(--reaction) 12%, transparent); stroke: var(--reaction); stroke-width: 2; stroke-dasharray: 5 4; pointer-events: none; }
 .ccg-aura.is-enemy circle { stroke: var(--enemy); }
 .ccg-aura text { font-size: 9px; font-weight: 700; fill: var(--reaction); pointer-events: none; }
