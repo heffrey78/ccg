@@ -248,6 +248,11 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, onAct, onQuit, 
     const line = describeEvent(e, eventContext);
     return line ? [line] : [];
   });
+  // The log scrolls inside its box; keep the newest line in view.
+  const logList = useRef<HTMLOListElement>(null);
+  useEffect(() => {
+    logList.current?.scrollTo({ top: logList.current.scrollHeight });
+  }, [logLines.length]);
 
   return (
     <section className="ccg-encounter" aria-labelledby="encounter-heading">
@@ -367,8 +372,8 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, onAct, onQuit, 
           />
           <section aria-label="Log" className="ccg-log">
             <h2>Log</h2>
-            <ol aria-live="polite">
-              {logLines.slice(-10).map((line, i) => (
+            <ol aria-live="polite" ref={logList}>
+              {logLines.slice(-50).map((line, i) => (
                 <li key={i}>{line}</li>
               ))}
             </ol>
