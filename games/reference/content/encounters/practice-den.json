@@ -3,6 +3,7 @@
   "kind": "encounter",
   "id": "practice-den",
   "name": "Practice Den",
+  "background": "assets/scenes/practice-den.svg",
   "units": [
     {
       "facing": "e",

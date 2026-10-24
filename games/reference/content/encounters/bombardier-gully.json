@@ -3,6 +3,7 @@
   "kind": "encounter",
   "id": "bombardier-gully",
   "name": "Bombardier Gully",
+  "background": "assets/scenes/bombardier-gully.svg",
   "units": [
     {
       "facing": "e",

@@ -3,5 +3,6 @@
   "kind": "unit",
   "id": "fruiting-body",
   "name": "Fruiting Body",
+  "art": "assets/units/fruiting-body.svg",
   "hp": 6
 }

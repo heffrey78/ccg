@@ -3,6 +3,7 @@
   "kind": "encounter",
   "id": "millipede-run",
   "name": "Millipede Run",
+  "background": "assets/scenes/millipede-run.svg",
   "units": [
     {
       "facing": "e",

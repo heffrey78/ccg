@@ -3,6 +3,7 @@
   "kind": "card",
   "id": "decompose",
   "name": "Decompose",
+  "art": "assets/cards/decompose.svg",
   "cost": {
     "sap": 2
   },

@@ -3,6 +3,7 @@
   "kind": "encounter",
   "id": "herders-field",
   "name": "Herder's Field",
+  "background": "assets/scenes/herders-field.svg",
   "units": [
     {
       "facing": "e",

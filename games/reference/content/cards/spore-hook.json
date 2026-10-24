@@ -3,6 +3,7 @@
   "kind": "card",
   "id": "spore-hook",
   "name": "Spore Hook",
+  "art": "assets/cards/spore-hook.svg",
   "cost": {
     "sap": 1
   },

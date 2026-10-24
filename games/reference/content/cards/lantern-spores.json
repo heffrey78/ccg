@@ -3,6 +3,7 @@
   "kind": "card",
   "id": "lantern-spores",
   "name": "Lantern Spores",
+  "art": "assets/cards/lantern-spores.svg",
   "cost": {
     "sap": 1
   },

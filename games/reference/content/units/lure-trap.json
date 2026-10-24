@@ -3,5 +3,6 @@
   "kind": "unit",
   "id": "lure-trap",
   "name": "Lure Spore",
+  "art": "assets/units/lure-trap.svg",
   "hp": 1
 }

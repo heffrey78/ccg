@@ -3,6 +3,7 @@
   "kind": "card",
   "id": "zombify",
   "name": "Zombify",
+  "art": "assets/cards/zombify.svg",
   "cost": {
     "sap": 2
   },

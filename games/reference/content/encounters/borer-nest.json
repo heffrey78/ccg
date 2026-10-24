@@ -3,6 +3,7 @@
   "kind": "encounter",
   "id": "borer-nest",
   "name": "Borer Nest",
+  "background": "assets/scenes/borer-nest.svg",
   "units": [
     {
       "facing": "e",

@@ -3,6 +3,7 @@
   "kind": "card",
   "id": "fruiting-body",
   "name": "Fruiting Body",
+  "art": "assets/cards/fruiting-body.svg",
   "cost": {
     "sap": 2
   },

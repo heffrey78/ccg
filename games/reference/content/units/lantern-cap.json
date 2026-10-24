@@ -3,5 +3,6 @@
   "kind": "unit",
   "id": "lantern-cap",
   "name": "Lantern Cap",
+  "art": "assets/units/lantern-cap.svg",
   "hp": 4
 }

@@ -3,6 +3,7 @@
   "kind": "unit",
   "id": "aphid-herder",
   "name": "Aphid Herder",
+  "art": "assets/units/aphid-herder.svg",
   "behavior": {
     "kind": "if",
     "cond": {

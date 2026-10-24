@@ -3,6 +3,7 @@
   "kind": "encounter",
   "id": "slug-hollow",
   "name": "Slug Hollow",
+  "background": "assets/scenes/slug-hollow.svg",
   "units": [
     {
       "facing": "e",

@@ -3,6 +3,7 @@
   "kind": "encounter",
   "id": "springtail-swarm",
   "name": "Springtail Swarm",
+  "background": "assets/scenes/springtail-swarm.svg",
   "units": [
     {
       "facing": "e",

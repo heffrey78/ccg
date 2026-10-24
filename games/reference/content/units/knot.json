@@ -3,5 +3,6 @@
   "kind": "unit",
   "id": "knot",
   "name": "The Knot",
+  "art": "assets/units/knot.svg",
   "hp": 40
 }

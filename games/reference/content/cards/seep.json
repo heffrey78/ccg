@@ -3,6 +3,7 @@
   "kind": "card",
   "id": "seep",
   "name": "Seep",
+  "art": "assets/cards/seep.svg",
   "cost": {
     "sap": 1
   },

@@ -3,6 +3,7 @@
   "kind": "encounter",
   "id": "matriarch-chamber",
   "name": "The Matriarch's Chamber",
+  "background": "assets/scenes/matriarch-chamber.svg",
   "units": [
     {
       "facing": "e",

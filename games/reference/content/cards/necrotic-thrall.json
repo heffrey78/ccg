@@ -3,6 +3,7 @@
   "kind": "card",
   "id": "necrotic-thrall",
   "name": "Necrotic Thrall",
+  "art": "assets/cards/necrotic-thrall.svg",
   "cost": {
     "sap": 2
   },

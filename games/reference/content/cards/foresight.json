@@ -3,6 +3,7 @@
   "kind": "card",
   "id": "foresight",
   "name": "Foresight",
+  "art": "assets/cards/foresight.svg",
   "cost": {
     "sap": 1
   },

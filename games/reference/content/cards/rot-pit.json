@@ -3,6 +3,7 @@
   "kind": "card",
   "id": "rot-pit",
   "name": "Rot Pit",
+  "art": "assets/cards/rot-pit.svg",
   "cost": {
     "sap": 1
   },

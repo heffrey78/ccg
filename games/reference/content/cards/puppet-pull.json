@@ -3,6 +3,7 @@
   "kind": "card",
   "id": "puppet-pull",
   "name": "Puppet Pull",
+  "art": "assets/cards/puppet-pull.svg",
   "cost": {
     "sap": 1
   },

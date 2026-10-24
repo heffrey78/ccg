@@ -91,7 +91,10 @@ export function Board(props: BoardProps) {
   const xs = layout.cells.map((c) => c.x * CELL);
   const ys = layout.cells.map((c) => c.y * CELL);
   const pad = radius + 28;
-  const box = { x: Math.min(...xs) - pad, y: Math.min(...ys) - pad, w: Math.max(...xs) - Math.min(...xs) + pad * 2, h: Math.max(...ys) - Math.min(...ys) + pad * 2 };
+  const wide = { x: Math.min(...xs) - pad, y: Math.min(...ys) - pad, w: Math.max(...xs) - Math.min(...xs) + pad * 2, h: Math.max(...ys) - Math.min(...ys) + pad * 2 };
+  // A long thin board (a lane) gets room above and below, so the scene shows and the board isn't a sliver.
+  const minHeight = wide.w / 2.6;
+  const box = wide.h >= minHeight ? wide : { ...wide, y: wide.y - (minHeight - wide.h) / 2, h: minHeight };
   const name = (id: string) => names[id] ?? id;
 
   // Cells an enemy attack threatens: its tile or unit target, or its pattern.

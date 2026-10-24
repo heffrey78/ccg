@@ -16,7 +16,7 @@ function readGame(): Files {
       const rel = relative(ROOT, path).split(sep).join('/');
       if (statSync(path).isDirectory()) {
         if (!['node_modules', 'test'].includes(name)) walk(path);
-      } else if (rel === 'game.json' || rel.startsWith('content/')) files[rel] = new Uint8Array(readFileSync(path));
+      } else if (rel === 'game.json' || rel.startsWith('content/') || rel.startsWith('assets/')) files[rel] = new Uint8Array(readFileSync(path));
     }
   };
   walk(ROOT);

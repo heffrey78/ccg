@@ -3,6 +3,7 @@
   "kind": "card",
   "id": "mycelial-mat",
   "name": "Mycelial Mat",
+  "art": "assets/cards/mycelial-mat.svg",
   "cost": {
     "sap": 1
   },

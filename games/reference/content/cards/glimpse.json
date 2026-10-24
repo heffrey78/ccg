@@ -3,6 +3,7 @@
   "kind": "card",
   "id": "glimpse",
   "name": "Glimpse",
+  "art": "assets/cards/glimpse.svg",
   "cost": {
     "sap": 0
   },

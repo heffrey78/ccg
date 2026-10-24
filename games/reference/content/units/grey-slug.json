@@ -3,6 +3,7 @@
   "kind": "unit",
   "id": "grey-slug",
   "name": "Grey Slug",
+  "art": "assets/units/grey-slug.svg",
   "behavior": {
     "kind": "if",
     "cond": {

@@ -3,6 +3,7 @@
   "kind": "card",
   "id": "surge",
   "name": "Surge",
+  "art": "assets/cards/surge.svg",
   "cost": {
     "sap": 2
   },

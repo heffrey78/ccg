@@ -3,6 +3,7 @@
   "kind": "card",
   "id": "minds-eye",
   "name": "Mind's Eye",
+  "art": "assets/cards/minds-eye.svg",
   "cost": {
     "sap": 1
   },

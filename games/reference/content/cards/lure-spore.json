@@ -3,6 +3,7 @@
   "kind": "card",
   "id": "lure-spore",
   "name": "Lure Spore",
+  "art": "assets/cards/lure-spore.svg",
   "cost": {
     "sap": 1
   },

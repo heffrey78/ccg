@@ -3,6 +3,7 @@
   "kind": "ruleset",
   "id": "main",
   "name": "Sporeline",
+  "background": "assets/scenes/practice-den.svg",
   "board": {
     "length": 9,
     "topology": "lane"
