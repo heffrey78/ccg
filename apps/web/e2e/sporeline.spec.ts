@@ -81,3 +81,27 @@ test('a hit plays out on the board: the shot flies, the target flashes, the atta
   // The log updates at once; the board plays the hit out after it.
   await expect.poll(() => page.evaluate(() => [...(window as unknown as { seen: Set<string> }).seen])).toEqual(expect.arrayContaining([':ccg-projectile', 'The Knot:is-hit', 'The Knot:is-ranged', 'Leafcutter:is-lunging']));
 });
+
+test('the board can be drawn wide or full screen, and the choice of windowed view is remembered', async ({ page }) => {
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  await page.goto('/?seed=3');
+  await page.getByRole('button', { name: /^Sporeline/ }).click();
+  await expect(page.getByRole('status')).toHaveText('Your decision');
+  const board = page.locator('.ccg-board');
+  const size = async () => (await board.boundingBox()) ?? { width: 0, height: 0 };
+  const standard = await size();
+  await page.getByLabel('View').selectOption('wide');
+  await expect.poll(async () => (await size()).width).toBeGreaterThan(standard.width + 200);
+  const wide = await size();
+  await page.keyboard.press('f');
+  await expect(page.locator('.ccg-encounter.is-view-full')).toBeVisible();
+  await expect.poll(async () => (await size()).height).toBeGreaterThan(wide.height);
+  // The hand and End turn stay on screen.
+  await expect(page.getByRole('button', { name: 'End turn' })).toBeInViewport();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.ccg-encounter.is-view-wide')).toBeVisible();
+  // Wide is remembered; full screen is not.
+  await page.reload();
+  await page.getByRole('button', { name: /^Sporeline/ }).click();
+  await expect(page.locator('.ccg-encounter.is-view-wide')).toBeVisible();
+});

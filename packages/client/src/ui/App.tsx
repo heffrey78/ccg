@@ -7,6 +7,7 @@ import { DebugEncounter } from './DebugEncounter.js';
 import { Encounter } from './Encounter.js';
 import { GameSelect } from './GameSelect.js';
 import type { BoardRenderer } from './play/Board.js';
+import type { BoardView } from './Encounter.js';
 import { CSS } from './styles.js';
 
 export interface AppProps {
@@ -32,17 +33,24 @@ export function App({ engine, platform, seed, renderers, encounter }: AppProps) 
   const [debug, setDebug] = useState(false);
   const [speed, setSpeed] = useState(reducedMotion() ? 0 : 1);
   const [autoPass, setAutoPass] = useState(0);
+  const [view, setView] = useState<BoardView>('standard');
 
   useEffect(() => {
     void engine.listGames().then(setGames, (e: Error) => setError(e.message));
     void platform.settings.get<string | null>('lastPlayed', null).then(setLastPlayed);
     void platform.settings.get<number | null>('animationSpeed', null).then((s) => s !== null && setSpeed(s));
     void platform.settings.get<number>('autoPass', 0).then(setAutoPass);
+    void platform.settings.get<BoardView>('boardView', 'standard').then((v) => v !== 'full' && setView(v));
   }, [engine, platform]);
 
   const changeSpeed = (s: number) => {
     setSpeed(s);
     void platform.settings.set('animationSpeed', s);
+  };
+  // Full screen needs a click to enter, so only the windowed views are remembered.
+  const changeView = (v: BoardView) => {
+    setView(v);
+    if (v !== 'full') void platform.settings.set('boardView', v);
   };
 
   const run = useCallback(async (work: () => Promise<Snapshot>) => {
@@ -69,7 +77,7 @@ export function App({ engine, platform, seed, renderers, encounter }: AppProps) 
   return (
     <main className="ccg-app" style={{ boxSizing: 'border-box', padding: 16 }}>
       <style>{CSS}</style>
-      <div style={{ maxWidth: 1120, margin: '0 auto' }}>
+      <div style={{ maxWidth: snapshot && !debug && view !== 'standard' ? 'none' : 1120, margin: '0 auto' }}>
       {error && <p role="alert">{error}</p>}
       {snapshot && debug ? (
         <DebugEncounter snapshot={snapshot} log={log} busy={busy} onAct={(a: Action) => void run(() => engine.act(a))} onQuit={() => setDebug(false)} />
@@ -80,6 +88,8 @@ export function App({ engine, platform, seed, renderers, encounter }: AppProps) 
           busy={busy}
           speed={speed}
           onSpeed={changeSpeed}
+          view={view}
+          onView={changeView}
           onAct={(a: Action) => void run(() => engine.act(a))}
           onQuit={() => setSnapshot(null)}
           onDebug={() => setDebug(true)}
