@@ -1,0 +1,50 @@
+{
+  "formatVersion": 1,
+  "kind": "card",
+  "id": "necrotic-thrall",
+  "name": "Necrotic Thrall",
+  "cost": {
+    "sap": 2
+  },
+  "effects": [
+    {
+      "op": "applyStatus",
+      "stacks": 2,
+      "status": "rot"
+    },
+    {
+      "op": "readUnit"
+    },
+    {
+      "op": "if",
+      "cond": {
+        "kind": "compare",
+        "cmp": "<=",
+        "left": {
+          "$": "unit.hp"
+        },
+        "right": 12
+      },
+      "then": [
+        {
+          "op": "convert"
+        }
+      ]
+    }
+  ],
+  "exhausts": true,
+  "rarity": "rare",
+  "requires": [
+    "rotcap",
+    "cordyceps"
+  ],
+  "tags": [
+    "rotcap",
+    "cordyceps"
+  ],
+  "targeting": {
+    "kind": "unit",
+    "filter": "enemy",
+    "range": 1
+  }
+}

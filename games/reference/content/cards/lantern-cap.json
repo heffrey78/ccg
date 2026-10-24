@@ -1,0 +1,23 @@
+{
+  "formatVersion": 1,
+  "kind": "card",
+  "id": "lantern-cap",
+  "name": "Lantern Cap",
+  "cost": {
+    "sap": 1
+  },
+  "effects": [],
+  "permanent": {
+    "kind": "structure",
+    "unit": "lantern-cap"
+  },
+  "rarity": "common",
+  "tags": [
+    "glowcap"
+  ],
+  "targeting": {
+    "kind": "tile",
+    "empty": true,
+    "range": 2
+  }
+}

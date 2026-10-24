@@ -1,0 +1,74 @@
+{
+  "formatVersion": 1,
+  "kind": "unit",
+  "id": "bombardier",
+  "name": "Bombardier",
+  "behavior": {
+    "kind": "if",
+    "cond": {
+      "kind": "enemyWithin",
+      "range": 2
+    },
+    "else": {
+      "kind": "intent",
+      "intent": {
+        "name": "March",
+        "effects": [
+          {
+            "op": "approach",
+            "distance": 1
+          }
+        ],
+        "target": {
+          "kind": "unit",
+          "select": "nearestEnemy"
+        }
+      }
+    },
+    "then": {
+      "kind": "sequence",
+      "steps": [
+        {
+          "kind": "intent",
+          "intent": {
+            "name": "Spray",
+            "effects": [
+              {
+                "op": "damage",
+                "amount": 7
+              }
+            ],
+            "target": {
+              "kind": "unit",
+              "range": 2,
+              "select": "nearestEnemy"
+            }
+          }
+        },
+        {
+          "kind": "intent",
+          "intent": {
+            "name": "Scuttle",
+            "effects": [
+              {
+                "op": "approach",
+                "distance": 1
+              }
+            ],
+            "target": {
+              "kind": "unit",
+              "select": "nearestEnemy"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "hp": 14,
+  "statuses": [
+    {
+      "stacks": 1,
+      "status": "caustic"
+    }
+  ]
+}

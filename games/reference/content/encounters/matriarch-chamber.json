@@ -1,0 +1,32 @@
+{
+  "formatVersion": 1,
+  "kind": "encounter",
+  "id": "matriarch-chamber",
+  "name": "The Matriarch's Chamber",
+  "units": [
+    {
+      "facing": "e",
+      "pos": "0",
+      "side": "player",
+      "unit": "knot"
+    },
+    {
+      "facing": "w",
+      "pos": "3",
+      "side": "neutral",
+      "unit": "stump"
+    },
+    {
+      "facing": "w",
+      "pos": "5",
+      "side": "enemy",
+      "unit": "weevil-matriarch"
+    },
+    {
+      "facing": "w",
+      "pos": "7",
+      "side": "enemy",
+      "unit": "leafcutter"
+    }
+  ]
+}

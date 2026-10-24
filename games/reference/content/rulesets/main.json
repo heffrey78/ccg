@@ -1,0 +1,193 @@
+{
+  "formatVersion": 1,
+  "kind": "ruleset",
+  "id": "main",
+  "name": "Sporeline",
+  "board": {
+    "length": 9,
+    "topology": "lane"
+  },
+  "fog": {
+    "kind": "distance",
+    "range": 3
+  },
+  "move": {
+    "range": 1
+  },
+  "player": {
+    "deck": [
+      "hyphal-lash",
+      "hyphal-lash",
+      "hyphal-lash",
+      "mycelial-mat",
+      "mycelial-mat",
+      "mycelial-mat",
+      "creep",
+      "creep",
+      "root-shove",
+      "spore-puff"
+    ],
+    "handSize": 5,
+    "resources": {
+      "sap": 3
+    }
+  },
+  "responses": {
+    "itemAnnounced": true
+  },
+  "run": {
+    "map": {
+      "nodes": [
+        {
+          "kind": "fight",
+          "id": "burrow-1",
+          "encounter": "leaf-trail",
+          "next": [
+            "junction-1",
+            "burrow-2"
+          ]
+        },
+        {
+          "kind": "junction",
+          "id": "junction-1",
+          "next": [
+            "burrow-3",
+            "nest-1"
+          ]
+        },
+        {
+          "kind": "fight",
+          "id": "burrow-2",
+          "encounter": "borer-nest",
+          "next": [
+            "burrow-3",
+            "nest-1"
+          ]
+        },
+        {
+          "kind": "fight",
+          "id": "burrow-3",
+          "encounter": "springtail-swarm",
+          "next": [
+            "spring-1",
+            "burrow-4"
+          ]
+        },
+        {
+          "kind": "elite",
+          "id": "nest-1",
+          "encounter": "slug-hollow",
+          "next": [
+            "burrow-4",
+            "fruiting-1"
+          ]
+        },
+        {
+          "kind": "spring",
+          "id": "spring-1",
+          "next": [
+            "junction-2"
+          ]
+        },
+        {
+          "kind": "fight",
+          "id": "burrow-4",
+          "encounter": "bombardier-gully",
+          "next": [
+            "junction-2",
+            "nest-2"
+          ]
+        },
+        {
+          "kind": "fruiting",
+          "id": "fruiting-1",
+          "next": [
+            "nest-2"
+          ]
+        },
+        {
+          "kind": "junction",
+          "id": "junction-2",
+          "next": [
+            "burrow-5",
+            "spring-2"
+          ]
+        },
+        {
+          "kind": "elite",
+          "id": "nest-2",
+          "encounter": "millipede-run",
+          "next": [
+            "burrow-5",
+            "spring-2"
+          ]
+        },
+        {
+          "kind": "fight",
+          "id": "burrow-5",
+          "encounter": "herders-field",
+          "next": [
+            "chamber"
+          ]
+        },
+        {
+          "kind": "spring",
+          "id": "spring-2",
+          "next": [
+            "chamber"
+          ]
+        },
+        {
+          "kind": "boss",
+          "id": "chamber",
+          "encounter": "matriarch-chamber",
+          "next": []
+        }
+      ],
+      "start": "burrow-1"
+    },
+    "rewards": {
+      "choices": 3,
+      "pool": [
+        "rot-bloom",
+        "decompose",
+        "rot-pit",
+        "fruiting-body",
+        "feast-on-rot",
+        "spore-cloud",
+        "burst",
+        "intoxicate",
+        "startle-puff",
+        "drift",
+        "zombify",
+        "puppet-pull",
+        "spore-hook",
+        "hivemind",
+        "lure-spore",
+        "lantern-cap",
+        "glimpse",
+        "foresight",
+        "phosphor-mark",
+        "bioluminescence",
+        "surge",
+        "seep",
+        "waterlogged-hyphae",
+        "root-drink",
+        "flash-flood",
+        "necrotic-thrall",
+        "lantern-spores",
+        "bog-rot",
+        "minds-eye"
+      ]
+    },
+    "startStrains": 1,
+    "strains": [
+      "rotcap",
+      "puffball",
+      "cordyceps",
+      "glowcap",
+      "rootdrinker"
+    ]
+  },
+  "undo": "turn"
+}

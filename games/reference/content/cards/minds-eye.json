@@ -1,0 +1,36 @@
+{
+  "formatVersion": 1,
+  "kind": "card",
+  "id": "minds-eye",
+  "name": "Mind's Eye",
+  "cost": {
+    "sap": 1
+  },
+  "effects": [
+    {
+      "op": "peek",
+      "n": 2
+    },
+    {
+      "op": "revealIntent"
+    },
+    {
+      "op": "pull",
+      "distance": 2
+    }
+  ],
+  "rarity": "rare",
+  "requires": [
+    "cordyceps",
+    "glowcap"
+  ],
+  "tags": [
+    "cordyceps",
+    "glowcap"
+  ],
+  "targeting": {
+    "kind": "unit",
+    "filter": "enemy",
+    "range": 4
+  }
+}

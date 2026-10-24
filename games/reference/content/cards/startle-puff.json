@@ -1,0 +1,31 @@
+{
+  "formatVersion": 1,
+  "kind": "card",
+  "id": "startle-puff",
+  "name": "Startle Puff",
+  "cost": {
+    "sap": 0
+  },
+  "effects": [
+    {
+      "op": "push",
+      "distance": 1
+    }
+  ],
+  "rarity": "uncommon",
+  "reaction": {
+    "kind": [
+      "intent"
+    ],
+    "targetsYou": true
+  },
+  "tags": [
+    "puffball"
+  ],
+  "targeting": {
+    "kind": "unit",
+    "filter": "enemy",
+    "range": 1
+  },
+  "timing": "reaction"
+}

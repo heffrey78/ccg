@@ -1,0 +1,24 @@
+{
+  "formatVersion": 1,
+  "kind": "card",
+  "id": "rot-bloom",
+  "name": "Rot Bloom",
+  "cost": {
+    "sap": 1
+  },
+  "effects": [
+    {
+      "op": "applyStatus",
+      "stacks": 4,
+      "status": "rot"
+    }
+  ],
+  "rarity": "common",
+  "tags": [
+    "rotcap"
+  ],
+  "targeting": {
+    "kind": "unit",
+    "range": 3
+  }
+}

@@ -1,0 +1,67 @@
+{
+  "formatVersion": 1,
+  "kind": "unit",
+  "id": "millipede",
+  "name": "Millipede",
+  "behavior": {
+    "kind": "if",
+    "cond": {
+      "kind": "enemyWithin",
+      "range": 2
+    },
+    "else": {
+      "kind": "intent",
+      "intent": {
+        "name": "March",
+        "effects": [
+          {
+            "op": "approach",
+            "distance": 2
+          }
+        ],
+        "target": {
+          "kind": "unit",
+          "select": "nearestEnemy"
+        }
+      }
+    },
+    "then": {
+      "kind": "sequence",
+      "steps": [
+        {
+          "kind": "intent",
+          "intent": {
+            "name": "Lunge",
+            "effects": [
+              {
+                "op": "damage",
+                "amount": 10
+              }
+            ],
+            "target": {
+              "kind": "unit",
+              "range": 2,
+              "select": "nearestEnemy"
+            }
+          }
+        },
+        {
+          "kind": "intent",
+          "intent": {
+            "name": "Curl",
+            "effects": [
+              {
+                "op": "gainBlock",
+                "amount": 8
+              }
+            ],
+            "target": {
+              "kind": "self"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "hp": 22
+}

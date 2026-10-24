@@ -1,0 +1,28 @@
+{
+  "formatVersion": 1,
+  "kind": "card",
+  "id": "intoxicate",
+  "name": "Intoxicate",
+  "cost": {
+    "sap": 1
+  },
+  "effects": [
+    {
+      "op": "applyStatus",
+      "stacks": 2,
+      "status": "intoxicated"
+    },
+    {
+      "op": "delayIntent"
+    }
+  ],
+  "rarity": "common",
+  "tags": [
+    "puffball"
+  ],
+  "targeting": {
+    "kind": "unit",
+    "filter": "enemy",
+    "range": 3
+  }
+}

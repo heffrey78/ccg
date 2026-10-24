@@ -1,0 +1,29 @@
+{
+  "formatVersion": 1,
+  "kind": "card",
+  "id": "surge",
+  "name": "Surge",
+  "cost": {
+    "sap": 2
+  },
+  "effects": [
+    {
+      "op": "push",
+      "distance": 2
+    },
+    {
+      "op": "applyStatus",
+      "stacks": 2,
+      "status": "soaked"
+    }
+  ],
+  "rarity": "uncommon",
+  "tags": [
+    "rootdrinker"
+  ],
+  "targeting": {
+    "kind": "unit",
+    "filter": "enemy",
+    "range": 4
+  }
+}

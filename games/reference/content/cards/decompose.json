@@ -1,0 +1,36 @@
+{
+  "formatVersion": 1,
+  "kind": "card",
+  "id": "decompose",
+  "name": "Decompose",
+  "cost": {
+    "sap": 2
+  },
+  "effects": [
+    {
+      "op": "readUnit"
+    },
+    {
+      "op": "repeat",
+      "effects": [
+        {
+          "op": "damage",
+          "amount": {
+            "$": "unit.stacks.sporeline:rot"
+          }
+        }
+      ],
+      "times": 2
+    }
+  ],
+  "rarity": "uncommon",
+  "tags": [
+    "rotcap"
+  ],
+  "targeting": {
+    "kind": "unit",
+    "filter": "enemy",
+    "range": 1
+  },
+  "text": "Deal damage equal to its Rot, twice."
+}

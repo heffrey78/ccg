@@ -1,0 +1,46 @@
+{
+  "formatVersion": 1,
+  "kind": "card",
+  "id": "fruiting-body",
+  "name": "Fruiting Body",
+  "cost": {
+    "sap": 2
+  },
+  "effects": [],
+  "permanent": {
+    "kind": "structure",
+    "abilities": [
+      {
+        "kind": "triggered",
+        "effects": [
+          {
+            "op": "selectUnits",
+            "as": "near",
+            "range": 2,
+            "relation": "enemy"
+          },
+          {
+            "op": "damage",
+            "amount": 2,
+            "target": {
+              "$": "near"
+            }
+          }
+        ],
+        "on": "PhaseStarted",
+        "phase": "turn",
+        "scope": "any"
+      }
+    ],
+    "unit": "fruiting-body"
+  },
+  "rarity": "uncommon",
+  "tags": [
+    "rotcap"
+  ],
+  "targeting": {
+    "kind": "tile",
+    "empty": true,
+    "range": 1
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "formatVersion": 1,
+  "kind": "encounter",
+  "id": "leaf-trail",
+  "name": "Leaf Trail",
+  "units": [
+    {
+      "facing": "e",
+      "pos": "0",
+      "side": "player",
+      "unit": "knot"
+    },
+    {
+      "facing": "w",
+      "pos": "4",
+      "side": "enemy",
+      "unit": "leafcutter"
+    },
+    {
+      "facing": "w",
+      "pos": "6",
+      "side": "enemy",
+      "unit": "leafcutter"
+    },
+    {
+      "facing": "w",
+      "pos": "8",
+      "side": "enemy",
+      "unit": "leafcutter"
+    }
+  ]
+}

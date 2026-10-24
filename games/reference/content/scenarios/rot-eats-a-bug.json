@@ -1,0 +1,39 @@
+{
+  "formatVersion": 1,
+  "kind": "scenario",
+  "id": "rot-eats-a-bug",
+  "name": "Rot eats away at a bug each round",
+  "actions": [
+    {
+      "card": "card1",
+      "side": "player",
+      "target": "enemy1",
+      "type": "playCard"
+    },
+    {
+      "side": "player",
+      "type": "endTurn"
+    }
+  ],
+  "deck": [],
+  "encounter": "practice-den",
+  "expect": [
+    {
+      "kind": "unit",
+      "hp": {
+        "max": 5,
+        "min": 5
+      },
+      "stacks": {
+        "max": 3,
+        "min": 3
+      },
+      "status": "rot",
+      "unit": "leafcutter"
+    }
+  ],
+  "hand": [
+    "rot-bloom"
+  ],
+  "seed": 1
+}

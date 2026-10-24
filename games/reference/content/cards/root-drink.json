@@ -1,0 +1,26 @@
+{
+  "formatVersion": 1,
+  "kind": "card",
+  "id": "root-drink",
+  "name": "Root Drink",
+  "cost": {
+    "sap": 1
+  },
+  "effects": [
+    {
+      "op": "gainBlock",
+      "amount": 4
+    },
+    {
+      "op": "draw",
+      "n": 1
+    }
+  ],
+  "rarity": "common",
+  "tags": [
+    "rootdrinker"
+  ],
+  "targeting": {
+    "kind": "self"
+  }
+}

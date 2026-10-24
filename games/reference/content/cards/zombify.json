@@ -1,0 +1,40 @@
+{
+  "formatVersion": 1,
+  "kind": "card",
+  "id": "zombify",
+  "name": "Zombify",
+  "cost": {
+    "sap": 2
+  },
+  "effects": [
+    {
+      "op": "readUnit"
+    },
+    {
+      "op": "if",
+      "cond": {
+        "kind": "compare",
+        "cmp": "<=",
+        "left": {
+          "$": "unit.hp"
+        },
+        "right": 8
+      },
+      "then": [
+        {
+          "op": "convert"
+        }
+      ]
+    }
+  ],
+  "exhausts": true,
+  "rarity": "uncommon",
+  "tags": [
+    "cordyceps"
+  ],
+  "targeting": {
+    "kind": "unit",
+    "filter": "enemy",
+    "range": 1
+  }
+}

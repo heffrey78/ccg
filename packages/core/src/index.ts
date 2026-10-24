@@ -115,7 +115,7 @@ export {
   type StandardGameInput,
   type StandardWorld,
 } from './standard.js';
-export { simulate, summarize, type Bot, type GameRecord, type SimOptions, type SimSummary } from './simulate.js';
+export { simulate, simulateRun, summarize, type Bot, type GameRecord, type RunRecord, type SimOptions, type SimSummary } from './simulate.js';
 export { checkExpectations, runScenario, runScenarios, type Expectation, type ScenarioResult } from './scenarios.js';
 export { PackageRegistry, rulesetOf, standardInput, type PackageIssue, type ResolveResult, type ResolvedGame } from './packages/registry.js';
 export { parseVersion, satisfies } from './packages/semver.js';

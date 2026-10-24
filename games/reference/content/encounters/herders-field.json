@@ -1,0 +1,32 @@
+{
+  "formatVersion": 1,
+  "kind": "encounter",
+  "id": "herders-field",
+  "name": "Herder's Field",
+  "units": [
+    {
+      "facing": "e",
+      "pos": "0",
+      "side": "player",
+      "unit": "knot"
+    },
+    {
+      "facing": "w",
+      "pos": "4",
+      "side": "enemy",
+      "unit": "leafcutter"
+    },
+    {
+      "facing": "w",
+      "pos": "6",
+      "side": "enemy",
+      "unit": "aphid-herder"
+    },
+    {
+      "facing": "w",
+      "pos": "8",
+      "side": "enemy",
+      "unit": "leafcutter"
+    }
+  ]
+}

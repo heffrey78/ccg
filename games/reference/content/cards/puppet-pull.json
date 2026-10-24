@@ -1,0 +1,24 @@
+{
+  "formatVersion": 1,
+  "kind": "card",
+  "id": "puppet-pull",
+  "name": "Puppet Pull",
+  "cost": {
+    "sap": 1
+  },
+  "effects": [
+    {
+      "op": "pull",
+      "distance": 3
+    }
+  ],
+  "rarity": "common",
+  "tags": [
+    "cordyceps"
+  ],
+  "targeting": {
+    "kind": "unit",
+    "filter": "enemy",
+    "range": 4
+  }
+}

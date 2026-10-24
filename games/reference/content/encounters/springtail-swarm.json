@@ -1,0 +1,32 @@
+{
+  "formatVersion": 1,
+  "kind": "encounter",
+  "id": "springtail-swarm",
+  "name": "Springtail Swarm",
+  "units": [
+    {
+      "facing": "e",
+      "pos": "0",
+      "side": "player",
+      "unit": "knot"
+    },
+    {
+      "facing": "w",
+      "pos": "4",
+      "side": "enemy",
+      "unit": "springtail"
+    },
+    {
+      "facing": "w",
+      "pos": "6",
+      "side": "enemy",
+      "unit": "springtail"
+    },
+    {
+      "facing": "w",
+      "pos": "8",
+      "side": "enemy",
+      "unit": "springtail"
+    }
+  ]
+}

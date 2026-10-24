@@ -1,0 +1,26 @@
+{
+  "formatVersion": 1,
+  "kind": "card",
+  "id": "feast-on-rot",
+  "name": "Feast on Rot",
+  "cost": {
+    "sap": 1
+  },
+  "effects": [
+    {
+      "op": "heal",
+      "amount": 4
+    },
+    {
+      "op": "gainBlock",
+      "amount": 3
+    }
+  ],
+  "rarity": "common",
+  "tags": [
+    "rotcap"
+  ],
+  "targeting": {
+    "kind": "self"
+  }
+}

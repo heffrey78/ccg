@@ -23,6 +23,7 @@ import {
   runScenario,
   runScenarios,
   simulate,
+  simulateRun,
   summarize,
   Session,
   standardInput,
@@ -555,5 +556,19 @@ describe('neutral units, and revealing intents (#104, #107)', () => {
     if (!result.ok) throw new Error(result.error.message);
     expect(result.events.some((e) => e.type === 'IntentRevealed' && e.target === 'player1')).toBe(true);
     expect(viewState(rules, result.state, 'player').world.intents.declared[0]).toMatchObject({ name: 'Ambush', target: 'player1', visibility: 'full' });
+  });
+});
+
+describe('whole-run simulation', () => {
+  it('plays a run to the end with a bot, the same way for the same seed', () => {
+    const pkg = contentGame({ run: { encounters: ['duel', 'duel'], rewards: { pool: ['strike'], choices: 1 } } });
+    const registry = new PackageRegistry();
+    registry.register(pkg);
+    const resolved = registry.resolve('plain');
+    if (!resolved.ok) throw new Error('resolve');
+    const run = simulateRun(resolved.game, 3);
+    expect(run).toMatchObject({ won: true, path: ['stage-1', 'stage-2'] });
+    expect(run.deck.filter((c) => c === 'plain:strike')).toHaveLength(6);
+    expect(simulateRun(resolved.game, 3)).toEqual(run);
   });
 });

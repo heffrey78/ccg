@@ -1,0 +1,26 @@
+{
+  "formatVersion": 1,
+  "kind": "card",
+  "id": "drift",
+  "name": "Drift",
+  "cost": {
+    "sap": 1
+  },
+  "effects": [
+    {
+      "op": "step",
+      "distance": 2
+    },
+    {
+      "op": "gainBlock",
+      "amount": 3
+    }
+  ],
+  "rarity": "common",
+  "tags": [
+    "puffball"
+  ],
+  "targeting": {
+    "kind": "direction"
+  }
+}

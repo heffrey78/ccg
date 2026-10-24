@@ -219,6 +219,32 @@ place, that becomes:
 - adjust until a greedy player wins roughly 60–80% of single Burrow fights and
   under 50% of Nests.
 
+## As built (v0.1, #33)
+
+Sporeline lives in `games/reference` as 66 content items: 34 cards, 4 statuses, 7 bugs
+plus the boss and the Knot, 9 encounters (one is a practice fight outside the run), the
+ruleset with its 13-node network, and 4 scenario tests. It plays in the web client
+(Play → Sporeline) and opens in the editor.
+
+Some cards and bugs are simpler than designed, where the engine can't yet express
+the design; each gap has an issue:
+
+| Designed | v0.1 | Issue |
+|---|---|---|
+| Burst, Surge and Flash Flood push several units | They push one target | #117 |
+| Herd and Brood summon aphids and larvae | They gain block and heal instead | #115 |
+| Decompose reads Rot through the status's own reference | It reads a hard-coded `sporeline:rot` path | #116 |
+| Feast on Rot heals per Rot stack, Hivemind shields thralls, Root Drink banks Sap | Flat heal and block, draw | — |
+| Rot ticks "at the start of its phase" | Once per round, for every holder (stumps too) | — |
+
+**Balance from simulation:**
+- **Fights:** a greedy one-move-ahead bot wins every hallway fight, taking about 0–5 damage in Burrows and 5–9 in Nests. The design's 60–80% win target assumed a weaker bot, and blocking against telegraphed intents is exactly what a lookahead bot does well. A random player takes 15–45 damage and loses most Nests.
+- **Boss:** a fresh greedy player beats it 88% of the time.
+- **Whole runs:** the greedy bot wins about 30% (11 of 30). Most losses come at the boss, after carried damage. A full run is completable, and not every run is.
+
+The package's tests guard these numbers, and the editor's Balance panel is where
+tuning continues.
+
 ## Originality
 
 The name, setting, characters, cards and enemies are original. The genre

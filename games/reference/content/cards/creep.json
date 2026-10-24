@@ -1,0 +1,26 @@
+{
+  "formatVersion": 1,
+  "kind": "card",
+  "id": "creep",
+  "name": "Creep",
+  "cost": {
+    "sap": 0
+  },
+  "effects": [
+    {
+      "op": "step",
+      "distance": 1
+    },
+    {
+      "op": "draw",
+      "n": 1
+    }
+  ],
+  "rarity": "basic",
+  "tags": [
+    "knot"
+  ],
+  "targeting": {
+    "kind": "direction"
+  }
+}

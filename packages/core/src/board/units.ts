@@ -378,8 +378,11 @@ export function boardModule<W extends BoardWorld>(config: BoardConfig): RulesMod
     },
 
     redact(event, viewer, state) {
+      const units = boardOf(state).units;
+      // An item whose source is a unit the viewer cannot see (e.g. a fogged bug's intent) doesn't name it.
+      if (typeof event.source === 'string' && units[event.source] && !visibleUnits(state, viewer).has(event.source)) event = { ...event, source: null };
       // Withhold events about a unit the viewer cannot see (it may have left play since).
-      if (typeof event.unit !== 'string' || !boardOf(state).units[event.unit]) return event;
+      if (typeof event.unit !== 'string' || !units[event.unit]) return event;
       return visibleUnits(state, viewer).has(event.unit) ? event : null;
     },
 

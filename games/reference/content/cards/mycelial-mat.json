@@ -1,0 +1,31 @@
+{
+  "formatVersion": 1,
+  "kind": "card",
+  "id": "mycelial-mat",
+  "name": "Mycelial Mat",
+  "cost": {
+    "sap": 1
+  },
+  "effects": [
+    {
+      "op": "gainBlock",
+      "amount": 5
+    }
+  ],
+  "rarity": "basic",
+  "tags": [
+    "knot"
+  ],
+  "targeting": {
+    "kind": "self"
+  },
+  "upgrade": {
+    "name": "Mycelial Mat+",
+    "effects": [
+      {
+        "op": "gainBlock",
+        "amount": 8
+      }
+    ]
+  }
+}

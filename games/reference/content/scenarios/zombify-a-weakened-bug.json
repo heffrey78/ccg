@@ -1,0 +1,42 @@
+{
+  "formatVersion": 1,
+  "kind": "scenario",
+  "id": "zombify-a-weakened-bug",
+  "name": "Zombify turns a weakened bug",
+  "actions": [
+    {
+      "card": "card1",
+      "side": "player",
+      "target": "enemy1",
+      "type": "playCard"
+    },
+    {
+      "card": "card2",
+      "side": "player",
+      "target": "enemy1",
+      "type": "playCard"
+    }
+  ],
+  "deck": [],
+  "encounter": "practice-den",
+  "expect": [
+    {
+      "kind": "unit",
+      "hp": {
+        "max": 3,
+        "min": 3
+      },
+      "side": "player",
+      "unit": "leafcutter"
+    },
+    {
+      "kind": "outcome",
+      "winner": "player"
+    }
+  ],
+  "hand": [
+    "hyphal-lash",
+    "zombify"
+  ],
+  "seed": 1
+}
