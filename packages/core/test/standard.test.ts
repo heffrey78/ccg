@@ -25,6 +25,7 @@ import {
   topologyOf,
   viewState,
   zone,
+  type Action,
   type GamePackage,
   type GameState,
   type RulesetDef,
@@ -378,5 +379,53 @@ describe('conditions on a unit’s stats (#105)', () => {
     const { game } = play('weakling', 8);
     expect(cardText(finisher as never, game.ops)).toBe('If its HP is at most 8: Deal 100 damage.');
     expect(conditionText({ kind: 'compare', left: { $: 'unit.stacks.plain:rot' }, cmp: '>=', right: 2 }, { name: () => 'Rot' })).toBe('its Rot stacks is at least 2');
+  });
+});
+
+describe('allied units that act (#102)', () => {
+  const mite = item('unit', 'mite', {
+    hp: 6,
+    behavior: {
+      kind: 'if',
+      cond: { kind: 'enemyWithin', range: 1 },
+      then: { kind: 'intent', intent: { name: 'Bite', target: { kind: 'unit', select: 'nearestEnemy', range: 1 }, effects: [{ op: 'damage', amount: 4 }] } },
+      else: { kind: 'intent', intent: { name: 'Creep', target: { kind: 'unit', select: 'nearestEnemy' }, effects: [{ op: 'approach', distance: 1 }] } },
+    },
+  });
+  const zombify = item('card', 'zombify', {
+    targeting: { kind: 'unit', filter: 'enemy', range: 1 },
+    effects: [{ op: 'readUnit' }, { op: 'if', cond: { kind: 'compare', left: { $: 'unit.hp' }, cmp: '<=', right: 8 }, then: [{ op: 'convert' }] }],
+  });
+
+  it('a converted bug fights its former allies from the next round', () => {
+    const pkg = contentGame({ player: { ...RULESET.player, deck: ['zombify', 'guard', 'guard', 'guard', 'guard'], handSize: 5 } });
+    pkg.content.push(mite, zombify, item('encounter', 'swarm', { units: [{ unit: 'hero', side: 'player', pos: '0' }, { unit: 'mite', side: 'enemy', pos: '1' }, { unit: 'mite', side: 'enemy', pos: '2' }] }));
+    const registry = new PackageRegistry();
+    registry.register(pkg);
+    const resolved = registry.resolve('plain');
+    if (!resolved.ok) throw new Error(resolved.issues[0]?.message);
+    const rules = resolved.game.createRules();
+    const created = createGame(rules, resolved.game.createSetup({ seed: 1, encounter: 'plain:swarm' }));
+    if (!created.ok) throw new Error(created.error.message);
+    let state = created.state as GameState<StandardWorld>;
+    const run = (action: Action) => {
+      const result = apply(rules, state, action);
+      if (!result.ok) throw new Error(result.error.message);
+      state = result.state as GameState<StandardWorld>;
+      return result.events;
+    };
+
+    const play = legalActions(rules, state, 'player').find((a) => a.type === 'playCard' && state.world.cards.instances[a.card as string]?.def === 'plain:zombify' && a.target === 'enemy1');
+    const events = run(play!);
+    expect(events.some((e) => e.type === 'UnitConverted' && e.unit === 'enemy1' && e.side === 'player')).toBe(true);
+    expect(state.world.board.units.enemy1?.side).toBe('player');
+    expect(state.world.intents.declared.some((i) => i.unit === 'enemy1')).toBe(false);
+
+    run({ type: 'endTurn', side: 'player' });
+    // Round 2: the thrall bites the other mite, and the mite bites back.
+    const declared = Object.fromEntries(state.world.intents.declared.map((i) => [i.unit, [i.side, i.name, i.target]]));
+    expect(declared).toEqual({ enemy1: ['player', 'Bite', 'enemy2'], enemy2: ['enemy', 'Bite', 'enemy1'] });
+    run({ type: 'endTurn', side: 'player' });
+    expect([state.world.board.units.enemy1?.hp, state.world.board.units.enemy2?.hp]).toEqual([2, 2]);
   });
 });

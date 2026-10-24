@@ -282,6 +282,13 @@ export function intentsModule<W extends BoardWorld & IntentsWorld>(config: Inten
     resolvePhase: (side, id = `${side}:act`) => ({ id, side, enter: (ctx) => resolveFor(ctx, side) }),
 
     steps: {
+      convertUnit(state, s) {
+        const u = state.world.board.units[str(s.unit)];
+        if (!u) return [];
+        const from = u.side;
+        u.side = str(s.side);
+        return [{ type: 'UnitConverted', unit: u.id, from, side: u.side }];
+      },
       declareIntent(state, s) {
         const intent = s.intent as DeclaredIntent;
         state.world.intents.declared.push(intent);
@@ -377,6 +384,25 @@ export function intentsModule<W extends BoardWorld & IntentsWorld>(config: Inten
           const unit = str(p.unit ?? ctx.item.vars.target);
           const intent = ctx.state.world.intents.declared.find((i) => i.unit === unit);
           if (intent) ctx.step({ kind: 'clearIntent', intent: intent.id, outcome: 'cancelled' });
+        },
+      ),
+      convert: defineOp(
+        {
+          displayName: 'Convert',
+          description: "Make a unit (the target) fight for a side (yours by default): its declared intent is cancelled, and from next round it acts for its new side.",
+          params: z.object({ unit: z.string().min(1).optional(), side: z.string().min(1).optional() }),
+          text: 'Turn the target to your side.',
+          widgets: { unit: 'unit', side: 'side' },
+          category: 'units',
+        },
+        (ctx, p) => {
+          const unit = str(p.unit ?? ctx.item.vars.target);
+          const side = (p.side as string | undefined) ?? ctx.item.controller;
+          const u = ctx.state.world.board.units[unit];
+          if (!u || !side || u.side === side) return;
+          const intent = ctx.state.world.intents.declared.find((i) => i.unit === unit);
+          if (intent) ctx.step({ kind: 'clearIntent', intent: intent.id, outcome: 'cancelled' });
+          ctx.step({ kind: 'convertUnit', unit, side });
         },
       ),
       delayIntent: defineOp(

@@ -26,6 +26,7 @@ export const BEAT_MS: Record<string, number> = {
   UnitSpawned: 260,
   UnitFell: 350,
   UnitDied: 420,
+  UnitConverted: 420,
   PermanentEntered: 280,
   PermanentRevealed: 380,
 };
@@ -90,6 +91,9 @@ export function unitsAfter(start: Record<string, UnitView>, events: GameEvent[],
         break;
       case 'UnitDied':
         u.dying = true;
+        break;
+      case 'UnitConverted':
+        u.side = e.side as string;
         break;
     }
   }

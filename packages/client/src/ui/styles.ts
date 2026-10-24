@@ -74,6 +74,8 @@ export const CSS = `
 .ccg-statuses { font-size: 10px; font-weight: 600; fill: var(--reaction); }
 .ccg-intent rect { fill: var(--panel); stroke: var(--threat); stroke-width: 2; }
 .ccg-intent text { font-size: 11px; font-weight: 700; fill: var(--threat); }
+.ccg-intent.is-ally rect { stroke: var(--mine); }
+.ccg-intent.is-ally text { fill: var(--mine); }
 .ccg-target { cursor: pointer; }
 .ccg-target circle, .ccg-target rect, .ccg-target polygon { fill: color-mix(in srgb, var(--target) 18%, transparent); stroke: var(--target); stroke-width: 3; }
 .ccg-target.is-focused circle, .ccg-target.is-focused rect, .ccg-target.is-focused polygon { fill: color-mix(in srgb, var(--target) 40%, transparent); stroke-width: 4; }

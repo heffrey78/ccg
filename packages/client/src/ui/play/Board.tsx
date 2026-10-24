@@ -204,8 +204,8 @@ export function Board(props: BoardProps) {
                     <text x={4} dy="0.3em">{initials(m.label)}</text>
                   </g>
                 ))}
-              {intent && !mine && (
-                <g className="ccg-intent" transform={`translate(0 ${-radius - 6})`}>
+              {intent && (
+                <g className={mine ? 'ccg-intent is-ally' : 'ccg-intent'} transform={`translate(0 ${-radius - 6})`}>
                   <rect x={-30} y={-11} width={60} height={20} rx={10} />
                   <text textAnchor="middle" dy="0.35em">
                     {summary?.damage !== undefined ? `⚔ ${summary.damage}` : (intent.name ?? '?')}
