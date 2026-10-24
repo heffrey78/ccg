@@ -79,6 +79,7 @@ export const CSS = `
 .ccg-form-row { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 8px; align-items: start; padding: 2px 4px; border-radius: 6px; }
 .ccg-form-row.is-block { grid-template-columns: 1fr; }
 .ccg-form-row.is-block > .ccg-form-control { padding-left: 12px; border-left: 2px solid var(--line); }
+.ccg-form-help { margin: 4px 0 0; font-size: .85rem; }
 .ccg-form-row.has-error { background: color-mix(in srgb, var(--warn) 8%, transparent); }
 .ccg-form-row.is-flagged, .ccg-effect.is-flagged { outline: 2px solid var(--warn); background: var(--hl); }
 .ccg-form-label { display: flex; gap: 6px; align-items: center; font-size: .9rem; font-weight: 600; min-height: 28px; }

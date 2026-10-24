@@ -88,7 +88,7 @@ export class EngineClient {
     return this.snapshot({ type: 'reload', files, mode });
   }
 
-  start(game: string, seed: string | number, options: { encounter?: string; scenario?: string; hand?: string[] } = {}): Promise<Snapshot> {
+  start(game: string, seed: string | number, options: { encounter?: string; scenario?: string; hand?: string[]; difficulty?: string } = {}): Promise<Snapshot> {
     return this.snapshot({
       type: 'start',
       game,
@@ -96,6 +96,7 @@ export class EngineClient {
       ...(options.encounter && { encounter: options.encounter }),
       ...(options.scenario && { scenario: options.scenario }),
       ...(options.hand && { hand: options.hand }),
+      ...(options.difficulty && { difficulty: options.difficulty }),
     });
   }
 

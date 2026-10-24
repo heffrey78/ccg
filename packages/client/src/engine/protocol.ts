@@ -10,11 +10,14 @@ export interface GameListing {
   name: string;
   version: string;
   description?: string;
+  /** The levels a player picks from when starting (#125); the first or `defaultDifficulty` unless they choose. */
+  difficulties?: { id: string; name: string; description?: string }[];
+  defaultDifficulty?: string;
 }
 
 export type EngineRequest =
   | { type: 'listGames' }
-  | { type: 'start'; game: string; seed: string | number; encounter?: string; scenario?: string; /** Cards drawn first, e.g. to try one out. */ hand?: string[] }
+  | { type: 'start'; game: string; seed: string | number; encounter?: string; scenario?: string; /** Cards drawn first, e.g. to try one out. */ hand?: string[]; /** A difficulty level's id (#125). */ difficulty?: string }
   | { type: 'act'; action: Action }
   /** Loads a game package from a zip (as the editor exports), replacing one with the same id. */
   | { type: 'importZip'; data: Uint8Array }
@@ -91,6 +94,8 @@ export interface Snapshot {
   notice?: string;
   /** The scene the current encounter is set in. */
   scene?: { background?: string };
+  /** The difficulty level being played (#125), by name. */
+  difficulty?: string;
   /** Progress through a run (#45). */
   run?: RunProgress;
   /** Whether `undo` would take back the player's last action now. */

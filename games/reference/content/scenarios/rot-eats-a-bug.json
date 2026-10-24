@@ -16,6 +16,7 @@
     }
   ],
   "deck": [],
+  "difficulty": "easy",
   "encounter": "practice-den",
   "expect": [
     {

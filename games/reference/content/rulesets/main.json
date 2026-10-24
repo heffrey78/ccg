@@ -8,6 +8,37 @@
     "length": 9,
     "topology": "lane"
   },
+  "difficulty": {
+    "default": "normal",
+    "levels": [
+      {
+        "id": "story",
+        "name": "Story",
+        "description": "For learning the cards: bugs are frailer and bite softer.",
+        "enemyDamage": 75,
+        "enemyHp": 75
+      },
+      {
+        "id": "easy",
+        "name": "Easy",
+        "description": "The bugs as first written."
+      },
+      {
+        "id": "normal",
+        "name": "Normal",
+        "description": "Tougher bugs that hit harder. Plan your blocks.",
+        "enemyDamage": 150,
+        "enemyHp": 140
+      },
+      {
+        "id": "hard",
+        "name": "Hard",
+        "description": "For a mycelium that knows every strain.",
+        "enemyDamage": 200,
+        "enemyHp": 175
+      }
+    ]
+  },
   "fog": {
     "kind": "distance",
     "range": 3

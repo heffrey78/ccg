@@ -362,6 +362,65 @@ describe('engine host', () => {
       expect(snap.run?.status).toBe('won');
     });
 
+    it('lists difficulty levels, starts a run at the chosen one and keeps it for every fight (#125)', async () => {
+      const encounter = (id: string) => json({ formatVersion: 1, kind: 'encounter', id, name: id, units: [{ unit: 'hero', side: 'player', pos: '0' }, { unit: 'weak', side: 'enemy', pos: '3' }] });
+      const levelFiles = {
+        ...files(5),
+        'content/units/weak.json': json({ formatVersion: 1, kind: 'unit', id: 'weak', name: 'Weak', hp: 3 }),
+        'content/encounters/one.json': encounter('one'),
+        'content/encounters/two.json': encounter('two'),
+        'content/rulesets/main.json': json({
+          formatVersion: 1,
+          kind: 'ruleset',
+          id: 'main',
+          name: 'Main',
+          board: { topology: 'lane', length: 4 },
+          player: { resources: {}, handSize: 3, deck: ['zap', 'zap', 'zap'] },
+          run: { encounters: ['one', 'two'], rewards: { pool: ['zap'], choices: 1 } },
+          difficulty: {
+            default: 'normal',
+            levels: [
+              { id: 'normal', name: 'Normal' },
+              { id: 'hard', name: 'Hard', description: 'Tougher bugs.', enemyHp: 150, playerHp: 50 },
+            ],
+          },
+        }),
+      };
+      const engine = client();
+      const { games } = await engine.loadFiles(levelFiles);
+      expect(games.find((g) => g.id === 'live')).toMatchObject({
+        defaultDifficulty: 'normal',
+        difficulties: [
+          { id: 'normal', name: 'Normal' },
+          { id: 'hard', name: 'Hard', description: 'Tougher bugs.' },
+        ],
+      });
+      const units = (snap: { view: { world: unknown } }) => Object.values((snap.view.world as World).board.units).map((u) => [u.def, u.hp, u.maxHp]);
+
+      let snap = await engine.start('live', 1);
+      expect(snap.difficulty).toBe('Normal');
+      expect(units(snap)).toEqual([
+        ['live:hero', 30, 30],
+        ['live:weak', 3, 3],
+      ]);
+
+      snap = await engine.start('live', 1, { difficulty: 'hard' });
+      expect(snap.difficulty).toBe('Hard');
+      expect(units(snap)).toEqual([
+        ['live:hero', 15, 15],
+        ['live:weak', 5, 5],
+      ]);
+      await zap(engine);
+      snap = await engine.chooseReward(null);
+      expect(snap.run).toMatchObject({ stage: 2, status: 'playing' });
+      expect(snap.difficulty).toBe('Hard');
+      expect(units(snap)).toEqual([
+        ['live:hero', 15, 15],
+        ['live:weak', 5, 5],
+      ]);
+      await expect(engine.start('live', 1, { difficulty: 'nightmare' })).rejects.toMatchObject({ message: expect.stringContaining("no difficulty 'nightmare'") });
+    });
+
     it('serves unit sprites and the encounter scene as typed object URLs', async () => {
       const svg = enc.encode('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><circle r="5"/></svg>');
       const art = {

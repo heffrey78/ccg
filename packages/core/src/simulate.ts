@@ -4,7 +4,7 @@
  * always give the same statistics.
  */
 import { greedyPolicy, randomPolicy, type StatePolicy } from './ai.js';
-import type { BoardWorld } from './board/units.js';
+import { scaledHp, type BoardWorld } from './board/units.js';
 import type { CardsWorld } from './cards/zones.js';
 import { apply, createGame, decidingSide, legalActions } from './kernel/engine.js';
 import type { GameState, SideId } from './kernel/types.js';
@@ -13,6 +13,8 @@ import { Rng, seedRng } from './rng.js';
 import { standardInput } from './packages/registry.js';
 import {
   COMBAT_NODES,
+  difficultyOf,
+  difficultyScale,
   fruitingOffer,
   junctionOffer,
   runMapOf,
@@ -35,6 +37,8 @@ export interface SimOptions {
   bot?: Bot;
   /** A game still going after this many actions counts as unfinished. */
   maxActions?: number;
+  /** A difficulty level's id (#125); the ruleset's default when absent. */
+  difficulty?: string;
 }
 
 export interface GameRecord {
@@ -75,7 +79,7 @@ export function simulate<W>(game: ResolvedGame<W>, options: SimOptions): GameRec
 
   return options.seeds.map((seed) => {
     const record: GameRecord = { seed, winner: 'none', rounds: 0, actions: 0, cardPlays: {}, spent: 0, dealt: 0, taken: 0, enemyDamage: {} };
-    const created = createGame(rules, game.createSetup({ seed, ...(options.encounter && { encounter: options.encounter }) }));
+    const created = createGame(rules, game.createSetup({ seed, ...(options.encounter && { encounter: options.encounter }), ...(options.difficulty && { difficulty: options.difficulty }) }));
     if (!created.ok) throw new Error(created.error.message);
     let state = created.state as unknown as GameState<World>;
     const bot: StatePolicy<World> =
@@ -186,7 +190,8 @@ export interface RunRecord {
  * the first reward or junction strain on offer, heals at springs, upgrades at
  * fruiting logs, and follows a seeded random path through the map.
  */
-export function simulateRun<W>(game: ResolvedGame<W>, seed: string | number, bot: Bot = 'greedy', maxActions = 1000): RunRecord {
+/** Plays a whole run with a bot; `difficulty` is a level's id (#125), the ruleset's default when absent. */
+export function simulateRun<W>(game: ResolvedGame<W>, seed: string | number, bot: Bot = 'greedy', maxActions = 1000, difficulty?: string): RunRecord {
   const prefix = `${game.root.id}:`;
   const rulesetItem = game.items.find((i) => i.kind === 'ruleset' && i.id.startsWith(prefix));
   if (!rulesetItem) throw new Error('the game has no ruleset');
@@ -196,6 +201,7 @@ export function simulateRun<W>(game: ResolvedGame<W>, seed: string | number, bot
   if (!map) throw new Error('the ruleset has no run');
   const q = (ref: string) => (ref.includes(':') ? ref : `${prefix}${ref}`);
   const sides = sidesOf(ruleset);
+  const playerScale = difficultyScale(ruleset, difficultyOf(ruleset, difficulty))[sides.player];
   const rules = game.createRules();
   const pathRng = new Rng(seedRng(`path:${String(seed)}`));
   let deck: RunCard[] = ruleset.player.deck.map((def) => ({ def: q(def) }));
@@ -209,7 +215,7 @@ export function simulateRun<W>(game: ResolvedGame<W>, seed: string | number, bot
     const stage = record.path.length - 1;
     const defs = () => deck.map((c) => c.def);
     if (COMBAT_NODES.has(node.kind)) {
-      const created = createGame(rules, game.createSetup({ seed: `${String(seed)}:${stage}`, encounter: q(node.encounter as string), deck, ...(Object.keys(hp).length > 0 && { hp }) }));
+      const created = createGame(rules, game.createSetup({ seed: `${String(seed)}:${stage}`, encounter: q(node.encounter as string), deck, ...(Object.keys(hp).length > 0 && { hp }), ...(difficulty && { difficulty }) }));
       if (!created.ok) throw new Error(created.error.message);
       let state = created.state as unknown as GameState<World>;
       const player: StatePolicy<World> = bot === 'greedy' ? greedyPolicy<World>(playerScore(sides)) : randomPolicy<World>(`sim:${String(seed)}:${stage}`);
@@ -238,7 +244,7 @@ export function simulateRun<W>(game: ResolvedGame<W>, seed: string | number, bot
       }
     } else if (node.kind === 'spring') {
       for (const [def, now] of Object.entries(hp)) {
-        const max = game.definitions.units[def]?.hp ?? now;
+        const max = scaledHp(game.definitions.units[def]?.hp ?? now, playerScale);
         hp[def] = Math.min(max, now + Math.ceil(max * 0.3));
       }
     } else if (node.kind === 'fruiting') {

@@ -29,7 +29,7 @@ import { ContentError } from '../kernel/params.js';
 import type { Action, ActionDef, Effect, EffectContext, GameEvent, GameState, Listener, SideId, Step } from '../kernel/types.js';
 import { defineOp, type RulesModule } from '../rules/compose.js';
 import type { PatternShape, Pos, Topology } from './topology.js';
-import { unitAt, unitsAt, type BoardWorld, type UnitDef, type UnitState } from './units.js';
+import { scaledHp, unitAt, unitsAt, type BoardWorld, type UnitDef, type UnitState } from './units.js';
 
 export interface PermanentState {
   id: string;
@@ -241,8 +241,8 @@ export function permanentsModule<W extends World>(config: PermanentsConfig): Rul
             side: permanent.controller,
             pos: str(s.pos),
             facing: str(s.facing),
-            hp: unitDef.hp,
-            maxHp: unitDef.hp,
+            hp: scaledHp(unitDef.hp, state.world.board.scale?.[permanent.controller]),
+            maxHp: scaledHp(unitDef.hp, state.world.board.scale?.[permanent.controller]),
             block: 0,
             statuses: { ...unitDef.statuses },
             createdAt: permanent.createdAt,
@@ -494,7 +494,7 @@ export function permanentsModule<W extends World>(config: PermanentsConfig): Rul
     },
 
     stateChecks: [
-      // Statics: max HP from definitions plus every maxHp static that reaches the unit (§9.3).
+      // Statics: max HP from definitions (scaled by the difficulty, #125) plus every maxHp static that reaches the unit (§9.3).
       (ctx) => {
         const bonus = new Map<string, number>();
         for (const { permanent, effect } of statics(ctx.state)) {
@@ -503,8 +503,9 @@ export function permanentsModule<W extends World>(config: PermanentsConfig): Rul
         }
         let changed = false;
         for (const u of Object.values(ctx.state.world.board.units)) {
-          const base = config.units[u.def]?.hp;
-          if (base === undefined) continue;
+          const def = config.units[u.def]?.hp;
+          if (def === undefined) continue;
+          const base = scaledHp(def, ctx.state.world.board.scale?.[u.side]);
           const max = Math.max(1, base + (bonus.get(u.id) ?? 0));
           if (u.maxHp !== max) {
             u.maxHp = max;

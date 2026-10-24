@@ -64,6 +64,8 @@ export {
   boardPresentation,
   boardTargeting,
   createBoardState,
+  scaleDamage,
+  scaledHp,
   unitAt,
   unitsAt,
   type BoardConfig,
@@ -72,6 +74,7 @@ export {
   type BoardTargetingOptions,
   type BoardWorld,
   type MoveActionConfig,
+  type SideScale,
   type TileDef,
   type UnitDef,
   type UnitPlacement,
@@ -93,6 +96,8 @@ export { buildDefinitions, type Definitions } from './content.js';
 export { isGamePackage, isPlayable, qualify, type AssetResolver, type GamePackage } from './packages/package.js';
 export {
   COMBAT_NODES,
+  difficultyOf,
+  difficultyScale,
   eligible,
   fruitingOffer,
   junctionOffer,
@@ -106,6 +111,7 @@ export {
   standardRules,
   standardSetup,
   topologyOf,
+  type DifficultyLevel,
   type RulesetDef,
   type RunCard,
   type RunMap,

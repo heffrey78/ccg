@@ -361,6 +361,28 @@ export function createContentSchemas(ops: OpRegistry, { formatVersion: version =
         })
         .strict()
         .optional(),
+      /** Difficulty levels (#125) the player picks from when starting; percentages of the content's numbers. */
+      difficulty: z
+        .object({
+          /** The level picked unless the player chooses another (default: the first). */
+          default: id.optional(),
+          levels: z
+            .array(
+              z
+                .object({
+                  id,
+                  name: z.string().min(1),
+                  description: z.string().optional(),
+                  enemyHp: z.number().int().min(1).max(1000).describe("Enemy units' HP, as a percentage: 100 is as written, 150 is half again.").optional(),
+                  enemyDamage: z.number().int().min(0).max(1000).describe('Damage enemy intents deal, as a percentage: 100 is as written.').optional(),
+                  playerHp: z.number().int().min(1).max(1000).describe("Player units' HP, as a percentage: 100 is as written.").optional(),
+                })
+                .strict(),
+            )
+            .min(1),
+        })
+        .strict()
+        .optional(),
     })
     .strict();
 
@@ -393,6 +415,8 @@ export function createContentSchemas(ops: OpRegistry, { formatVersion: version =
       kind: z.literal('scenario'),
       encounter: ref,
       seed: z.union([z.string().min(1), z.number().int()]),
+      /** The difficulty level to play at (#125); the ruleset's default when absent. */
+      difficulty: id.optional(),
       /** Drawn first, in order. */
       hand: z.array(ref).optional(),
       /** The rest of the draw pile, top first. With hand or deck set, the deck is not shuffled. */

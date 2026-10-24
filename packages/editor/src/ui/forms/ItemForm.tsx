@@ -45,9 +45,10 @@ const SECTIONS: Partial<Record<ContentKind, [string, string[]][]>> = {
     ['Enemy', ['enemy']],
     ['Responses and permanents', ['responses', 'permanents']],
     ['Run', ['run']],
+    ['Difficulty', ['difficulty']],
   ],
   scenario: [
-    ['Setup', ['encounter', 'seed']],
+    ['Setup', ['encounter', 'seed', 'difficulty']],
     ['Cards', ['hand', 'deck']],
     ['Test', ['expect', 'actions']],
   ],

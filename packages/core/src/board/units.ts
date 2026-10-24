@@ -52,6 +52,32 @@ export interface BoardState {
   tiles: Record<Pos, string>;
   /** In a view under fog of war only: the tiles the viewer can see (#59). Never in state. */
   vision?: Pos[];
+  /** Difficulty (#125), per side as percentages: units' HP when placed or spawned, and the damage their intents declare. */
+  scale?: Record<string, SideScale>;
+}
+
+export interface SideScale {
+  hp?: number;
+  damage?: number;
+}
+
+/** A unit's max HP on a side, scaled by the difficulty; never below 1. */
+export function scaledHp(hp: number, scale: SideScale | undefined): number {
+  return scale?.hp === undefined || scale.hp === 100 ? hp : Math.max(1, Math.round((hp * scale.hp) / 100));
+}
+
+/** Effects with every literal damage amount scaled by `percent` (nested effects too); a hit of 1 or more stays at least 1. */
+export function scaleDamage<T>(effects: T, percent: number | undefined): T {
+  if (percent === undefined || percent === 100) return effects;
+  const walk = (value: unknown): unknown => {
+    if (Array.isArray(value)) return value.map(walk);
+    if (typeof value !== 'object' || value === null) return value;
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value)) out[k] = walk(v);
+    if (out.op === 'damage' && typeof out.amount === 'number' && out.amount > 0) out.amount = Math.max(1, Math.round((out.amount * percent) / 100));
+    return out;
+  };
+  return walk(effects) as T;
 }
 
 export interface BoardWorld {
@@ -126,19 +152,21 @@ export function createBoardState(
   units: Record<string, UnitDef>,
   placements: UnitPlacement[],
   tiles: Record<Pos, string> = {},
+  scale?: Record<string, SideScale>,
 ): BoardState {
-  const board: BoardState = { units: {}, tiles: { ...tiles } };
+  const board: BoardState = { units: {}, tiles: { ...tiles }, ...(scale && Object.keys(scale).length > 0 && { scale }) };
   placements.forEach((p, i) => {
     const def = units[p.def];
     if (!def) throw new ContentError(`unknown unit definition '${p.def}'`);
+    const maxHp = scaledHp(def.hp, scale?.[p.side]);
     board.units[p.id] = {
       id: p.id,
       def: p.def,
       side: p.side,
       pos: p.pos,
       facing: p.facing,
-      hp: p.hp ?? def.hp,
-      maxHp: def.hp,
+      hp: p.hp === undefined ? maxHp : Math.min(p.hp, maxHp),
+      maxHp,
       block: 0,
       statuses: { ...def.statuses },
       createdAt: -placements.length + i,
@@ -456,14 +484,15 @@ export function boardModule<W extends BoardWorld>(config: BoardConfig): RulesMod
       spawn(state, s) {
         const def = unitDefs[str(s.def)];
         if (!def) throw new ContentError(`unknown unit definition '${str(s.def)}'`);
+        const hp = scaledHp(def.hp, boardOf(state).scale?.[str(s.side)]);
         const unit: UnitState = {
           id: str(s.id),
           def: str(s.def),
           side: str(s.side),
           pos: str(s.pos),
           facing: str(s.facing),
-          hp: def.hp,
-          maxHp: def.hp,
+          hp,
+          maxHp: hp,
           block: 0,
           statuses: { ...def.statuses },
           createdAt: num(s.createdAt),

@@ -288,6 +288,7 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, view: boardView
             Encounter {run.stage} of {run.total}
           </span>
         )}
+        {snapshot.difficulty && <span className="ccg-muted">{snapshot.difficulty}</span>}
         <span>Round {view.turn.round}</span>
         <span className="ccg-muted">{view.turn.phase}</span>
         <span role="status" className="ccg-turn-status">
