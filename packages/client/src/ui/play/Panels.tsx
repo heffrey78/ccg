@@ -83,7 +83,12 @@ export interface InspectorProps {
 
 /** Details for the unit under the pointer or keyboard focus: statuses, intent, abilities. */
 export function Inspector({ unit, intent, summary, permanent, catalog, world, abilities, onAbility }: InspectorProps) {
-  if (!unit) return <p className="ccg-muted ccg-inspector">Hover or focus a unit for details.</p>;
+  if (!unit)
+    return (
+      <section className="ccg-inspector" aria-label="Unit details">
+        <p className="ccg-muted">Hover or focus a unit for details.</p>
+      </section>
+    );
   const name = (id: string) => catalog.names[id] ?? id;
   const card = permanent ? world.cards?.instances[permanent.card]?.def : undefined;
   return (
