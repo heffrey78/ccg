@@ -3,6 +3,7 @@
   "kind": "card",
   "id": "phosphor-mark",
   "name": "Phosphor Mark",
+  "art": "assets/cards/phosphor-mark.svg",
   "cost": {
     "sap": 1
   },

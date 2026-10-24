@@ -3,6 +3,7 @@
   "kind": "encounter",
   "id": "leaf-trail",
   "name": "Leaf Trail",
+  "background": "assets/scenes/leaf-trail.svg",
   "units": [
     {
       "facing": "e",

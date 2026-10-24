@@ -3,6 +3,7 @@
   "kind": "card",
   "id": "rot-bloom",
   "name": "Rot Bloom",
+  "art": "assets/cards/rot-bloom.svg",
   "cost": {
     "sap": 1
   },

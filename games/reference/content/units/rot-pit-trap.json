@@ -3,5 +3,6 @@
   "kind": "unit",
   "id": "rot-pit-trap",
   "name": "Rot Pit",
+  "art": "assets/units/rot-pit-trap.svg",
   "hp": 1
 }

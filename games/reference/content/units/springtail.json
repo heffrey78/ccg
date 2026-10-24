@@ -3,6 +3,7 @@
   "kind": "unit",
   "id": "springtail",
   "name": "Springtail",
+  "art": "assets/units/springtail.svg",
   "behavior": {
     "kind": "if",
     "cond": {

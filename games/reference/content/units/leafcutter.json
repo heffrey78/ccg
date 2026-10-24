@@ -3,6 +3,7 @@
   "kind": "unit",
   "id": "leafcutter",
   "name": "Leafcutter",
+  "art": "assets/units/leafcutter.svg",
   "behavior": {
     "kind": "if",
     "cond": {

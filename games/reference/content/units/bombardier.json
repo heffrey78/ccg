@@ -3,6 +3,7 @@
   "kind": "unit",
   "id": "bombardier",
   "name": "Bombardier",
+  "art": "assets/units/bombardier.svg",
   "behavior": {
     "kind": "if",
     "cond": {

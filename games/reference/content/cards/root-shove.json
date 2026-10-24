@@ -3,6 +3,7 @@
   "kind": "card",
   "id": "root-shove",
   "name": "Root Shove",
+  "art": "assets/cards/root-shove.svg",
   "cost": {
     "sap": 1
   },

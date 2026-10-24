@@ -3,6 +3,7 @@
   "kind": "card",
   "id": "creep",
   "name": "Creep",
+  "art": "assets/cards/creep.svg",
   "cost": {
     "sap": 0
   },

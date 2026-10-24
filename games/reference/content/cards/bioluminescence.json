@@ -3,6 +3,7 @@
   "kind": "card",
   "id": "bioluminescence",
   "name": "Bioluminescence",
+  "art": "assets/cards/bioluminescence.svg",
   "cost": {
     "sap": 1
   },

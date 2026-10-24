@@ -3,6 +3,7 @@
   "kind": "card",
   "id": "burst",
   "name": "Burst",
+  "art": "assets/cards/burst.svg",
   "cost": {
     "sap": 1
   },

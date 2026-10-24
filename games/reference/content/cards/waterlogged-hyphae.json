@@ -3,6 +3,7 @@
   "kind": "card",
   "id": "waterlogged-hyphae",
   "name": "Waterlogged Hyphae",
+  "art": "assets/cards/waterlogged-hyphae.svg",
   "cost": {
     "sap": 1
   },

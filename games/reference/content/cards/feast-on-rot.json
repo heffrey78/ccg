@@ -3,6 +3,7 @@
   "kind": "card",
   "id": "feast-on-rot",
   "name": "Feast on Rot",
+  "art": "assets/cards/feast-on-rot.svg",
   "cost": {
     "sap": 1
   },

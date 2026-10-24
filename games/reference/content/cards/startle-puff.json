@@ -3,6 +3,7 @@
   "kind": "card",
   "id": "startle-puff",
   "name": "Startle Puff",
+  "art": "assets/cards/startle-puff.svg",
   "cost": {
     "sap": 0
   },

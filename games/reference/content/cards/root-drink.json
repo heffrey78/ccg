@@ -3,6 +3,7 @@
   "kind": "card",
   "id": "root-drink",
   "name": "Root Drink",
+  "art": "assets/cards/root-drink.svg",
   "cost": {
     "sap": 1
   },

@@ -3,6 +3,7 @@
   "kind": "card",
   "id": "flash-flood",
   "name": "Flash Flood",
+  "art": "assets/cards/flash-flood.svg",
   "cost": {
     "sap": 2
   },

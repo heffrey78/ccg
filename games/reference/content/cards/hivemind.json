@@ -3,6 +3,7 @@
   "kind": "card",
   "id": "hivemind",
   "name": "Hivemind",
+  "art": "assets/cards/hivemind.svg",
   "cost": {
     "sap": 1
   },

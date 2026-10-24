@@ -3,6 +3,7 @@
   "kind": "unit",
   "id": "weevil-matriarch",
   "name": "Weevil Matriarch",
+  "art": "assets/units/weevil-matriarch.svg",
   "behavior": {
     "kind": "if",
     "cond": {

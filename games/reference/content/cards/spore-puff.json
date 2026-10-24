@@ -3,6 +3,7 @@
   "kind": "card",
   "id": "spore-puff",
   "name": "Spore Puff",
+  "art": "assets/cards/spore-puff.svg",
   "cost": {
     "sap": 1
   },

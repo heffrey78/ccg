@@ -3,6 +3,7 @@
   "kind": "unit",
   "id": "millipede",
   "name": "Millipede",
+  "art": "assets/units/millipede.svg",
   "behavior": {
     "kind": "if",
     "cond": {

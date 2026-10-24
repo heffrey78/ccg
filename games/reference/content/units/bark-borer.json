@@ -3,6 +3,7 @@
   "kind": "unit",
   "id": "bark-borer",
   "name": "Bark Borer",
+  "art": "assets/units/bark-borer.svg",
   "behavior": {
     "kind": "if",
     "cond": {

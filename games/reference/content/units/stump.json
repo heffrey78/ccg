@@ -3,5 +3,6 @@
   "kind": "unit",
   "id": "stump",
   "name": "Stump",
+  "art": "assets/units/stump.svg",
   "hp": 8
 }

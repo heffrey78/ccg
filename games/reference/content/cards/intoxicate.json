@@ -3,6 +3,7 @@
   "kind": "card",
   "id": "intoxicate",
   "name": "Intoxicate",
+  "art": "assets/cards/intoxicate.svg",
   "cost": {
     "sap": 1
   },

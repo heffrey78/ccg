@@ -3,6 +3,7 @@
   "kind": "card",
   "id": "spore-cloud",
   "name": "Spore Cloud",
+  "art": "assets/cards/spore-cloud.svg",
   "cost": {
     "sap": 1
   },

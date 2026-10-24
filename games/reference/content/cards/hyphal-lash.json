@@ -3,6 +3,7 @@
   "kind": "card",
   "id": "hyphal-lash",
   "name": "Hyphal Lash",
+  "art": "assets/cards/hyphal-lash.svg",
   "cost": {
     "sap": 1
   },
