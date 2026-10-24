@@ -72,6 +72,8 @@ export function describeEvent(e: GameEvent, ctx: EventContext): string | null {
       return `${unit(e.unit)} collides`;
     case 'UnitSpawned':
       return `${name(e.def as string)} enters`;
+    case 'IntentRevealed':
+      return `${unit(e.unit)}'s intent is revealed: ${typeof e.name === 'string' ? e.name : '?'}`;
     case 'UnitConverted':
       return e.side === ctx.side ? `${unit(e.unit)} turns to your side` : `${unit(e.unit)} turns against you`;
     case 'UnitDied':

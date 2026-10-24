@@ -152,15 +152,16 @@ export function Board(props: BoardProps) {
           const p = at.get(u.pos);
           if (!p) return null;
           const mine = u.side === side;
+          const neutral = u.side === 'neutral';
           const intent = intentByUnit.get(u.id);
           const summary = intent ? intentSummaries[intent.id] : undefined;
           const dir = layout.directions[u.facing];
           const canSelect = selectable.has(u.id);
-          const label = `${name(u.def)}, ${mine ? 'yours' : 'enemy'}, ${u.hp} of ${u.maxHp} HP${u.block ? `, ${u.block} block` : ''}${intent ? `, intends ${intent.name ?? 'something'}` : ''}`;
+          const label = `${name(u.def)}, ${mine ? 'yours' : neutral ? 'neutral' : 'enemy'}, ${u.hp} of ${u.maxHp} HP${u.block ? `, ${u.block} block` : ''}${intent ? `, intends ${intent.name ?? 'something'}` : ''}`;
           return (
             <g
               key={u.id}
-              className={['ccg-unit', mine ? 'is-mine' : 'is-enemy', u.passable && 'is-passable', u.dying && 'is-dying', selected === u.id && 'is-selected'].filter(Boolean).join(' ')}
+              className={['ccg-unit', mine ? 'is-mine' : neutral ? 'is-neutral' : 'is-enemy', u.passable && 'is-passable', u.dying && 'is-dying', selected === u.id && 'is-selected'].filter(Boolean).join(' ')}
               style={{ transform: `translate(${p.x}px, ${p.y}px)`, transition }}
               onMouseEnter={() => props.onInspect(u.id)}
               onMouseLeave={() => props.onInspect(null)}

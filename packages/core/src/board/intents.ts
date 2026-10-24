@@ -15,7 +15,7 @@ import { z } from 'zod';
 import type { Effect, GameState, PhaseContext, PhaseDef, SideId, Step } from '../kernel/types.js';
 import { defineOp, type RulesModule } from '../rules/compose.js';
 import { findPath, type Dir, type PatternShape, type Pos, type Topology } from './topology.js';
-import { unitAt, type BoardWorld, type UnitState } from './units.js';
+import { NEUTRAL_SIDE, unitAt, type BoardWorld, type UnitState } from './units.js';
 
 export type Selector = 'nearestEnemy' | 'weakestEnemy' | 'strongestEnemy';
 
@@ -105,7 +105,7 @@ export function intentsModule<W extends BoardWorld & IntentsWorld>(config: Inten
 
   const enemiesOf = (state: GameState<W>, unit: UnitState) =>
     Object.values(state.world.board.units)
-      .filter((u) => u.side !== unit.side)
+      .filter((u) => u.side !== unit.side && u.side !== NEUTRAL_SIDE)
       .sort((a, b) => topo.compare(a.pos, b.pos));
 
   const select = (state: GameState<W>, unit: UnitState, selector: Selector): UnitState | undefined => {
@@ -282,6 +282,12 @@ export function intentsModule<W extends BoardWorld & IntentsWorld>(config: Inten
     resolvePhase: (side, id = `${side}:act`) => ({ id, side, enter: (ctx) => resolveFor(ctx, side) }),
 
     steps: {
+      revealIntent(state, s) {
+        const intent = state.world.intents.declared.find((i) => i.id === s.intent);
+        if (!intent) return [];
+        intent.visibility = 'full';
+        return [{ type: 'IntentRevealed', intent: intent.id, unit: intent.unit, side: intent.side, name: intent.name, target: intent.target ?? null, cells: intent.cells ?? null }];
+      },
       convertUnit(state, s) {
         const u = state.world.board.units[str(s.unit)];
         if (!u) return [];
@@ -384,6 +390,21 @@ export function intentsModule<W extends BoardWorld & IntentsWorld>(config: Inten
           const unit = str(p.unit ?? ctx.item.vars.target);
           const intent = ctx.state.world.intents.declared.find((i) => i.unit === unit);
           if (intent) ctx.step({ kind: 'clearIntent', intent: intent.id, outcome: 'cancelled' });
+        },
+      ),
+      revealIntent: defineOp(
+        {
+          displayName: 'Reveal intent',
+          description: "Show a unit's declared intent (the target's) in full to everyone, target and effects included.",
+          params: z.object({ unit: z.string().min(1).optional() }),
+          text: "Reveal the target's intent.",
+          widgets: { unit: 'unit' },
+          category: 'intents',
+        },
+        (ctx, p) => {
+          const unit = str(p.unit ?? ctx.item.vars.target);
+          const intent = ctx.state.world.intents.declared.find((i) => i.unit === unit);
+          if (intent && intent.visibility !== 'full') ctx.step({ kind: 'revealIntent', intent: intent.id });
         },
       ),
       convert: defineOp(

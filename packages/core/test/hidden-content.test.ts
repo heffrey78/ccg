@@ -43,6 +43,7 @@ const CARDS: Record<string, CardDef> = {
   ambush: { faceDown: true, targeting: { kind: 'self' }, effects: [{ op: 'gainBlock', amount: 3 }] },
   snare: { targeting: { kind: 'tile', range: 9, empty: true }, permanent: { kind: 'trap', unit: 'snare' }, effects: [] },
   filler: { effects: [] },
+  beacon: { targeting: { kind: 'tile', range: 9, empty: true }, permanent: { kind: 'structure', unit: 'snare' }, effects: [] },
   block: { effects: [] },
 };
 
@@ -224,5 +225,16 @@ describe('fog of war vision', () => {
     expect(g.view(null).world.board.vision).toEqual([]);
     expect(g.state.world.board.vision).toBeUndefined();
     expect(game({ units: [HERO('0,0')] }).view('p').world.board.vision).toBeUndefined();
+  });
+});
+
+describe('sight from structures (#106)', () => {
+  it('a structure you own pushes back the fog around it', () => {
+    const g = game({ hand: ['beacon'], units: [HERO('0,0'), FOE('4,4', 'Far')], fog: { kind: 'distance', range: 1 } });
+    expect(Object.keys(g.view('p').world.board.units)).toEqual(['P']);
+    g.play('beacon', '4,3');
+    const view = g.view('p');
+    expect(Object.keys(view.world.board.units)).toContain('Far');
+    expect(view.world.board.vision).toEqual(expect.arrayContaining(['4,3', '4,4', '3,3']));
   });
 });

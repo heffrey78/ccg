@@ -98,6 +98,9 @@ export interface BoardConfig {
   fog?: { kind: 'distance'; range: number } | { kind: 'lineOfSight'; range?: number; unitsBlock?: boolean };
 }
 
+/** Units on this side belong to no one: they never act, aren't anyone's enemy, and don't decide the outcome (#104). */
+export const NEUTRAL_SIDE = 'neutral';
+
 /** What clients need to draw the board: its layout and which tiles block. */
 export interface BoardPresentation extends TopologyLayout {
   tiles: Record<string, { blocking: boolean }>;

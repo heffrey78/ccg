@@ -499,3 +499,61 @@ describe('strains and hybrids (#101)', () => {
     expect(startingStrains(ruleset, 5)).toEqual(startingStrains(ruleset, 5));
   });
 });
+
+describe('neutral units, and revealing intents (#104, #107)', () => {
+  function start(extra: ContentItem[], encounterUnits: object[], deck = ['strike']) {
+    const pkg = contentGame({ player: { ...RULESET.player, deck, handSize: deck.length } });
+    pkg.content.push(...extra, item('encounter', 'test', { units: encounterUnits }));
+    const registry = new PackageRegistry();
+    registry.register(pkg);
+    const resolved = registry.resolve('plain');
+    if (!resolved.ok) throw new Error(resolved.issues[0]?.message);
+    const rules = resolved.game.createRules();
+    const created = createGame(rules, resolved.game.createSetup({ seed: 1, encounter: 'plain:test' }));
+    if (!created.ok) throw new Error(created.error.message);
+    return { rules, state: created.state as GameState<StandardWorld> };
+  }
+
+  it('a neutral stump is no one’s enemy and does not decide the fight, but can be hit', () => {
+    const stump = item('unit', 'stump', { hp: 10 });
+    const weak = item('unit', 'weak', { hp: 3 });
+    const { rules, state } = start([stump, weak], [
+      { unit: 'hero', side: 'player', pos: '0' },
+      { unit: 'stump', side: 'neutral', pos: '1' },
+      { unit: 'foe', side: 'enemy', pos: '3' },
+    ]);
+    // The foe heads for the hero, not the stump next to it.
+    expect(state.world.intents.declared.map((i) => [i.unit, i.target])).toEqual([['enemy1', 'player1']]);
+    const targets = legalActions(rules, state, 'player').filter((a) => a.type === 'playCard').map((a) => a.target);
+    expect(targets).toEqual(['neutral1']);
+
+    const won = start([weak], [
+      { unit: 'hero', side: 'player', pos: '0' },
+      { unit: 'weak', side: 'enemy', pos: '1' },
+      { unit: 'foe', side: 'neutral', pos: '4' },
+    ]);
+    const strike = legalActions(won.rules, won.state, 'player').find((a) => a.type === 'playCard' && a.target === 'enemy1');
+    const result = apply(won.rules, won.state, strike!);
+    expect(result.ok && result.state.outcome?.winners).toEqual(['player']);
+  });
+
+  it('revealIntent shows a partial intent in full', () => {
+    const sneak = item('unit', 'sneak', {
+      hp: 10,
+      behavior: { kind: 'intent', intent: { name: 'Ambush', visibility: 'partial', target: { kind: 'unit', select: 'nearestEnemy' }, effects: [{ op: 'damage', amount: 3 }] } },
+    });
+    const flare = item('card', 'flare', { targeting: { kind: 'unit', filter: 'enemy' }, effects: [{ op: 'revealIntent' }] });
+    const { rules, state } = start([sneak, flare], [
+      { unit: 'hero', side: 'player', pos: '0' },
+      { unit: 'sneak', side: 'enemy', pos: '3' },
+    ], ['flare']);
+    const before = viewState(rules, state, 'player').world.intents.declared[0];
+    expect(before).toMatchObject({ name: 'Ambush', visibility: 'partial' });
+    expect(before).not.toHaveProperty('target');
+    const play = legalActions(rules, state, 'player').find((a) => a.type === 'playCard');
+    const result = apply(rules, state, play!);
+    if (!result.ok) throw new Error(result.error.message);
+    expect(result.events.some((e) => e.type === 'IntentRevealed' && e.target === 'player1')).toBe(true);
+    expect(viewState(rules, result.state, 'player').world.intents.declared[0]).toMatchObject({ name: 'Ambush', target: 'player1', visibility: 'full' });
+  });
+});

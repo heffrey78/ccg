@@ -154,6 +154,7 @@ export const CSS = `
 .ccg-paint-tile { font-size: 9px; fill: var(--ink); pointer-events: none; }
 .ccg-paint-unit.is-player { fill: var(--accent); }
 .ccg-paint-unit.is-enemy { fill: var(--danger); }
+.ccg-paint-unit.is-neutral { fill: var(--muted); }
 .ccg-paint-label { font-size: 9px; font-weight: 700; fill: #fff; pointer-events: none; }
 .ccg-paint-facing { fill: var(--ink); opacity: .7; pointer-events: none; }
 .ccg-debugger { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; display: flex; flex-direction: column; gap: 8px; }
