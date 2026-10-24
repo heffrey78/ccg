@@ -4,7 +4,7 @@
  * works with the mouse and the keyboard:
  *
  *   1–9 select a hand card · ←/→ cycle targets · Enter confirm · Esc cancel
- *   M select a unit to move · E end turn · P pass · Z undo · S or Space skip animation
+ *   M select a unit to move · E end turn · P pass · Z undo
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { Action, GameEvent } from '@ccg/core';
@@ -180,11 +180,6 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, onAct, onQuit, 
     const onKey = (e: KeyboardEvent) => {
       if (isTyping(e.target) || e.ctrlKey || e.metaKey || e.altKey) return;
       const key = e.key.toLowerCase();
-      if ((key === 's' || (key === ' ' && !isControl(e.target))) && playing) {
-        e.preventDefault();
-        playback.skip();
-        return;
-      }
       if (/^[1-9]$/.test(key)) {
         const card = hand[Number(key) - 1];
         if (card && o.cards.has(card)) choose({ kind: 'card', card });
@@ -333,11 +328,6 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, onAct, onQuit, 
             />
           ) : (
             <p className="ccg-muted">This game has no board layout; use the debug view.</p>
-          )}
-          {playing && (
-            <button type="button" className="ccg-skip" aria-keyshortcuts="S" onClick={() => playback.skip()}>
-              Skip animation
-            </button>
           )}
         </div>
 

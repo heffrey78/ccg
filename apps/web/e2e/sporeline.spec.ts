@@ -21,3 +21,15 @@ test('Sporeline starts a run on its fungal network: a lane of 9 in the dark, bug
   // The leafcutters march out of the dark.
   await expect(page.locator('[data-unit][aria-label^="Leafcutter"]').first()).toBeVisible();
 });
+
+test('hovering a unit shows its details without moving the log or the hand', async ({ page }) => {
+  await page.goto('/?seed=3');
+  await page.getByRole('button', { name: /^Sporeline/ }).click();
+  await expect(page.getByRole('status')).toHaveText('Your decision');
+  const log = page.getByRole('region', { name: 'Log' });
+  const hand = page.getByRole('list', { name: 'Hand' });
+  const before = [(await log.boundingBox())?.y, (await hand.boundingBox())?.y];
+  await page.locator('[data-unit][aria-label^="The Knot"]').hover();
+  await expect(page.getByRole('region', { name: 'Unit details' }).getByRole('heading', { name: 'The Knot' })).toBeVisible();
+  expect([(await log.boundingBox())?.y, (await hand.boundingBox())?.y]).toEqual(before);
+});

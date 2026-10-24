@@ -37,9 +37,10 @@ export const CSS = `
 @media (max-width: 760px) { .ccg-main { grid-template-columns: 1fr; } }
 .ccg-stage { position: relative; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px; box-shadow: var(--shadow); }
 .ccg-banner { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); margin: 0; padding: 4px 14px; border-radius: 999px; background: var(--ink); color: var(--bg); font-weight: 600; z-index: 1; animation: ccg-pop .2s ease-out; }
-.ccg-skip { position: absolute; right: 10px; bottom: 10px; }
 .ccg-side { display: flex; flex-direction: column; gap: 12px; }
 .ccg-side > section, .ccg-inspector { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; box-shadow: var(--shadow); }
+/* A fixed height, so hovering a unit never moves the log or the hand below it. */
+.ccg-inspector { height: 11rem; overflow-y: auto; box-sizing: border-box; }
 .ccg-inspector h3 { margin: 0 0 4px; }
 .ccg-inspector p { margin: 4px 0; }
 .ccg-status-list { margin: 4px 0; padding-left: 18px; }
