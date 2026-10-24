@@ -1,0 +1,71 @@
+{
+  "formatVersion": 1,
+  "kind": "unit",
+  "id": "aphid-herder",
+  "name": "Aphid Herder",
+  "behavior": {
+    "kind": "if",
+    "cond": {
+      "kind": "enemyWithin",
+      "range": 1
+    },
+    "else": {
+      "kind": "intent",
+      "intent": {
+        "name": "March",
+        "effects": [
+          {
+            "op": "approach",
+            "distance": 2
+          }
+        ],
+        "target": {
+          "kind": "unit",
+          "select": "nearestEnemy"
+        }
+      }
+    },
+    "then": {
+      "kind": "sequence",
+      "steps": [
+        {
+          "kind": "intent",
+          "intent": {
+            "name": "Bite",
+            "effects": [
+              {
+                "op": "damage",
+                "amount": 8
+              }
+            ],
+            "target": {
+              "kind": "unit",
+              "range": 1,
+              "select": "nearestEnemy"
+            }
+          }
+        },
+        {
+          "kind": "intent",
+          "intent": {
+            "name": "Rally",
+            "effects": [
+              {
+                "op": "gainBlock",
+                "amount": 6
+              },
+              {
+                "op": "heal",
+                "amount": 4
+              }
+            ],
+            "target": {
+              "kind": "self"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "hp": 14
+}

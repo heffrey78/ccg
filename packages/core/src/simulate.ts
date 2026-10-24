@@ -9,7 +9,21 @@ import type { CardsWorld } from './cards/zones.js';
 import { apply, createGame, decidingSide, legalActions } from './kernel/engine.js';
 import type { GameState, SideId } from './kernel/types.js';
 import type { ResolvedGame } from './packages/registry.js';
-import { sidesOf, type RulesetDef } from './standard.js';
+import { Rng, seedRng } from './rng.js';
+import { standardInput } from './packages/registry.js';
+import {
+  COMBAT_NODES,
+  fruitingOffer,
+  junctionOffer,
+  runMapOf,
+  runRewards,
+  sidesOf,
+  startingStrains,
+  strainsOf,
+  type RulesetDef,
+  type RunCard,
+  type RunNode,
+} from './standard.js';
 
 export type Bot = 'random' | 'greedy';
 
@@ -154,4 +168,87 @@ export function summarize(records: GameRecord[]): SimSummary {
     averageTaken: records.reduce((s, r) => s + r.taken, 0) / n,
     enemyLethality: perGame(lethality),
   };
+}
+
+export interface RunRecord {
+  seed: string | number;
+  won: boolean;
+  /** Node ids entered, in order. */
+  path: string[];
+  /** The player's HP when the run ended. */
+  hp: number;
+  /** The deck at the end, by card definition. */
+  deck: string[];
+}
+
+/**
+ * Plays a whole run (#47, #100): fights each combat node with the bot, takes
+ * the first reward or junction strain on offer, heals at springs, upgrades at
+ * fruiting logs, and follows a seeded random path through the map.
+ */
+export function simulateRun<W>(game: ResolvedGame<W>, seed: string | number, bot: Bot = 'greedy', maxActions = 1000): RunRecord {
+  const prefix = `${game.root.id}:`;
+  const rulesetItem = game.items.find((i) => i.kind === 'ruleset' && i.id.startsWith(prefix));
+  if (!rulesetItem) throw new Error('the game has no ruleset');
+  const ruleset = game.definitions.rulesets[rulesetItem.id] as RulesetDef;
+  const input = standardInput(game);
+  const map = runMapOf(ruleset);
+  if (!map) throw new Error('the ruleset has no run');
+  const q = (ref: string) => (ref.includes(':') ? ref : `${prefix}${ref}`);
+  const sides = sidesOf(ruleset);
+  const rules = game.createRules();
+  const pathRng = new Rng(seedRng(`path:${String(seed)}`));
+  let deck: RunCard[] = ruleset.player.deck.map((def) => ({ def: q(def) }));
+  let unlocked = startingStrains(ruleset, seed);
+  const hp: Record<string, number> = {};
+  const record: RunRecord = { seed, won: false, path: [], hp: 0, deck: [] };
+  let node: RunNode | undefined = map.nodes.find((n) => n.id === map.start);
+
+  while (node) {
+    record.path.push(node.id);
+    const stage = record.path.length - 1;
+    const defs = () => deck.map((c) => c.def);
+    if (COMBAT_NODES.has(node.kind)) {
+      const created = createGame(rules, game.createSetup({ seed: `${String(seed)}:${stage}`, encounter: q(node.encounter as string), deck, ...(Object.keys(hp).length > 0 && { hp }) }));
+      if (!created.ok) throw new Error(created.error.message);
+      let state = created.state as unknown as GameState<World>;
+      const player: StatePolicy<World> = bot === 'greedy' ? greedyPolicy<World>(playerScore(sides)) : randomPolicy<World>(`sim:${String(seed)}:${stage}`);
+      const ai = randomPolicy<World>(`sim-ai:${String(seed)}:${stage}`);
+      for (let n = 0; !state.outcome && n < maxActions; n++) {
+        const side = decidingSide(rules as never, state);
+        if (side === null) break;
+        const actions = legalActions(rules as never, state, side);
+        if (actions.length === 0) break;
+        const result = apply(rules as never, state, (side === sides.player ? player : ai).choose(rules as never, state, side, actions));
+        if (!result.ok) throw new Error(result.error.message);
+        state = result.state as unknown as GameState<World>;
+      }
+      const mine = Object.values(state.world.board.units).filter((u) => u.side === sides.player);
+      record.hp = mine.reduce((n, u) => n + u.hp, 0);
+      if (!state.outcome?.winners.includes(sides.player)) return { ...record, deck: defs() };
+      if (ruleset.run?.carryHp ?? true) for (const u of mine) hp[u.def] = u.hp;
+      if (node.kind === 'boss' || node.next.length === 0) return { ...record, won: true, deck: defs() };
+      const offer = runRewards(ruleset, input, q(node.encounter as string), seed, stage, { unlocked, deck: defs() });
+      if (offer[0]) deck = [...deck, { def: offer[0] }];
+    } else if (node.kind === 'junction') {
+      const offer = junctionOffer(ruleset, input, unlocked, seed, stage);
+      if (offer[0]) {
+        deck = [...deck, { def: offer[0] }];
+        unlocked = [...new Set([...unlocked, ...strainsOf(ruleset, input, offer[0])])];
+      }
+    } else if (node.kind === 'spring') {
+      for (const [def, now] of Object.entries(hp)) {
+        const max = game.definitions.units[def]?.hp ?? now;
+        hp[def] = Math.min(max, now + Math.ceil(max * 0.3));
+      }
+    } else if (node.kind === 'fruiting') {
+      const hybrid = fruitingOffer(ruleset, input, { unlocked, deck: defs() }, seed, stage)[0];
+      const upgradable = deck.findIndex((c) => !c.upgraded && game.definitions.cards[c.def]?.upgrade);
+      if (hybrid) deck = [...deck, { def: hybrid }];
+      else if (upgradable >= 0) deck = deck.map((c, i) => (i === upgradable ? { ...c, upgraded: true } : c));
+    }
+    const next = node.next.length === 0 ? null : pathRng.pick(node.next);
+    node = next === null ? undefined : map.nodes.find((n) => n.id === next);
+  }
+  return { ...record, won: true, deck: deck.map((c) => c.def) };
 }

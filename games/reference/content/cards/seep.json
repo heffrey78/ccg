@@ -1,0 +1,22 @@
+{
+  "formatVersion": 1,
+  "kind": "card",
+  "id": "seep",
+  "name": "Seep",
+  "cost": {
+    "sap": 1
+  },
+  "effects": [
+    {
+      "op": "heal",
+      "amount": 4
+    }
+  ],
+  "rarity": "common",
+  "tags": [
+    "rootdrinker"
+  ],
+  "targeting": {
+    "kind": "self"
+  }
+}

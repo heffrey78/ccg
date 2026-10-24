@@ -1,0 +1,29 @@
+{
+  "formatVersion": 1,
+  "kind": "card",
+  "id": "burst",
+  "name": "Burst",
+  "cost": {
+    "sap": 1
+  },
+  "effects": [
+    {
+      "op": "push",
+      "distance": 3
+    },
+    {
+      "op": "applyStatus",
+      "stacks": 1,
+      "status": "rot"
+    }
+  ],
+  "rarity": "common",
+  "tags": [
+    "puffball"
+  ],
+  "targeting": {
+    "kind": "unit",
+    "filter": "enemy",
+    "range": 1
+  }
+}

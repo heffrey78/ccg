@@ -1,0 +1,35 @@
+{
+  "formatVersion": 1,
+  "kind": "card",
+  "id": "spore-cloud",
+  "name": "Spore Cloud",
+  "cost": {
+    "sap": 1
+  },
+  "effects": [],
+  "permanent": {
+    "kind": "aura",
+    "duration": 2,
+    "statics": [
+      {
+        "kind": "damage",
+        "add": -2,
+        "affects": "enemies",
+        "area": {
+          "kind": "area",
+          "includeOrigin": true,
+          "radius": 1
+        },
+        "on": "damageDealt"
+      }
+    ]
+  },
+  "rarity": "common",
+  "tags": [
+    "puffball"
+  ],
+  "targeting": {
+    "kind": "tile",
+    "range": 3
+  }
+}

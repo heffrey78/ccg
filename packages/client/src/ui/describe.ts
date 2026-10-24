@@ -49,7 +49,7 @@ export function describeEvent(e: GameEvent, ctx: EventContext): string | null {
       if (e.kind === 'hidden' || e.secret) return `${who(e.controller)} played a face-down card`;
       const card = typeof e.source === 'string' ? ctx.cardDefs[e.source] : undefined;
       if (card) return `${who(e.controller)} played ${name(card)}`;
-      if (e.kind === 'intent') return `${unit(e.source)}: ${ctx.intentNames[e.source as string] ?? 'acts'}`;
+      if (e.kind === 'intent') return typeof e.source === 'string' ? `${unit(e.source)}: ${ctx.intentNames[e.source] ?? 'acts'}` : 'Something unseen acts';
       return null;
     }
     case 'CardRevealed':

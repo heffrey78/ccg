@@ -1,0 +1,35 @@
+{
+  "formatVersion": 1,
+  "kind": "card",
+  "id": "spore-puff",
+  "name": "Spore Puff",
+  "cost": {
+    "sap": 1
+  },
+  "effects": [
+    {
+      "op": "applyStatus",
+      "stacks": 2,
+      "status": "rot"
+    }
+  ],
+  "rarity": "basic",
+  "tags": [
+    "knot"
+  ],
+  "targeting": {
+    "kind": "unit",
+    "filter": "enemy",
+    "range": 2
+  },
+  "upgrade": {
+    "name": "Spore Puff+",
+    "effects": [
+      {
+        "op": "applyStatus",
+        "stacks": 3,
+        "status": "rot"
+      }
+    ]
+  }
+}

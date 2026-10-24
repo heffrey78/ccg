@@ -1,0 +1,26 @@
+{
+  "formatVersion": 1,
+  "kind": "card",
+  "id": "hivemind",
+  "name": "Hivemind",
+  "cost": {
+    "sap": 1
+  },
+  "effects": [
+    {
+      "op": "gainBlock",
+      "amount": 3
+    },
+    {
+      "op": "draw",
+      "n": 2
+    }
+  ],
+  "rarity": "common",
+  "tags": [
+    "cordyceps"
+  ],
+  "targeting": {
+    "kind": "self"
+  }
+}

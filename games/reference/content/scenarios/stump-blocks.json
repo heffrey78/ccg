@@ -1,0 +1,23 @@
+{
+  "formatVersion": 1,
+  "kind": "scenario",
+  "id": "stump-blocks",
+  "name": "A stump is no one's enemy",
+  "encounter": "borer-nest",
+  "expect": [
+    {
+      "kind": "unit",
+      "hp": {
+        "max": 8,
+        "min": 8
+      },
+      "side": "neutral",
+      "unit": "stump"
+    },
+    {
+      "kind": "outcome",
+      "winner": "none"
+    }
+  ],
+  "seed": 1
+}

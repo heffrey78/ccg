@@ -1,0 +1,30 @@
+{
+  "formatVersion": 1,
+  "kind": "status",
+  "id": "rot",
+  "name": "Rot",
+  "description": "At the start of each round, takes damage equal to its Rot, then loses one stack.",
+  "hooks": [
+    {
+      "effects": [
+        {
+          "op": "damage",
+          "amount": {
+            "$": "stacks"
+          },
+          "target": {
+            "$": "holder"
+          }
+        },
+        {
+          "op": "removeStatus",
+          "stacks": 1,
+          "status": "rot"
+        }
+      ],
+      "on": "RoundStarted",
+      "scope": "any"
+    }
+  ],
+  "stacking": "intensity"
+}

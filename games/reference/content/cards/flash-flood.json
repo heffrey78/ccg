@@ -1,0 +1,29 @@
+{
+  "formatVersion": 1,
+  "kind": "card",
+  "id": "flash-flood",
+  "name": "Flash Flood",
+  "cost": {
+    "sap": 2
+  },
+  "effects": [
+    {
+      "op": "push",
+      "distance": 3
+    },
+    {
+      "op": "applyStatus",
+      "stacks": 1,
+      "status": "soaked"
+    }
+  ],
+  "rarity": "uncommon",
+  "tags": [
+    "rootdrinker"
+  ],
+  "targeting": {
+    "kind": "unit",
+    "filter": "enemy",
+    "range": 9
+  }
+}

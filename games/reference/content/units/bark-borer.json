@@ -1,0 +1,54 @@
+{
+  "formatVersion": 1,
+  "kind": "unit",
+  "id": "bark-borer",
+  "name": "Bark Borer",
+  "behavior": {
+    "kind": "if",
+    "cond": {
+      "kind": "enemyWithin",
+      "range": 1
+    },
+    "else": {
+      "kind": "intent",
+      "intent": {
+        "name": "Tunnel",
+        "effects": [
+          {
+            "op": "approach",
+            "distance": 2
+          },
+          {
+            "op": "gainBlock",
+            "amount": 3,
+            "unit": {
+              "$": "self"
+            }
+          }
+        ],
+        "target": {
+          "kind": "unit",
+          "select": "nearestEnemy"
+        }
+      }
+    },
+    "then": {
+      "kind": "intent",
+      "intent": {
+        "name": "Gnaw",
+        "effects": [
+          {
+            "op": "damage",
+            "amount": 11
+          }
+        ],
+        "target": {
+          "kind": "unit",
+          "range": 1,
+          "select": "nearestEnemy"
+        }
+      }
+    }
+  },
+  "hp": 18
+}

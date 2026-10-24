@@ -1,0 +1,39 @@
+{
+  "formatVersion": 1,
+  "kind": "card",
+  "id": "bog-rot",
+  "name": "Bog Rot",
+  "cost": {
+    "sap": 2
+  },
+  "effects": [
+    {
+      "op": "push",
+      "distance": 2
+    },
+    {
+      "op": "applyStatus",
+      "stacks": 3,
+      "status": "rot"
+    },
+    {
+      "op": "applyStatus",
+      "stacks": 1,
+      "status": "soaked"
+    }
+  ],
+  "rarity": "rare",
+  "requires": [
+    "rootdrinker",
+    "rotcap"
+  ],
+  "tags": [
+    "rootdrinker",
+    "rotcap"
+  ],
+  "targeting": {
+    "kind": "unit",
+    "filter": "enemy",
+    "range": 4
+  }
+}

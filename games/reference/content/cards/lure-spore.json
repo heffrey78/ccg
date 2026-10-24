@@ -1,0 +1,61 @@
+{
+  "formatVersion": 1,
+  "kind": "card",
+  "id": "lure-spore",
+  "name": "Lure Spore",
+  "cost": {
+    "sap": 1
+  },
+  "effects": [],
+  "permanent": {
+    "kind": "trap",
+    "abilities": [
+      {
+        "kind": "triggered",
+        "consume": true,
+        "effects": [
+          {
+            "op": "readUnit",
+            "unit": {
+              "$": "event.unit"
+            }
+          },
+          {
+            "op": "if",
+            "cond": {
+              "kind": "compare",
+              "cmp": "<=",
+              "left": {
+                "$": "unit.hp"
+              },
+              "right": 10
+            },
+            "then": [
+              {
+                "op": "convert",
+                "unit": {
+                  "$": "event.unit"
+                }
+              }
+            ]
+          }
+        ],
+        "halt": true,
+        "on": "UnitEnteredTile",
+        "onTile": true,
+        "scope": "enemy",
+        "timing": "when"
+      }
+    ],
+    "unit": "lure-trap"
+  },
+  "rarity": "rare",
+  "tags": [
+    "cordyceps"
+  ],
+  "targeting": {
+    "kind": "tile",
+    "empty": true,
+    "range": 3
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "formatVersion": 1,
+  "kind": "card",
+  "id": "foresight",
+  "name": "Foresight",
+  "cost": {
+    "sap": 1
+  },
+  "effects": [
+    {
+      "op": "gainBlock",
+      "amount": 6
+    }
+  ],
+  "rarity": "uncommon",
+  "reaction": {
+    "kind": [
+      "intent"
+    ],
+    "targetsYou": true
+  },
+  "tags": [
+    "glowcap"
+  ],
+  "targeting": {
+    "kind": "self"
+  },
+  "timing": "reaction"
+}

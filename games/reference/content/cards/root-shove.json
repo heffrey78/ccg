@@ -1,0 +1,33 @@
+{
+  "formatVersion": 1,
+  "kind": "card",
+  "id": "root-shove",
+  "name": "Root Shove",
+  "cost": {
+    "sap": 1
+  },
+  "effects": [
+    {
+      "op": "push",
+      "distance": 2
+    }
+  ],
+  "rarity": "basic",
+  "tags": [
+    "knot"
+  ],
+  "targeting": {
+    "kind": "unit",
+    "filter": "enemy",
+    "range": 1
+  },
+  "upgrade": {
+    "name": "Root Shove+",
+    "effects": [
+      {
+        "op": "push",
+        "distance": 3
+      }
+    ]
+  }
+}

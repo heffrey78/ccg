@@ -1,0 +1,26 @@
+{
+  "formatVersion": 1,
+  "kind": "encounter",
+  "id": "practice-den",
+  "name": "Practice Den",
+  "units": [
+    {
+      "facing": "e",
+      "pos": "0",
+      "side": "player",
+      "unit": "knot"
+    },
+    {
+      "facing": "w",
+      "pos": "1",
+      "side": "enemy",
+      "unit": "leafcutter"
+    },
+    {
+      "facing": "w",
+      "pos": "4",
+      "side": "neutral",
+      "unit": "stump"
+    }
+  ]
+}

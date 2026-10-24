@@ -1,0 +1,26 @@
+{
+  "formatVersion": 1,
+  "kind": "card",
+  "id": "waterlogged-hyphae",
+  "name": "Waterlogged Hyphae",
+  "cost": {
+    "sap": 1
+  },
+  "effects": [],
+  "permanent": {
+    "kind": "attachment",
+    "statics": [
+      {
+        "kind": "maxHp",
+        "amount": 6
+      }
+    ]
+  },
+  "rarity": "uncommon",
+  "tags": [
+    "rootdrinker"
+  ],
+  "targeting": {
+    "kind": "self"
+  }
+}

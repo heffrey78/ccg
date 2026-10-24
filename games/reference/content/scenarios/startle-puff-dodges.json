@@ -1,0 +1,39 @@
+{
+  "formatVersion": 1,
+  "kind": "scenario",
+  "id": "startle-puff-dodges",
+  "name": "Startle Puff pushes a biting bug away, so its bite misses",
+  "actions": [
+    {
+      "side": "player",
+      "type": "endTurn"
+    },
+    {
+      "card": "card1",
+      "side": "player",
+      "target": "enemy1",
+      "type": "playCard"
+    }
+  ],
+  "deck": [],
+  "encounter": "practice-den",
+  "expect": [
+    {
+      "kind": "unit",
+      "hp": {
+        "max": 40,
+        "min": 40
+      },
+      "unit": "knot"
+    },
+    {
+      "kind": "unit",
+      "pos": "2",
+      "unit": "leafcutter"
+    }
+  ],
+  "hand": [
+    "startle-puff"
+  ],
+  "seed": 1
+}

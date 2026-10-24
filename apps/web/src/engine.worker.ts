@@ -4,9 +4,14 @@
 import { createEngineHost, serveEngine } from '@ccg/client/engine';
 import sandbox from '@ccg/game-sandbox';
 
-// The content-only example game ships as its files, loaded like an editor export.
-const duel = import.meta.glob('../../../examples/duel/**/*.json', { eager: true, query: '?raw', import: 'default' }) as Record<string, string>;
+// Content-only games ship as their files, loaded like an editor export: the
+// Duel example and Sporeline, the reference game.
 const encoder = new TextEncoder();
-const duelFiles = Object.fromEntries(Object.entries(duel).map(([path, text]) => [path.replace('../../../examples/duel/', ''), encoder.encode(text)]));
+const filesOf = (raw: Record<string, string>, root: string) => Object.fromEntries(Object.entries(raw).map(([path, text]) => [path.replace(root, ''), encoder.encode(text)]));
+const duel = filesOf(import.meta.glob('../../../examples/duel/**/*.json', { eager: true, query: '?raw', import: 'default' }) as Record<string, string>, '../../../examples/duel/');
+const sporeline = filesOf(
+  import.meta.glob(['../../../games/reference/game.json', '../../../games/reference/content/**/*.json'], { eager: true, query: '?raw', import: 'default' }) as Record<string, string>,
+  '../../../games/reference/',
+);
 
-serveEngine(createEngineHost({ packages: [sandbox as never], files: [duelFiles] }), self as unknown as DedicatedWorkerGlobalScope);
+serveEngine(createEngineHost({ packages: [sandbox as never], files: [duel, sporeline] }), self as unknown as DedicatedWorkerGlobalScope);

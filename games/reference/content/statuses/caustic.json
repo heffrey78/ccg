@@ -1,0 +1,34 @@
+{
+  "formatVersion": 1,
+  "kind": "status",
+  "id": "caustic",
+  "name": "Caustic",
+  "description": "When hit, sprays 3 damage back at whoever hit it.",
+  "hooks": [
+    {
+      "effects": [
+        {
+          "op": "if",
+          "cond": {
+            "kind": "truthy",
+            "value": {
+              "$": "event.by"
+            }
+          },
+          "then": [
+            {
+              "op": "damage",
+              "amount": 3,
+              "target": {
+                "$": "event.by"
+              }
+            }
+          ]
+        }
+      ],
+      "on": "DamageDealt",
+      "scope": "self"
+    }
+  ],
+  "stacking": "none"
+}

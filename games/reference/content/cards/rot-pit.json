@@ -1,0 +1,44 @@
+{
+  "formatVersion": 1,
+  "kind": "card",
+  "id": "rot-pit",
+  "name": "Rot Pit",
+  "cost": {
+    "sap": 1
+  },
+  "effects": [],
+  "permanent": {
+    "kind": "trap",
+    "abilities": [
+      {
+        "kind": "triggered",
+        "consume": true,
+        "effects": [
+          {
+            "op": "applyStatus",
+            "stacks": 3,
+            "status": "rot",
+            "unit": {
+              "$": "event.unit"
+            }
+          }
+        ],
+        "halt": true,
+        "on": "UnitEnteredTile",
+        "onTile": true,
+        "scope": "enemy",
+        "timing": "when"
+      }
+    ],
+    "unit": "rot-pit-trap"
+  },
+  "rarity": "common",
+  "tags": [
+    "rotcap"
+  ],
+  "targeting": {
+    "kind": "tile",
+    "empty": true,
+    "range": 3
+  }
+}

@@ -182,6 +182,15 @@ describe('fog of war', () => {
     expect(Object.keys(g.view('e').world.board.units).sort()).toEqual(['Far', 'Near', 'P']);
   });
 
+  it('an unseen unit’s intent is announced without naming it', () => {
+    const g = game({ units: [HERO('0,0'), FOE('4,4', 'Far'), FOE('0,1', 'Near')], fog: { kind: 'distance', range: 1 } });
+    const announce = (source: string) => ({ type: 'ItemAnnounced', item: 'item9', kind: 'intent', controller: 'e', source, cause: { action: 0 } });
+    const [far, near] = redactEvents(g.rules, [announce('Far'), announce('Near')], 'p', g.state);
+    expect(far).toMatchObject({ type: 'ItemAnnounced', kind: 'intent', source: null });
+    expect(near).toMatchObject({ source: 'Near' });
+    expect(redactEvents(g.rules, [announce('Far')], 'e', g.state)[0]).toMatchObject({ source: 'Far' });
+  });
+
   it('line of sight is blocked by walls, and by units when configured', () => {
     const units = [HERO('0,2'), FOE('4,2', 'Behind'), FOE('2,0', 'Open')];
     const walls = game({ units, tiles: { '2,2': 'wall' }, fog: { kind: 'lineOfSight' } });

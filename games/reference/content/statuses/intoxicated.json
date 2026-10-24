@@ -1,0 +1,14 @@
+{
+  "formatVersion": 1,
+  "kind": "status",
+  "id": "intoxicated",
+  "name": "Intoxicated",
+  "description": "Deals 3 less damage.",
+  "modifiers": [
+    {
+      "add": -3,
+      "on": "damageDealt"
+    }
+  ],
+  "stacking": "duration"
+}

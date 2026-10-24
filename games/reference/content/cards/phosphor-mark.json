@@ -1,0 +1,28 @@
+{
+  "formatVersion": 1,
+  "kind": "card",
+  "id": "phosphor-mark",
+  "name": "Phosphor Mark",
+  "cost": {
+    "sap": 1
+  },
+  "effects": [
+    {
+      "op": "revealIntent"
+    },
+    {
+      "op": "applyStatus",
+      "stacks": 1,
+      "status": "soaked"
+    }
+  ],
+  "rarity": "common",
+  "tags": [
+    "glowcap"
+  ],
+  "targeting": {
+    "kind": "unit",
+    "filter": "enemy",
+    "range": 4
+  }
+}

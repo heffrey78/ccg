@@ -1,0 +1,26 @@
+{
+  "formatVersion": 1,
+  "kind": "card",
+  "id": "glimpse",
+  "name": "Glimpse",
+  "cost": {
+    "sap": 0
+  },
+  "effects": [
+    {
+      "op": "peek",
+      "n": 3
+    },
+    {
+      "op": "draw",
+      "n": 1
+    }
+  ],
+  "rarity": "common",
+  "tags": [
+    "glowcap"
+  ],
+  "targeting": {
+    "kind": "none"
+  }
+}
