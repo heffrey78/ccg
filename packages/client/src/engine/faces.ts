@@ -31,5 +31,16 @@ export function cardFace(item: ContentItem, ops: OpRegistry, options: FaceOption
   };
   const art = typeof item.art === 'string' ? options.art?.(item.art) : undefined;
   if (art) face.art = art;
+  if (def.upgrade) {
+    const upgrade = item.upgrade as { name?: string; cost?: Record<string, number>; effects?: unknown[] };
+    const upgraded = {
+      ...item,
+      name: upgrade.name ?? `${item.name}+`,
+      ...(upgrade.cost && { cost: upgrade.cost }),
+      ...(upgrade.effects && { effects: upgrade.effects }),
+    } as ContentItem;
+    const { upgrade: _u, ...rest } = upgraded as ContentItem & { upgrade?: unknown };
+    face.upgrade = cardFace(rest as ContentItem, ops, options);
+  }
   return face;
 }

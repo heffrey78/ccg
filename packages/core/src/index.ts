@@ -93,6 +93,7 @@ export { isGamePackage, isPlayable, qualify, type AssetResolver, type GamePackag
 export {
   COMBAT_NODES,
   eligible,
+  fruitingOffer,
   junctionOffer,
   startingStrains,
   strainsOf,
@@ -105,6 +106,7 @@ export {
   standardSetup,
   topologyOf,
   type RulesetDef,
+  type RunCard,
   type RunMap,
   type RunNode,
   type RunNodeKind,

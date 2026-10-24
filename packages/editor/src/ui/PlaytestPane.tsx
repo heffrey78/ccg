@@ -182,6 +182,7 @@ export function PlaytestPane({ project, problems, engine, tryCard, onSaveScenari
               onChooseReward={(card) => void attempt(() => engine.chooseReward(card), false)}
               onUndo={() => void attempt(() => engine.undo())}
               onChooseNode={(node) => void attempt(() => engine.chooseNode(node), false)}
+              onChooseService={(choice) => void attempt(() => engine.chooseService(choice), false)}
             />
           )}
         </div>

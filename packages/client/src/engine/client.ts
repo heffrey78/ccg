@@ -4,7 +4,7 @@
  * while AI thinks) or `localTransport` to run the host in-process.
  */
 import type { EngineHost } from './host.js';
-import type { DebugInfo, EngineReply, EngineRequest, GameListing, Snapshot } from './protocol.js';
+import type { DebugInfo, EngineReply, EngineRequest, GameListing, ServiceChoice, Snapshot } from './protocol.js';
 import type { Action } from '@ccg/core';
 
 export interface EngineTransport {
@@ -107,6 +107,11 @@ export class EngineClient {
   /** In a branching run: go to one of the offered next nodes. */
   chooseNode(node: string): Promise<Snapshot> {
     return this.snapshot({ type: 'chooseNode', node });
+  }
+
+  /** At a spring or fruiting log: heal, remove, take, upgrade, or leave. */
+  chooseService(choice: ServiceChoice): Promise<Snapshot> {
+    return this.snapshot({ type: 'chooseService', choice });
   }
 
   /** Takes back the player's last action, when the game allows it. */

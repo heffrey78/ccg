@@ -84,6 +84,7 @@ export function App({ engine, platform, seed, renderers, encounter }: AppProps) 
           onQuit={() => setSnapshot(null)}
           onDebug={() => setDebug(true)}
           onUndo={() => void run(() => engine.undo())}
+          onChooseService={(choice) => void run(() => engine.chooseService(choice))}
           onChooseNode={(node) => {
             setLog([]);
             void run(() => engine.chooseNode(node));

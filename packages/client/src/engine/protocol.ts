@@ -26,6 +26,8 @@ export type EngineRequest =
   | { type: 'chooseReward'; card: string | null }
   /** In a branching run: go to one of the next nodes. */
   | { type: 'chooseNode'; node: string }
+  /** At a spring (heal or remove a card) or fruiting log (take a hybrid or upgrade a card), or leave (#103). */
+  | { type: 'chooseService'; choice: ServiceChoice }
   /** Takes back the player's last action, when the game allows it (#83). */
   | { type: 'undo' }
   /** Debug hosts only (#46): the authoritative state after `at` actions (default: now), with every action's events. */
@@ -45,6 +47,8 @@ export interface CardFace {
   keywords: string[];
   /** The card's tags, e.g. its strain. */
   tags: string[];
+  /** The card once upgraded, if it can be. */
+  upgrade?: CardFace;
   /** Activated ability names by ability index, for a permanent card. */
   abilities: Record<string, string>;
   art?: string;
@@ -89,13 +93,24 @@ export interface Snapshot {
   canUndo: boolean;
 }
 
+export type ServiceChoice =
+  | { action: 'heal' }
+  | { action: 'remove'; index: number }
+  | { action: 'take'; card: string }
+  | { action: 'upgrade'; index: number }
+  | { action: 'leave' };
+
 export interface RunProgress {
   /** Nodes entered so far (the current one included). */
   stage: number;
   /** The run's length: the most nodes any path visits. */
   total: number;
-  /** `reward`: won, choose a card; `map`: choose the next node; `won`/`lost`: the run is over. */
-  status: 'playing' | 'reward' | 'map' | 'won' | 'lost';
+  /** `reward`: won, choose a card; `map`: choose the next node; `service`: at a spring or fruiting log; `won`/`lost`: over. */
+  status: 'playing' | 'reward' | 'map' | 'service' | 'won' | 'lost';
+  /** At a spring or fruiting log: which, and the hybrids a fruiting log offers. */
+  service?: { kind: 'spring' | 'fruiting'; offer: string[] };
+  /** The run's deck, in order (for removing or upgrading cards). */
+  deck: { def: string; upgraded?: boolean }[];
   /** Card ids on offer when `status` is `reward`. */
   rewards?: string[];
   /** `strain`: a junction's offer, where taking a card connects its strain (#101). */
