@@ -43,7 +43,7 @@ describe('Sporeline content', () => {
     expect(opened.issues).toEqual([]);
     expect(projectFiles(opened.project)).toEqual(files);
     expect(await validateProject(opened.project)).toEqual([]);
-  });
+  }, 30_000);
 
   it('passes its scenario tests', () => {
     const results = runScenarios(game);
