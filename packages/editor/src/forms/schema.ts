@@ -186,7 +186,14 @@ const ITEM_HINTS: Record<ContentKind, [string, WidgetHint][]> = {
     ['/expect/*/unit', 'unitDef'],
     ['/expect/*/status', 'status'],
   ],
-  theme: [],
+  theme: [
+    ['/colors/*', 'color'],
+    ['/table/color', 'color'],
+    ['/frames/*/fill', 'color'],
+    ['/frames/*/border', 'color'],
+    ['/frames/*/ink', 'color'],
+    ['/frames/*/accent', 'color'],
+  ],
 };
 
 /** Hints by field name, wherever it appears. */

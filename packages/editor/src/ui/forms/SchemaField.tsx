@@ -4,7 +4,7 @@
  * absent stay absent (an "add" button puts them in), so saved content keeps
  * only what the author set.
  */
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import type { ContentKind, OpRegistry, WidgetHint } from '@ccg/content';
 import type { Project } from '../../project.js';
 import { itemsOfKind } from '../../project.js';
@@ -27,6 +27,8 @@ export interface FormContext {
   setBoard(board: PreviewBoard): void;
   /** Validation messages by JSON Pointer. */
   issues: Map<string, string[]>;
+  /** Warnings by JSON Pointer (e.g. low contrast); shown, but nothing is wrong. */
+  warnings?: Map<string, string[]>;
   /** The pointer to highlight (jump-to-field). */
   flagged?: string | undefined;
 }
@@ -64,7 +66,7 @@ export function SchemaField({ node, root, value, onChange, pointer, label, hint:
   const errors = ctx.issues.get(pointer) ?? [];
   const flagged = ctx.flagged === pointer;
   const row = (control: React.ReactNode, block = false) => (
-    <Row label={label} pointer={pointer} errors={errors} flagged={flagged} actions={actions} block={block} help={node.description}>
+    <Row label={label} pointer={pointer} errors={errors} warnings={ctx.warnings?.get(pointer)} flagged={flagged} actions={actions} block={block} help={node.description}>
       {control}
     </Row>
   );
@@ -96,6 +98,9 @@ export function SchemaField({ node, root, value, onChange, pointer, label, hint:
         ))}
       </select>,
     );
+  }
+  if (hint === 'color' && (typeof value === 'string' || value === undefined)) {
+    return row(<ColorInput label={label} value={(value as string | undefined) ?? ''} onCommit={onChange} />);
   }
   if (hint === 'asset' && (typeof value === 'string' || value === undefined)) {
     const current = (value as string | undefined) ?? '';
@@ -337,5 +342,30 @@ function JsonInput({ label, value, onChange }: { label: string; value: unknown; 
         }
       }}
     />
+  );
+}
+
+/** "#abc" → "#aabbcc", for the colour picker, which only takes six digits. */
+const sixDigits = (hex: string) => (/^#[0-9a-fA-F]{3}$/.test(hex) ? `#${[...hex.slice(1)].map((c) => c + c).join('')}` : hex);
+
+/** A colour: a picker and the hex code, kept in step (#136). */
+function ColorInput({ label, value, onCommit }: { label: string; value: string; onCommit(value: string): void }) {
+  const [draft, setDraft] = useState(value);
+  useEffect(() => setDraft(value), [value]);
+  const valid = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(draft);
+  return (
+    <span className="ccg-row ccg-color">
+      <input type="color" aria-label={`${label} picker`} value={/^#[0-9a-fA-F]{3,6}$/.test(value) ? sixDigits(value) : '#000000'} onChange={(e) => onCommit(e.target.value)} />
+      <input
+        type="text"
+        aria-label={label}
+        value={draft}
+        size={8}
+        placeholder="#rrggbb"
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => valid && draft !== value && onCommit(draft)}
+        onKeyDown={(e) => e.key === 'Enter' && valid && onCommit(draft)}
+      />
+    </span>
   );
 }

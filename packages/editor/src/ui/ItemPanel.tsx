@@ -208,8 +208,9 @@ export function ItemPanel({
       {mine.length > 0 && (
         <ul className="ccg-issues-inline">
           {mine.map((i, n) => (
-            <li key={n}>
+            <li key={n} className={i.severity === 'warning' ? 'is-warning' : undefined}>
               <button type="button" onClick={() => onSelect({ kind: 'item', key: itemKey, pointer: i.pointer })}>
+                {i.severity === 'warning' && 'Warning: '}
                 <code>{i.pointer || '/'}</code> {i.message}
               </button>
             </li>

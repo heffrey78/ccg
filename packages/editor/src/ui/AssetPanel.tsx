@@ -21,6 +21,22 @@ export function useAssetUrl(data: Uint8Array | undefined, path: string): string 
   return url;
 }
 
+/** Object URLs for several assets at once, by path; revoked when the files or the list change. */
+export function useAssetUrls(project: Project, paths: string[]): Record<string, string> {
+  const key = paths.join('\n');
+  const [urls, setUrls] = useState<Record<string, string>>({});
+  useEffect(() => {
+    const made: Record<string, string> = {};
+    for (const path of key ? key.split('\n') : []) {
+      const data = project.assets[path];
+      if (data) made[path] = URL.createObjectURL(new Blob([data as BlobPart], { type: mimeType(path) }));
+    }
+    setUrls(made);
+    return () => Object.values(made).forEach((url) => URL.revokeObjectURL(url));
+  }, [key, project.assets]);
+  return urls;
+}
+
 export function AssetPreview({ project, path, size = 48 }: { project: Project; path: string; size?: number }) {
   const data = project.assets[path];
   const url = useAssetUrl(data, path);

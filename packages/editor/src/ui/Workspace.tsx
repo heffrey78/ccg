@@ -282,7 +282,7 @@ export function Workspace({ session, ops, validate, playtestEngine, simulate, on
       {playtest && (
         <PlaytestPane
           project={project}
-          problems={issues?.length ?? 0}
+          problems={(issues ?? []).filter((i) => i.severity !== 'warning').length}
           engine={playtestEngine}
           tryCard={tryCard}
           onSaveScenario={(item) => {
@@ -302,17 +302,28 @@ function ValidationPanel({ project, issues, onSelect }: { project: Project; issu
     const item = project.items[i.key];
     return item ? `${item.name} (${splitKey(i.key).kind})` : i.key;
   };
+  const errors = (issues ?? []).filter((i) => i.severity !== 'warning').length;
+  const warnings = (issues ?? []).length - errors;
   return (
     <section className="ccg-validation" aria-labelledby="validation-heading">
       <h2 id="validation-heading">
         Problems{' '}
-        <span className={issues && issues.length > 0 ? 'ccg-badge is-bad' : 'ccg-badge'}>{issues === null ? '…' : issues.length}</span>
+        <span className={errors > 0 ? 'ccg-badge is-bad' : 'ccg-badge'}>{issues === null ? '…' : errors}</span>
+        {warnings > 0 && (
+          <>
+            {' '}
+            <span className="ccg-badge is-warn" title="Warnings don't stop a playtest">
+              {warnings} {warnings === 1 ? 'warning' : 'warnings'}
+            </span>
+          </>
+        )}
       </h2>
       {issues !== null && issues.length === 0 && <p className="ccg-muted">No problems found.</p>}
       {issues && issues.length > 0 && (
         <ul>
           {issues.map((i, n) => (
-            <li key={n}>
+            <li key={n} className={i.severity === 'warning' ? 'is-warning' : undefined}>
+              {i.severity === 'warning' && <strong className="ccg-warn-label">Warning: </strong>}
               {i.key ? (
                 <button type="button" className="ccg-link" onClick={() => onSelect({ kind: 'item', key: i.key as string, pointer: i.pointer })}>
                   {label(i)}
