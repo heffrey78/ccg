@@ -31,6 +31,8 @@ export interface EditorAppProps {
   playtestEngine?: EngineClient;
   /** Balance simulations, e.g. over a worker pool. Defaults to this thread. */
   simulate?: Simulator;
+  /** Installs an exported zip where Play finds it (desktop's packages folder). */
+  installPackage?(name: string, zip: Uint8Array): Promise<void>;
   /** Games the host ships, offered for editing as browser copies. */
   installed?: InstalledGame[];
   /** An installed game to open straight away (e.g. from Play's Edit button). */
@@ -39,7 +41,7 @@ export interface EditorAppProps {
   onEdited?(): void;
 }
 
-export function EditorApp({ library, openFolder, validate, ops, playtestEngine, simulate, installed, edit, onEdited }: EditorAppProps) {
+export function EditorApp({ library, openFolder, validate, ops, playtestEngine, simulate, installPackage, installed, edit, onEdited }: EditorAppProps) {
   const [session, setSession] = useState<Session | null>(null);
   const engine = useMemo(() => playtestEngine ?? new EngineClient(localTransport(createEngineHost({ debug: true }))), [playtestEngine]);
   const registry = useMemo(() => ops ?? editorOps(), [ops]);
@@ -49,7 +51,7 @@ export function EditorApp({ library, openFolder, validate, ops, playtestEngine, 
       <style>{CLIENT_CSS}</style>
       <style>{CSS}</style>
       {session ? (
-        <Workspace key={session.id} session={session} ops={registry} validate={check} playtestEngine={engine} simulate={simulate ?? ((p, o) => simulateProject(p, o))} onClose={() => setSession(null)} />
+        <Workspace key={session.id} session={session} ops={registry} validate={check} playtestEngine={engine} simulate={simulate ?? ((p, o) => simulateProject(p, o))} {...(installPackage && { installPackage })} onClose={() => setSession(null)} />
       ) : (
         <ProjectPicker
           library={library}

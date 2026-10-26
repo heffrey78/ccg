@@ -50,9 +50,16 @@ export function memoryStorage(initial: Record<string, string> = {}): KeyValueSto
   };
 }
 
+/** A game package installed on the device (#143): its files, or a zip as the editor exports. */
+export type InstalledPackage = { name: string; files: Record<string, Uint8Array> } | { name: string; zip: Uint8Array };
+
 export interface Platform {
   storage: KeyValueStorage;
   settings: SettingsStore;
+  /** Game packages installed on the device (desktop's packages folder), loaded alongside the bundled ones. */
+  packages?(): Promise<InstalledPackage[]>;
+  /** Shows the folder those packages live in. */
+  revealPackages?(): Promise<void>;
   /** Native full screen for the app window (desktop); the browser's Fullscreen API is used without it. */
   setFullscreen?(on: boolean): Promise<void>;
 }

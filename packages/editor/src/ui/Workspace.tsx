@@ -34,10 +34,12 @@ export interface WorkspaceProps {
   playtestEngine: EngineClient;
   /** Runs balance simulations (a worker pool on web). */
   simulate: Simulator;
+  /** Installs the exported zip where Play finds it (desktop's packages folder, #143). */
+  installPackage?(name: string, zip: Uint8Array): Promise<void>;
   onClose(): void;
 }
 
-export function Workspace({ session, ops, validate, playtestEngine, simulate, onClose }: WorkspaceProps) {
+export function Workspace({ session, ops, validate, playtestEngine, simulate, installPackage, onClose }: WorkspaceProps) {
   const store = useStore(session.store);
   const project = store.project;
   const [selection, setSelection] = useState<Selection>({ kind: 'manifest' });
@@ -211,6 +213,21 @@ export function Workspace({ session, ops, validate, playtestEngine, simulate, on
             >
               Export JS module
             </button>
+            {installPackage && (
+              <button
+                type="button"
+                onClick={() => {
+                  closeMenu();
+                  void installPackage(project.manifest.id, zipFiles(projectFiles(project))).then(
+                    () => setStatus(`Installed ${project.manifest.name} in the packages folder. It's in Play.`),
+                    (e: Error) => setStatus(`Install failed: ${e.message}`),
+                  );
+                }}
+                title="Install the game where Play finds it, as a zip in the packages folder"
+              >
+                Install in Play
+              </button>
+            )}
           </div>
         </details>
         <button type="button" onClick={() => (store.dirty ? setConfirmClose(true) : onClose())}>

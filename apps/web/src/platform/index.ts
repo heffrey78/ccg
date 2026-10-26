@@ -4,7 +4,7 @@
  * module returns.
  */
 import { SettingsStore, memoryStorage, type KeyValueStorage, type Platform } from '@ccg/client';
-import { desktopStorage, isDesktop, setDesktopFullscreen, tauriInvoke, type Invoke } from './desktop.js';
+import { desktopPackages, desktopStorage, isDesktop, setDesktopFullscreen, tauriInvoke, type Invoke } from './desktop.js';
 import { indexedDbStorage } from './indexeddb.js';
 
 /** Storage that waits for the desktop bridge to load before its first call. */
@@ -20,8 +20,15 @@ function deferred(load: Promise<KeyValueStorage>): KeyValueStorage {
 export function createPlatform(options: { desktop?: boolean; invoke?: Promise<Invoke> } = {}): Platform {
   const desktop = options.desktop ?? isDesktop();
   if (desktop) {
-    const storage = deferred((options.invoke ?? tauriInvoke()).then(desktopStorage));
-    return { storage, settings: new SettingsStore(storage), setFullscreen: setDesktopFullscreen };
+    const invoke = options.invoke ?? tauriInvoke();
+    const storage = deferred(invoke.then(desktopStorage));
+    return {
+      storage,
+      settings: new SettingsStore(storage),
+      setFullscreen: setDesktopFullscreen,
+      packages: async () => desktopPackages(await invoke),
+      revealPackages: async () => (await invoke)<void>('packages_reveal'),
+    };
   }
   // Private browsing can disable IndexedDB; fall back to memory rather than failing.
   const storage = typeof indexedDB === 'undefined' ? memoryStorage() : indexedDbStorage();

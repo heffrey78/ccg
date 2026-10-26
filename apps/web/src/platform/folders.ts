@@ -1,10 +1,11 @@
 /**
- * Opening a project folder in the editor (#142): Chromium's folder picker in a
- * browser, the native one on desktop. Loaded with the editor only.
+ * The editor's disk access: opening a project folder (#142) with Chromium's
+ * folder picker in a browser or the native one on desktop, and installing an
+ * exported game into desktop's packages folder (#143). Loaded with the editor only.
  */
 import { directoryStore, type DirectoryHandleLike } from '@ccg/editor';
 import type { OpenedFolder } from '@ccg/editor/ui';
-import { desktopOpenFolder, isDesktop, tauriInvoke, tauriListen } from './desktop.js';
+import { desktopInstallPackage, desktopOpenFolder, isDesktop, tauriInvoke, tauriListen } from './desktop.js';
 
 type DirectoryPicker = (options?: { mode?: 'read' | 'readwrite' }) => Promise<DirectoryHandleLike>;
 
@@ -21,4 +22,10 @@ export function folderOpener(): (() => Promise<OpenedFolder | null>) | undefined
       return null; // The user cancelled.
     }
   };
+}
+
+/** Installing an exported game where Play finds it: desktop's packages folder (#143); none in a browser. */
+export function packageInstaller(): ((name: string, zip: Uint8Array) => Promise<void>) | undefined {
+  if (!isDesktop()) return undefined;
+  return async (name, zip) => desktopInstallPackage(await tauriInvoke())(name, zip);
 }
