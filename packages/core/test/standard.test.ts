@@ -391,6 +391,29 @@ describe('conditions on a unit’s stats (#105)', () => {
   });
 });
 
+describe('reading a status by reference (#116)', () => {
+  it('readUnit with a status stores its stacks, qualified like any other reference', () => {
+    const pkg = contentGame({ player: { ...RULESET.player, deck: ['decompose'], handSize: 1 } });
+    pkg.content.push(
+      item('status', 'rot', { stacking: 'intensity' }),
+      item('card', 'decompose', { targeting: { kind: 'unit', filter: 'enemy' }, effects: [{ op: 'readUnit', status: 'rot' }, { op: 'damage', amount: { $: 'unit.statusStacks' } }] }),
+      item('unit', 'rotting', { hp: 20, statuses: [{ status: 'rot', stacks: 3 }] }),
+      item('encounter', 'test', { units: [{ unit: 'hero', side: 'player', pos: '0' }, { unit: 'rotting', side: 'enemy', pos: '1' }] }),
+    );
+    const registry = new PackageRegistry();
+    registry.register(pkg);
+    const resolved = registry.resolve('plain');
+    if (!resolved.ok) throw new Error(resolved.issues.map((i) => i.message).join('\n'));
+    expect(resolved.game.definitions.cards['plain:decompose']?.effects[0]).toEqual({ op: 'readUnit', status: 'plain:rot' });
+    const rules = resolved.game.createRules();
+    const created = createGame(rules, resolved.game.createSetup({ seed: 1, encounter: 'plain:test' }));
+    if (!created.ok) throw new Error(created.error.message);
+    const result = apply(rules, created.state, legalActions(rules, created.state, 'player').find((a) => a.type === 'playCard')!);
+    if (!result.ok) throw new Error(result.error.message);
+    expect((result.state as GameState<StandardWorld>).world.board.units.enemy1?.hp).toBe(17);
+  });
+});
+
 describe('allied units that act (#102)', () => {
   const mite = item('unit', 'mite', {
     hp: 6,

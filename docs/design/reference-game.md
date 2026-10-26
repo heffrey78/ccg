@@ -232,7 +232,6 @@ the design; each gap has an issue:
 | Designed | v0.1 | Issue |
 |---|---|---|
 | Burst, Surge and Flash Flood push several units | They push one target | #117 |
-| Decompose reads Rot through the status's own reference | It reads a hard-coded `sporeline:rot` path | #116 |
 | Feast on Rot heals per Rot stack, Hivemind shields thralls, Root Drink banks Sap | Flat heal and block, draw | — |
 | Rot ticks "at the start of its phase" | Once per round, for every holder (stumps too) | — |
 

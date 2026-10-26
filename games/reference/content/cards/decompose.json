@@ -9,7 +9,8 @@
   },
   "effects": [
     {
-      "op": "readUnit"
+      "op": "readUnit",
+      "status": "rot"
     },
     {
       "op": "repeat",
@@ -17,7 +18,7 @@
         {
           "op": "damage",
           "amount": {
-            "$": "unit.stacks.sporeline:rot"
+            "$": "unit.statusStacks"
           }
         }
       ],
