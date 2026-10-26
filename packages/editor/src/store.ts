@@ -76,6 +76,15 @@ export class EditorStore {
     this.#set(entry.project);
   }
 
+  /** Takes the project as it now is on disk (#142). Undo goes back to the version before. */
+  replaceFromDisk(project: Project): void {
+    this.#undo.push({ label: 'Reload from disk', project: this.#project });
+    if (this.#undo.length > this.limit) this.#undo.shift();
+    this.#redo = [];
+    this.#saved = project;
+    this.#set(project);
+  }
+
   /** Records that the current project is what storage now holds. */
   markSaved(): void {
     this.#saved = this.#project;

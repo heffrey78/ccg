@@ -12,6 +12,8 @@ export interface ProjectStore {
   read(path: string): Promise<Uint8Array>;
   write(path: string, data: Uint8Array): Promise<void>;
   remove(path: string): Promise<void>;
+  /** Calls back when files may have changed outside the editor (a watched folder, #142); returns a function that stops watching. */
+  watch?(onChange: () => void): () => void;
 }
 
 export async function readAll(store: ProjectStore): Promise<Files> {

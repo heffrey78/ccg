@@ -22,7 +22,7 @@ import { testProject, type ProjectIssue } from '../validate.js';
 import type { ScenarioResult } from '@ccg/core';
 import { Browser } from './Browser.js';
 import { ItemPanel, ManifestPanel } from './ItemPanel.js';
-import { useStore, type Session } from './session.js';
+import { useStore, type DiskChange, type Session } from './session.js';
 
 export type Selection = { kind: 'manifest' } | { kind: 'item'; key: string; pointer?: string } | { kind: 'asset'; path: string } | null;
 
@@ -43,6 +43,16 @@ export function Workspace({ session, ops, validate, playtestEngine, simulate, on
   const [selection, setSelection] = useState<Selection>({ kind: 'manifest' });
   const [issues, setIssues] = useState<ProjectIssue[] | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  // Changes made to the folder outside the editor (#142).
+  const [disk, setDisk] = useState<DiskChange | null>(null);
+  useEffect(
+    () =>
+      session.watch((change) => {
+        setDisk(change);
+        if (change.kind === 'reloaded') setStatus('Reloaded the files that changed on disk. Undo brings back the previous version.');
+      }),
+    [session],
+  );
   const [confirmClose, setConfirmClose] = useState(false);
   const [playtest, setPlaytest] = useState(false);
   const [balance, setBalance] = useState(false);
@@ -210,6 +220,36 @@ export function Workspace({ session, ops, validate, playtestEngine, simulate, on
       {status && (
         <p className="ccg-muted" role="status">
           {status}
+        </p>
+      )}
+      {disk?.kind === 'conflict' && session.conflict && (
+        <div className="ccg-confirm" role="alertdialog" aria-label="Files changed on disk">
+          <p>The project's files changed on disk while you have unsaved changes.</p>
+          <button
+            type="button"
+            onClick={() =>
+              void session.reloadFromDisk().then((change) => {
+                setDisk(change);
+                if (change.kind === 'reloaded') setStatus('Reloaded from disk. Undo brings back your changes.');
+              })
+            }
+          >
+            Reload from disk
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              session.conflict = false;
+              setDisk(null);
+            }}
+          >
+            Keep mine (saving overwrites the files)
+          </button>
+        </div>
+      )}
+      {disk?.kind === 'unreadable' && (
+        <p className="ccg-error" role="alert">
+          The files on disk can't be opened right now ({disk.message}). Fix them, or save to write your version.
         </p>
       )}
       {confirmClose && (
