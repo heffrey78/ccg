@@ -149,3 +149,4 @@ export {
   type PermanentsWorld,
 } from './board/permanents.js';
 export { stackModule } from './rules/stack.js';
+export * from './meta/index.js';
