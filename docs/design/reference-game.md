@@ -232,7 +232,6 @@ the design; each gap has an issue:
 | Designed | v0.1 | Issue |
 |---|---|---|
 | Burst, Surge and Flash Flood push several units | They push one target | #117 |
-| Herd and Brood summon aphids and larvae | They gain block and heal instead | #115 |
 | Decompose reads Rot through the status's own reference | It reads a hard-coded `sporeline:rot` path | #116 |
 | Feast on Rot heals per Rot stack, Hivemind shields thralls, Root Drink banks Sap | Flat heal and block, draw | — |
 | Rot ticks "at the start of its phase" | Once per round, for every holder (stumps too) | — |
@@ -240,20 +239,24 @@ the design; each gap has an issue:
 **Balance from simulation:**
 - **Fights:** a greedy one-move-ahead bot wins every hallway fight, taking about 0–5 damage in Burrows and 5–9 in Nests. The design's 60–80% win target assumed a weaker bot, and blocking against telegraphed intents is exactly what a lookahead bot does well. A random player takes 15–45 damage and loses most Nests.
 - **Boss:** a fresh greedy player beats it 88% of the time.
-- **Whole runs:** at the content's own numbers, the greedy bot wins about 30–35% (14 of 40). Most losses come at the boss, after carried damage. A full run is completable, and not every run is.
+- **Whole runs:** at the content's own numbers (the Easy level), the greedy bot wins about 60% (it was 30–35% before summons replaced the block-and-heal turns). Most losses come at the boss, after carried damage. A full run is completable, and not every run is.
 
 **Difficulty levels (#125):** the first playtest found the run too easy, so
 the ruleset now has four levels, set in the editor's Difficulty section. They
 scale enemy HP and the damage enemy intents declare (telegraphs show the
-scaled number). Whole-run win rates for the greedy bot, from 60 runs each
-(40 for Easy):
+scaled number). Whole-run win rates for the greedy bot, from 60 runs each:
 
 | Level | Enemy HP | Enemy damage | Greedy bot wins |
 | --- | --- | --- | --- |
-| Story | 75% | 75% | 55% |
-| Easy | 100% | 100% | 35% |
-| Normal (default) | 140% | 150% | 13% |
-| Hard | 175% | 200% | 7% |
+| Story | 75% | 75% | 77% |
+| Easy | 100% | 100% | 60% |
+| Normal (default) | 140% | 150% | 10% |
+| Hard | 175% | 200% | 5% |
+
+Since #115, the Aphid Herder's **Herd** summons an Aphid (6 HP, Bite 3) and the
+Matriarch's **Brood** summons two Larvae (7 HP, Bite 4) on free tiles beside
+them, telegraphed with a dotted outline. They used to gain block and heal, so
+the gentler levels got easier while Normal and Hard barely moved.
 
 The scenario tests pin Easy, the numbers they were written for.
 

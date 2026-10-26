@@ -685,26 +685,35 @@ export function boardModule<W extends BoardWorld>(config: BoardConfig): RulesMod
       spawn: defineOp(
         {
           displayName: 'Summon',
-          description: 'Create a unit on an open tile (the target tile). Sets `spawned.unit`.',
-          params: z.object({ def: z.string().min(1), pos: z.string().min(1).optional(), side: z.string().min(1).optional(), facing: z.string().min(1).optional() }),
+          description: 'Create a unit on an open tile (the target tile), or one on each bound cell. Sets `spawned.unit`.',
+          params: z.object({
+            def: z.string().min(1),
+            pos: z.string().min(1).optional(),
+            side: z.string().min(1).optional(),
+            facing: z.string().min(1).optional(),
+            /** One unit on each of the intent's cells (e.g. a `freeAdjacent` target with a count), instead of the target tile. */
+            eachCell: z.boolean().optional(),
+          }),
           text: 'Summon a {def}.',
           widgets: { def: 'unitDef', pos: 'tile' },
           category: 'units',
         },
         (ctx, p) => {
-          const pos = str(p.pos ?? ctx.item.vars.target);
-          if (!topo.contains(pos) || !free(ctx.state, pos)) return;
-          const id = ctx.newId('unit');
-          ctx.setVar('spawned', { unit: id });
-          ctx.step({
-            kind: 'spawn',
-            id,
-            def: p.def,
-            side: p.side ?? ctx.item.controller,
-            pos,
-            facing: p.facing ?? unitOf(ctx, ctx.item.vars.self)?.facing ?? topo.directions()[0],
-            createdAt: ctx.state.seq,
-          });
+          const cells = p.eachCell ? ((ctx.item.vars.cells as Pos[] | undefined) ?? []) : [str(p.pos ?? ctx.item.vars.target)];
+          for (const pos of cells) {
+            if (!topo.contains(pos) || !free(ctx.state, pos)) continue;
+            const id = ctx.newId('unit');
+            ctx.setVar('spawned', { unit: id });
+            ctx.step({
+              kind: 'spawn',
+              id,
+              def: p.def,
+              side: p.side ?? ctx.item.controller,
+              pos,
+              facing: p.facing ?? unitOf(ctx, ctx.item.vars.self)?.facing ?? topo.directions()[0],
+              createdAt: ctx.state.seq,
+            });
+          }
         },
       ),
       countUnits: defineOp(

@@ -647,3 +647,56 @@ describe('difficulty levels (#125)', () => {
     expect(easy.hp).toBeGreaterThan(hard.hp);
   });
 });
+
+describe('summoning beside the summoner (#115)', () => {
+  const summoner = (count?: number) =>
+    item('unit', 'foe', {
+      hp: 20,
+      behavior: { kind: 'intent', intent: { name: 'Brood', target: { kind: 'freeAdjacent', ...(count && { count }) }, effects: [{ op: 'spawn', def: 'grub', eachCell: true }] } },
+    });
+  const begin = (board: RulesetDef['board'], foePos: string, count?: number) => {
+    const pkg = contentGame({ board });
+    pkg.content = pkg.content.map((i) => (i.id === 'foe' ? summoner(count) : i.kind === 'encounter' ? ({ ...i, units: [{ unit: 'hero', side: 'player', pos: board.topology === 'lane' ? '0' : '0,0' }, { unit: 'foe', side: 'enemy', pos: foePos }] } as ContentItem) : i));
+    pkg.content.push(item('unit', 'grub', { hp: 3 }));
+    const registry = new PackageRegistry();
+    registry.register(pkg);
+    const resolved = registry.resolve('plain');
+    if (!resolved.ok) throw new Error(resolved.issues.map((i) => i.message).join('\n'));
+    const rules = resolved.game.createRules();
+    const created = createGame(rules, resolved.game.createSetup({ seed: 1 }));
+    if (!created.ok) throw new Error(created.error.message);
+    return { rules, state: created.state as GameState<StandardWorld> };
+  };
+  const endTurn = (rules: ReturnType<typeof begin>['rules'], state: GameState<StandardWorld>) => {
+    const next = apply(rules, state, { type: 'endTurn', side: 'player' });
+    if (!next.ok) throw new Error(next.error.message);
+    return next.state as GameState<StandardWorld>;
+  };
+  const grubs = (state: GameState<StandardWorld>) => Object.values(state.world.board.units).filter((u) => u.def === 'plain:grub').map((u) => u.pos).sort();
+
+  it('telegraphs the tile it faces and summons there on a lane', () => {
+    const { rules, state } = begin({ topology: 'lane', length: 7 }, '4');
+    // The foe faces west, toward the hero: the summon goes in front of it.
+    expect(state.world.intents.declared[0]).toMatchObject({ name: 'Brood', bound: 'tile', target: '3', cells: ['3'] });
+    expect(grubs(endTurn(rules, state))).toEqual(['3']);
+  });
+
+  it('summons one per free neighbour up to its count, and none when boxed in', () => {
+    const { rules, state } = begin({ topology: 'lane', length: 7 }, '4', 3);
+    // A lane tile has two neighbours, so a count of 3 still telegraphs two.
+    expect(state.world.intents.declared[0]?.cells).toEqual(['3', '5']);
+    let next = endTurn(rules, state);
+    expect(grubs(next)).toEqual(['3', '5']);
+    // Hemmed in by its own grubs, it telegraphs nothing and summons nothing.
+    expect(next.world.intents.declared.find((i) => i.name === 'Brood')?.cells).toBeUndefined();
+    next = endTurn(rules, next);
+    expect(grubs(next)).toEqual(['3', '5']);
+  });
+
+  it('works on a square board too', () => {
+    const { rules, state } = begin({ topology: 'square', width: 5, height: 5, connectivity: 4 }, '2,2', 2);
+    const cells = state.world.intents.declared[0]?.cells ?? [];
+    expect(cells).toHaveLength(2);
+    expect(grubs(endTurn(rules, state))).toEqual([...cells].sort());
+  });
+});

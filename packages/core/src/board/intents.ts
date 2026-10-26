@@ -15,7 +15,7 @@ import { z } from 'zod';
 import type { Effect, GameState, PhaseContext, PhaseDef, SideId, Step } from '../kernel/types.js';
 import { defineOp, type RulesModule } from '../rules/compose.js';
 import { findPath, type Dir, type PatternShape, type Pos, type Topology } from './topology.js';
-import { NEUTRAL_SIDE, scaleDamage, unitAt, type BoardWorld, type UnitState } from './units.js';
+import { NEUTRAL_SIDE, scaleDamage, unitAt, type BoardWorld, type TileDef, type UnitState } from './units.js';
 
 export type Selector = 'nearestEnemy' | 'weakestEnemy' | 'strongestEnemy';
 
@@ -24,7 +24,9 @@ export type IntentTarget =
   | { kind: 'self' }
   /** `bound: 'unit'` (default) follows the unit; `'tile'` hits where it stood when declared. */
   | { kind: 'unit'; select: Selector; range?: number; bound?: 'unit' | 'tile' }
-  | { kind: 'pattern'; shape: PatternShape; aim: 'nearestEnemy' | 'facing' };
+  | { kind: 'pattern'; shape: PatternShape; aim: 'nearestEnemy' | 'facing' }
+  /** Empty tiles next to the unit (#115), e.g. to summon onto: the one it faces first, then toward the nearest enemy. */
+  | { kind: 'freeAdjacent'; count?: number };
 
 export interface IntentDef {
   name: string;
@@ -91,6 +93,8 @@ export interface IntentsConfig {
   topology: Topology;
   /** Behaviour by unit definition id. */
   behaviors: Record<string, Behavior>;
+  /** Tile definitions, so `freeAdjacent` skips blocking tiles. */
+  tiles?: Record<string, TileDef>;
 }
 
 const str = (v: unknown) => v as string;
@@ -199,6 +203,16 @@ export function intentsModule<W extends BoardWorld & IntentsWorld>(config: Inten
         intent.bound = t.bound ?? 'unit';
         intent.target = t.bound === 'tile' ? target.pos : target.id;
         if (t.bound === 'tile') intent.cells = [target.pos];
+      }
+    } else if (t.kind === 'freeAdjacent') {
+      const enemy = select(state, unit, 'nearestEnemy');
+      const first = [unit.facing, ...(enemy ? [toward(unit.pos, enemy.pos, unit.facing)] : [])].map((d) => topo.step(unit.pos, d));
+      const free = (pos: Pos) => !unitAt(state.world.board, pos) && config.tiles?.[state.world.board.tiles[pos] ?? '']?.blocking !== true;
+      const cells = [...new Set([...first.filter((p): p is Pos => p !== null), ...topo.neighbors(unit.pos)])].filter(free).slice(0, t.count ?? 1);
+      if (cells.length > 0) {
+        intent.bound = 'tile';
+        intent.target = cells[0] as Pos;
+        intent.cells = cells;
       }
     } else if (t.kind === 'pattern') {
       const aimAt = t.aim === 'nearestEnemy' ? select(state, unit, 'nearestEnemy') : undefined;

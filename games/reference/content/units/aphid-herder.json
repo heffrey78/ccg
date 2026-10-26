@@ -49,19 +49,16 @@
         {
           "kind": "intent",
           "intent": {
-            "name": "Rally",
+            "name": "Herd",
             "effects": [
               {
-                "op": "gainBlock",
-                "amount": 6
-              },
-              {
-                "op": "heal",
-                "amount": 4
+                "op": "spawn",
+                "def": "aphid",
+                "eachCell": true
               }
             ],
             "target": {
-              "kind": "self"
+              "kind": "freeAdjacent"
             }
           }
         }

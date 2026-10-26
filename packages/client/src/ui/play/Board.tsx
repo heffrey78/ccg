@@ -107,7 +107,10 @@ export function Board(props: BoardProps) {
 
   // Cells an enemy attack threatens: its tile or unit target, or its pattern.
   const threatened = new Set<string>();
+  // Tiles other enemy intents mark without attacking, e.g. where a summon will appear.
+  const intended = new Set<string>();
   for (const i of intents) {
+    if (i.side !== side && !intentSummaries[i.id]?.damage) for (const c of i.cells ?? []) intended.add(c);
     if (i.side === side || !intentSummaries[i.id]?.damage) continue;
     for (const c of i.cells ?? []) threatened.add(c);
     if (i.bound === 'tile' && i.target) threatened.add(i.target);
@@ -145,7 +148,7 @@ export function Board(props: BoardProps) {
           const tile = tiles[c.pos];
           const blocking = tile !== undefined && layout.tiles[tile]?.blocking === true;
           const fogged = seen !== null && !seen.has(c.pos);
-          const cls = ['ccg-cell', blocking && 'is-blocking', tile && !blocking && 'is-special', threatened.has(c.pos) && 'is-threatened', fogged && 'is-fogged'].filter(Boolean).join(' ');
+          const cls = ['ccg-cell', blocking && 'is-blocking', tile && !blocking && 'is-special', threatened.has(c.pos) && 'is-threatened', !threatened.has(c.pos) && intended.has(c.pos) && 'is-intended', fogged && 'is-fogged'].filter(Boolean).join(' ');
           return (
             <g key={c.pos} transform={`translate(${p.x} ${p.y})`}>
               {hex ? (
