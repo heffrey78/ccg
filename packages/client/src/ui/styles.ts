@@ -20,6 +20,7 @@ export const CSS = `
   }
 }
 .ccg-app button { font: inherit; color: inherit; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 12px; cursor: pointer; }
+.ccg-app select { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 2px 4px; }
 .ccg-app button:disabled, .ccg-app button[aria-disabled="true"] { opacity: .5; cursor: default; }
 .ccg-app button:focus-visible, .ccg-app [role="button"]:focus-visible { outline: 3px solid var(--target); outline-offset: 2px; }
 .ccg-app .ccg-primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }

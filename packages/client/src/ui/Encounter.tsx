@@ -19,6 +19,7 @@ import { Playback, effectOf, unitsAfter, type PlaybackState } from './play/playb
 import { anchorCell, choicesFor, offers, type Selection } from './play/selection.js';
 import { layoutOf, permanentOfUnit, type UnitView, type WorldView } from './play/world.js';
 import { SPEEDS, VIEWS, type ViewMode } from './settings.js';
+import { themeCss } from './theme.js';
 
 
 
@@ -280,7 +281,8 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, view: boardView
   }, [logLines.length]);
 
   return (
-    <section className={`ccg-encounter is-view-${boardView}`} aria-labelledby="encounter-heading">
+    <section className={`ccg-encounter is-view-${boardView}${catalog.theme ? ' ccg-themed' : ''}`} aria-labelledby="encounter-heading">
+      {catalog.theme && <style>{themeCss(catalog.theme, '.ccg-themed')}</style>}
       <header className="ccg-topbar">
         <h1 id="encounter-heading">{snapshot.game.name}</h1>
         {run && (

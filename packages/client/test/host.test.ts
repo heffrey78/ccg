@@ -421,6 +421,58 @@ describe('engine host', () => {
       await expect(engine.start('live', 1, { difficulty: 'nightmare' })).rejects.toMatchObject({ message: expect.stringContaining("no difficulty 'nightmare'") });
     });
 
+    it('resolves the game\'s theme, with font and frame URLs, and gives each card its frame (#135)', async () => {
+      const card = (id: string, fields: object) => json({ formatVersion: 1, kind: 'card', id, name: id, targeting: { kind: 'none' }, effects: [], ...fields });
+      const engine = client();
+      await engine.loadFiles({
+        ...files(5),
+        'content/cards/spore.json': card('spore', { tags: ['puffball'], rarity: 'rare' }),
+        'content/cards/relic.json': card('relic', { rarity: 'rare' }),
+        'content/cards/plain.json': card('plain', {}),
+        'content/themes/look.json': json({
+          formatVersion: 1,
+          kind: 'theme',
+          id: 'look',
+          name: 'Look',
+          colors: { panel: '#222222', ink: '#eeeeee' },
+          fonts: { display: { family: 'Spore Serif', font: 'assets/fonts/spore.woff2' }, body: { family: 'serif' } },
+          table: { color: '#101010', background: 'assets/table.svg' },
+          frames: [
+            { id: 'puff', match: { tags: ['puffball'] }, fill: '#334455', background: 'assets/frame.svg', layout: 'full-art' },
+            { id: 'shiny', match: { rarity: ['rare'] }, border: '#ffcc00', borderWidth: 3 },
+            { id: 'base', radius: 4 },
+          ],
+          defaultFrame: 'base',
+        }),
+        'assets/fonts/spore.woff2': new Uint8Array([0x77, 0x4f, 0x46, 0x32]),
+        'assets/table.svg': enc.encode('<svg xmlns="http://www.w3.org/2000/svg"/>'),
+        'assets/frame.svg': enc.encode('<svg xmlns="http://www.w3.org/2000/svg"/>'),
+      });
+      const snap = await engine.start('live', 1);
+      const theme = snap.catalog.theme;
+      expect(theme).toMatchObject({ colors: { panel: '#222222', ink: '#eeeeee' }, fonts: { body: { family: 'serif' }, display: { family: 'Spore Serif' } }, table: { color: '#101010' } });
+      expect(theme?.fonts.body).not.toHaveProperty('url');
+      expect(theme?.frames.map((f) => [f.id, f.layout])).toEqual([
+        ['puff', 'full-art'],
+        ['shiny', 'standard'],
+        ['base', 'standard'],
+      ]);
+      const font = await (await fetch(theme?.fonts.display?.url as string)).blob();
+      expect(font.type).toBe('font/woff2');
+      expect(theme?.table?.image).toMatch(/^blob:/);
+      expect(theme?.frames[0]?.image).toMatch(/^blob:/);
+      // A tag match wins over rarity; rarity over the default.
+      expect(['spore', 'relic', 'plain', 'zap'].map((c) => snap.catalog.cards[`live:${c}`]?.frame)).toEqual(['puff', 'shiny', 'base', 'base']);
+    });
+
+    it('a game without a theme has none, and its cards no frame', async () => {
+      const engine = client();
+      await engine.loadFiles(files(5));
+      const snap = await engine.start('live', 1);
+      expect(snap.catalog.theme).toBeUndefined();
+      expect(snap.catalog.cards['live:zap']).not.toHaveProperty('frame');
+    });
+
     it('serves unit sprites and the encounter scene as typed object URLs', async () => {
       const svg = enc.encode('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><circle r="5"/></svg>');
       const art = {

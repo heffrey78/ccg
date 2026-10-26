@@ -45,8 +45,9 @@ import {
   type SideId,
   type StatePolicy,
 } from '@ccg/core';
-import { filesSource, unzipFiles } from '@ccg/content';
+import { filesSource, unzipFiles, type ContentItem } from '@ccg/content';
 import { cardFace } from './faces.js';
+import { frameFor, resolveTheme } from './theme.js';
 import type { RunProgress } from './protocol.js';
 import type { Catalog, EngineReply, EngineRequest, GameListing, IntentSummary, Snapshot } from './protocol.js';
 
@@ -115,13 +116,16 @@ interface RunState {
 
 const NODE_NAMES: Record<RunNodeKind, string> = { fight: 'Fight', elite: 'Elite fight', boss: 'Boss', junction: 'Junction', spring: 'Spring', fruiting: 'Fruiting log' };
 
-const MIME: Record<string, string> = { svg: 'image/svg+xml', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif', avif: 'image/avif', mp3: 'audio/mpeg', ogg: 'audio/ogg', wav: 'audio/wav' };
+const MIME: Record<string, string> = { svg: 'image/svg+xml', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif', avif: 'image/avif', mp3: 'audio/mpeg', ogg: 'audio/ogg', wav: 'audio/wav', woff2: 'font/woff2', woff: 'font/woff', ttf: 'font/ttf', otf: 'font/otf' };
 /** A file's type from its extension, so object URLs of SVGs render as images. */
 const mimeOf = (path: string) => MIME[path.slice(path.lastIndexOf('.') + 1).toLowerCase()] ?? 'application/octet-stream';
 
 function catalogOf(game: ResolvedGame<unknown>, topology: string | undefined): Catalog {
   const name = (ref: string) => game.name(ref);
   const catalog: Catalog = { names: {}, cards: {}, statuses: {}, art: {} };
+  // The game's own theme (#135): the root package's first.
+  const themeItem = game.items.find((i) => i.kind === 'theme' && i.id.startsWith(`${game.root.id}:`));
+  if (themeItem) catalog.theme = resolveTheme(themeItem, (path) => game.assetUrl(game.root.id, path));
   for (const item of game.items) {
     catalog.names[item.id] = item.name;
     const art = item.art ?? item.icon;
@@ -131,6 +135,7 @@ function catalogOf(game: ResolvedGame<unknown>, topology: string | undefined): C
         ...(topology && { topology }),
         name,
         art: (path) => game.assetUrl(item.id.split(':')[0] as string, path),
+        ...(themeItem && { frame: (card: ContentItem) => frameFor(themeItem, card) }),
       });
     } else if (item.kind === 'status') {
       catalog.statuses[item.id] = {

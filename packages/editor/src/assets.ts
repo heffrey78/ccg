@@ -3,7 +3,7 @@
  * previews, import paths, and a single-file JS module export that any host
  * can load by URL (`PackageRegistry.import`).
  */
-import { MANIFEST_PATH } from '@ccg/content';
+import { ASSET_KEYS, MANIFEST_PATH } from '@ccg/content';
 import { type Project } from './project.js';
 
 export interface AssetUse {
@@ -13,7 +13,7 @@ export interface AssetUse {
 
 const escape = (part: string) => part.replace(/~/g, '~0').replace(/\//g, '~1');
 
-/** Every asset reference in the project's items (`art`, `icon` and `background` fields, at any depth), by asset path. */
+/** Every asset reference in the project's items (`art`, `icon`, `background` and `font` fields, at any depth), by asset path. */
 export function assetRefs(project: Project): Map<string, AssetUse[]> {
   const out = new Map<string, AssetUse[]>();
   for (const [key, item] of Object.entries(project.items)) {
@@ -21,7 +21,7 @@ export function assetRefs(project: Project): Map<string, AssetUse[]> {
       if (Array.isArray(node)) node.forEach((x, i) => walk(x, `${pointer}/${i}`));
       else if (typeof node === 'object' && node !== null) {
         for (const [k, v] of Object.entries(node)) {
-          if ((k === 'art' || k === 'icon' || k === 'background') && typeof v === 'string') out.set(v, [...(out.get(v) ?? []), { key, pointer: `${pointer}/${escape(k)}` }]);
+          if (ASSET_KEYS.includes(k) && typeof v === 'string') out.set(v, [...(out.get(v) ?? []), { key, pointer: `${pointer}/${escape(k)}` }]);
           else walk(v, `${pointer}/${escape(k)}`);
         }
       }
@@ -43,6 +43,10 @@ const TYPES: Record<string, string> = {
   ogg: 'audio/ogg',
   wav: 'audio/wav',
   m4a: 'audio/mp4',
+  woff2: 'font/woff2',
+  woff: 'font/woff',
+  ttf: 'font/ttf',
+  otf: 'font/otf',
   json: 'application/json',
 };
 

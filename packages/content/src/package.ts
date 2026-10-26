@@ -13,7 +13,7 @@ import type { z } from 'zod';
 import { parseJson, serialize } from './format.js';
 import { parseRef } from './ids.js';
 import { migrator as defaultMigrator, type Migrator } from './migrate.js';
-import type { ContentItem, ContentKind, ContentSchemas, Manifest } from './schemas.js';
+import { ASSET_KEYS, type ContentItem, type ContentKind, type ContentSchemas, type Manifest } from './schemas.js';
 
 export interface FileSource {
   /** Every file path, relative to the package root, using '/' separators. */
@@ -153,7 +153,7 @@ function checkReferences(items: LoadedItem[], assets: Set<string>): ContentIssue
       if (Array.isArray(node)) node.forEach((x, i) => walk(x, `${pointer}/${i}`));
       else if (typeof node === 'object' && node !== null) {
         for (const [key, value] of Object.entries(node)) {
-          if ((key === 'art' || key === 'icon' || key === 'background') && typeof value === 'string') expectAsset(value, `${pointer}/${escapePointer(key)}`);
+          if (ASSET_KEYS.includes(key) && typeof value === 'string') expectAsset(value, `${pointer}/${escapePointer(key)}`);
           else walk(value, `${pointer}/${escapePointer(key)}`);
         }
       }

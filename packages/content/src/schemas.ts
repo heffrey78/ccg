@@ -15,6 +15,9 @@ const id = z.string().regex(ID_PATTERN, 'must be lowercase letters and digits, j
 const ref = z.string().regex(REF_PATTERN, 'must be an id, or packageId:id for another package');
 const count = z.number().int().min(0);
 const assetPath = z.string().regex(/^assets\/[^\\]+$/, 'must be a path under assets/');
+const color = z.string().regex(/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/, 'must be a colour like #1d1c1a');
+/** Field names that hold asset paths, at any depth of an item: their files must exist in the package. */
+export const ASSET_KEYS: readonly string[] = ['art', 'icon', 'background', 'font'];
 const semver = z.string().regex(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/, 'must be a semver version like 1.2.3');
 
 export const patternShape = z.discriminatedUnion('kind', [
@@ -430,7 +433,67 @@ export function createContentSchemas(ops: OpRegistry, { formatVersion: version =
     })
     .strict();
 
-  const item = z.discriminatedUnion('kind', [card, unit, status, tile, encounter, ruleset, scenario]);
+  // How the game looks (#122, #135): colours, fonts, the table and card frames. A package uses its first theme.
+  const fontFace = z
+    .object({
+      /** The CSS font family name, e.g. "Fraunces". Without a file it must be installed or a generic family (serif, sans-serif). */
+      family: z.string().regex(/^[A-Za-z0-9 _-]+$/, 'letters, digits, spaces, - and _ only'),
+      font: assetPath.describe('A font file in the package (woff2, woff, ttf or otf).').optional(),
+    })
+    .strict();
+  const theme = z
+    .object({
+      ...common,
+      kind: z.literal('theme'),
+      /** The client's colour tokens; any left out keep the default. */
+      colors: z
+        .object({
+          page: color.describe('The page behind everything.').optional(),
+          panel: color.describe('Panels and card faces.').optional(),
+          ink: color.describe('Text.').optional(),
+          muted: color.describe('Secondary text.').optional(),
+          line: color.describe('Borders.').optional(),
+          accent: color.describe('Buttons, resource counts and card costs.').optional(),
+          cell: color.describe('Board tiles.').optional(),
+          mine: color.describe("The player's units.").optional(),
+          enemy: color.describe('Enemy units.').optional(),
+          threat: color.describe('Telegraphed attacks and damage.').optional(),
+          hp: color.describe('Health bars and healing.').optional(),
+          block: color.describe('Block.').optional(),
+          reaction: color.describe('Reactions and statuses.').optional(),
+          target: color.describe('Targets and selection.').optional(),
+        })
+        .strict()
+        .optional(),
+      fonts: z.object({ body: fontFace.optional(), display: fontFace.describe('Headings and card names.').optional() }).strict().optional(),
+      /** What the play area sits on. */
+      table: z.object({ color: color.optional(), background: assetPath.describe('An image behind the play area.').optional() }).strict().optional(),
+      /** Card frames, chosen per card: the first frame matching one of its tags, else its rarity, else the default. */
+      frames: z
+        .array(
+          z
+            .object({
+              id,
+              name: z.string().min(1).optional(),
+              match: z.object({ tags: z.array(z.string().min(1)).optional(), rarity: z.array(z.enum(['basic', 'common', 'uncommon', 'rare', 'special'])).optional() }).strict().optional(),
+              layout: z.enum(['standard', 'art-first', 'full-art']).describe('standard: name, art, text. art-first: art across the top. full-art: art fills the card, text over it.').optional(),
+              fill: color.describe('The card face.').optional(),
+              background: assetPath.describe('A frame image, stretched over the card face.').optional(),
+              border: color.optional(),
+              borderWidth: z.number().int().min(0).max(12).optional(),
+              radius: z.number().int().min(0).max(40).optional(),
+              ink: color.describe('Text on the card.').optional(),
+              accent: color.describe('The cost badge.').optional(),
+            })
+            .strict(),
+        )
+        .optional(),
+      /** The frame for cards no frame matches (default: the plain card). */
+      defaultFrame: id.optional(),
+    })
+    .strict();
+
+  const item = z.discriminatedUnion('kind', [card, unit, status, tile, encounter, ruleset, scenario, theme]);
 
   const manifest = z
     .object({
@@ -445,12 +508,12 @@ export function createContentSchemas(ops: OpRegistry, { formatVersion: version =
     })
     .strict();
 
-  return { effect, behavior, card, unit, status, tile, encounter, ruleset, scenario, item, manifest };
+  return { effect, behavior, card, unit, status, tile, encounter, ruleset, scenario, theme, item, manifest };
 }
 
 export type ContentSchemas = ReturnType<typeof createContentSchemas>;
-export type ContentKind = 'card' | 'unit' | 'status' | 'tile' | 'encounter' | 'ruleset' | 'scenario';
-export const CONTENT_KINDS: readonly ContentKind[] = ['card', 'unit', 'status', 'tile', 'encounter', 'ruleset', 'scenario'];
+export type ContentKind = 'card' | 'unit' | 'status' | 'tile' | 'encounter' | 'ruleset' | 'scenario' | 'theme';
+export const CONTENT_KINDS: readonly ContentKind[] = ['card', 'unit', 'status', 'tile', 'encounter', 'ruleset', 'scenario', 'theme'];
 
 export interface ContentItem {
   formatVersion: number;
