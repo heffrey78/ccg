@@ -49,7 +49,7 @@ import { filesSource, unzipFiles, type ContentItem } from '@ccg/content';
 import { cardFace } from './faces.js';
 import { frameFor, resolveTheme } from './theme.js';
 import type { RunProgress } from './protocol.js';
-import type { Catalog, EngineReply, EngineRequest, GameListing, IntentSummary, Snapshot } from './protocol.js';
+import type { Catalog, EngineReply, EngineRequest, GameListing, IntentSummary, SaveGame, Snapshot } from './protocol.js';
 
 export interface HostOptions {
   /** Packages bundled with the app. */
@@ -81,6 +81,8 @@ interface Running {
   resolved: ResolvedGame<unknown>;
   topology?: string;
   ai: StatePolicy<unknown>;
+  /** The seed `ai` was made from, so a save can remake it (#144). */
+  aiSeed: string | number;
   /** Set when playing a run (#45): its encounters in order, with rewards between them. */
   run?: RunState;
   /** Undo can't take back actions before this many (#83). */
@@ -353,7 +355,7 @@ export function createEngineHost(options: HostOptions = {}): EngineHost {
     const started = Session.start(built.rules, built.setup, built.versions);
     if (!started.ok) return { ok: false, error: started.error };
     const side = built.setup.sides.find((s) => s.controller === 'human')?.id ?? (built.setup.sides[0]?.id as SideId);
-    running = { ...built.parts, session: started.session, side, options: setupOptions, ai: aiFor(game, run.seed), run };
+    running = { ...built.parts, session: started.session, side, options: setupOptions, ai: aiFor(game, run.seed), aiSeed: run.seed, run };
     const events = runAi(running);
     running.undoFloor = running.session.log.actions.length;
     advanceRun(running);
@@ -527,7 +529,7 @@ export function createEngineHost(options: HostOptions = {}): EngineHost {
           const started = Session.start(built.rules, built.setup, built.versions);
           if (!started.ok) return { ok: false, error: started.error };
           const side = built.setup.sides.find((s) => s.controller === 'human')?.id ?? (built.setup.sides[0]?.id as SideId);
-          running = { ...built.parts, session: started.session, side, options, ai: aiFor(built.parts.game, request.seed) };
+          running = { ...built.parts, session: started.session, side, options, ai: aiFor(built.parts.game, request.seed), aiSeed: request.seed };
           const events = runAi(running);
           running.undoFloor = running.session.log.actions.length;
           return { ok: true, type: 'snapshot', snapshot: snapshot(running, events) };
@@ -563,6 +565,53 @@ export function createEngineHost(options: HostOptions = {}): EngineHost {
           }
           running = { ...running, session: started.session };
           return { ok: true, type: 'snapshot', snapshot: snapshot(running, []) };
+        }
+
+        case 'exportSave': {
+          if (!running) return { ok: true, type: 'save', save: null };
+          const save: SaveGame = {
+            format: 1,
+            game: running.game.id,
+            version: running.game.version,
+            options: running.options as unknown as Record<string, unknown>,
+            actions: [...running.session.log.actions],
+            aiSeed: running.aiSeed,
+            ...(running.run && { run: structuredClone(running.run) }),
+            ...(running.undoFloor !== undefined && { undoFloor: running.undoFloor }),
+          };
+          return { ok: true, type: 'save', save };
+        }
+
+        case 'loadSave': {
+          const save = request.save;
+          const pkg = registry.get(save.game);
+          if (!pkg) return { ok: false, error: { code: 'unknown-game', message: `no game '${save.game}' to continue` } };
+          const stale: EngineReply = { ok: false, error: { code: 'invalid-package', message: `this save no longer fits ${pkg.manifest.name} ${pkg.manifest.version} (it was made with ${save.version})` } };
+          const options = save.options as unknown as SetupOptions;
+          const built = build(listing(pkg), options);
+          if ('error' in built) return built.error;
+          const started = Session.start(built.rules, built.setup, built.versions);
+          if (!started.ok) return stale;
+          const side = built.setup.sides.find((s) => s.controller === 'human')?.id ?? (built.setup.sides[0]?.id as SideId);
+          // Replay, letting the AI choose again where it chose before, so its generator ends where it was.
+          const ai = aiFor(built.parts.game, save.aiSeed);
+          for (const action of save.actions) {
+            const state = started.session.state;
+            const deciding = decidingSide(built.rules, state);
+            if (deciding !== null && deciding !== side) ai.choose(built.rules, state, deciding, legalActions(built.rules, state, deciding));
+            if (!started.session.apply(action).ok) return stale;
+          }
+          running = {
+            ...built.parts,
+            session: started.session,
+            side,
+            options,
+            ai,
+            aiSeed: save.aiSeed,
+            ...(save.run !== undefined && { run: structuredClone(save.run) as RunState }),
+            ...(save.undoFloor !== undefined && { undoFloor: save.undoFloor }),
+          };
+          return { ok: true, type: 'snapshot', snapshot: snapshot(running, runAi(running)) };
         }
 
         case 'debug':

@@ -179,6 +179,7 @@ export const CSS = `
 .ccg-difficulty select { font: inherit; }
 .ccg-app .ccg-game-edit { align-self: center; }
 .ccg-app .ccg-reveal-packages { margin: 0 0 12px 8px; }
+.ccg-continue { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin: 0 0 16px; padding: 12px 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); }
 
 /* Beat motions (#123): durations divide by the animation speed. */
 .ccg-unit-figure { --ccg-beat: calc(420ms / var(--ccg-speed, 1)); }

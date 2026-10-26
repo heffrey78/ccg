@@ -14,12 +14,25 @@ export interface GameSelectProps {
   onImport?(file: File): void;
   /** Shows the folder installed packages are read from (desktop). */
   onRevealPackages?(): void;
+  /** A saved game in progress (#144), offered first. */
+  resume?: { title: string; detail: string; savedAt: number };
+  onContinue?(): void;
 }
 
-export function GameSelect({ games, lastPlayed, difficulties = {}, onDifficulty, onStart, editable = [], onEdit, onImport, onRevealPackages }: GameSelectProps) {
+export function GameSelect({ games, lastPlayed, difficulties = {}, onDifficulty, onStart, editable = [], onEdit, onImport, onRevealPackages, resume, onContinue }: GameSelectProps) {
   return (
     <section aria-labelledby="games-heading">
       <h1 id="games-heading">Choose a game</h1>
+      {resume && onContinue && (
+        <div className="ccg-continue" role="group" aria-label="Saved game">
+          <button type="button" className="ccg-primary" onClick={onContinue}>
+            Continue {resume.title}
+          </button>
+          <span className="ccg-muted">
+            {resume.detail} · saved {new Date(resume.savedAt).toLocaleString()}
+          </span>
+        </div>
+      )}
       {onImport && (
         <label className="ccg-import">
           Load a game from a zip…{' '}

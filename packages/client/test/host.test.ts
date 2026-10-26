@@ -473,6 +473,87 @@ describe('engine host', () => {
       expect(snap.catalog.cards['live:zap']).not.toHaveProperty('frame');
     });
 
+    it('saves a game in progress and continues it exactly, AI and all (#144)', async () => {
+      // An enemy that picks among intents at random, so the AI's generator matters.
+      const brute = json({
+        formatVersion: 1,
+        kind: 'unit',
+        id: 'brute',
+        name: 'Brute',
+        hp: 40,
+        behavior: {
+          kind: 'weighted',
+          options: [
+            { weight: 1, then: { kind: 'intent', intent: { name: 'Swing', target: { kind: 'unit', select: 'nearestEnemy' }, effects: [{ op: 'approach', distance: 1 }] } } },
+            { weight: 1, then: { kind: 'intent', intent: { name: 'Brace', target: { kind: 'self' }, effects: [{ op: 'gainBlock', amount: 2 }] } } },
+          ],
+        },
+      });
+      const game = { ...files(3), 'content/units/brute.json': brute, 'content/encounters/one.json': json({ formatVersion: 1, kind: 'encounter', id: 'one', name: 'One', units: [{ unit: 'hero', side: 'player', pos: '0' }, { unit: 'brute', side: 'enemy', pos: '3' }] }) };
+      const original = client();
+      await original.loadFiles(game);
+      await original.start('live', 'seed-7');
+      await zap(original);
+      await original.act({ type: 'endTurn', side: 'player' });
+      const save = await original.exportSave();
+      expect(save).toMatchObject({ format: 1, game: 'live', version: '0.1.0', aiSeed: 'seed-7' });
+      expect(JSON.parse(JSON.stringify(save))).toEqual(save);
+
+      const restored = client();
+      await restored.loadFiles(game);
+      const continued = await restored.loadSave(save!);
+      expect(continued.view).toEqual((await original.view()).view);
+      // Both play on the same way: same actions, same AI choices, same views.
+      for (let i = 0; i < 3; i++) {
+        const a = await original.act({ type: 'endTurn', side: 'player' });
+        const b = await restored.act({ type: 'endTurn', side: 'player' });
+        expect(b.view).toEqual(a.view);
+      }
+    });
+
+    it('a save mid-run keeps the run: deck, HP, map and what comes next (#144)', async () => {
+      const encounter = (id: string) => json({ formatVersion: 1, kind: 'encounter', id, name: id, units: [{ unit: 'hero', side: 'player', pos: '0' }, { unit: 'weak', side: 'enemy', pos: '3' }] });
+      const runFiles = {
+        ...files(5),
+        'content/units/weak.json': json({ formatVersion: 1, kind: 'unit', id: 'weak', name: 'Weak', hp: 3 }),
+        'content/encounters/one.json': encounter('one'),
+        'content/encounters/two.json': encounter('two'),
+        'content/rulesets/main.json': json({
+          formatVersion: 1,
+          kind: 'ruleset',
+          id: 'main',
+          name: 'Main',
+          board: { topology: 'lane', length: 4 },
+          player: { resources: {}, handSize: 3, deck: ['zap', 'zap', 'zap'] },
+          run: { encounters: ['one', 'two'], rewards: { pool: ['zap'], choices: 1 } },
+        }),
+      };
+      const original = client();
+      await original.loadFiles(runFiles);
+      await original.start('live', 3);
+      const won = await zap(original);
+      expect(won.run?.status).toBe('reward');
+      const save = await original.exportSave();
+
+      const restored = client();
+      await restored.loadFiles(runFiles);
+      const continued = await restored.loadSave(save!);
+      expect(continued.run).toEqual(won.run);
+      const next = await restored.chooseReward('live:zap');
+      expect(next.run).toMatchObject({ stage: 2, status: 'playing' });
+      expect(next.run?.deck).toHaveLength(4);
+    });
+
+    it('refuses a save the game no longer fits, and exports nothing when no game runs', async () => {
+      const engine = client();
+      expect(await engine.exportSave()).toBeNull();
+      await engine.loadFiles(files(5));
+      await engine.start('live', 1);
+      const save = await engine.exportSave();
+      await expect(engine.loadSave({ ...save!, game: 'gone' })).rejects.toMatchObject({ code: 'unknown-game' });
+      await expect(engine.loadSave({ ...save!, actions: [{ type: 'playCard', side: 'player', card: 'nope' }] })).rejects.toMatchObject({ code: 'invalid-package' });
+    });
+
     it('serves unit sprites and the encounter scene as typed object URLs', async () => {
       const svg = enc.encode('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><circle r="5"/></svg>');
       const art = {
