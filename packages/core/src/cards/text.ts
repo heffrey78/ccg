@@ -71,7 +71,7 @@ export function directionText(dir: string, options: TextOptions = {}): string {
 }
 
 /** A unit stat stored by `readUnit`, as a reader says it: "its HP", "its Rot stacks". */
-const STATS: Record<string, string> = { hp: 'HP', maxHp: 'max HP', missing: 'missing HP', block: 'block' };
+const STATS: Record<string, string> = { hp: 'HP', maxHp: 'max HP', missing: 'missing HP', block: 'block', statusStacks: 'stacks' };
 function varText(path: string, options: TextOptions): string {
   const parts = path.split('.');
   if (parts.length === 2 && STATS[parts[1] as string]) return `its ${STATS[parts[1] as string]}`;
