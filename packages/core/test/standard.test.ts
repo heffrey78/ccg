@@ -723,3 +723,80 @@ describe('summoning beside the summoner (#115)', () => {
     expect(grubs(endTurn(rules, state))).toEqual([...cells].sort());
   });
 });
+
+describe('area effects (#117)', () => {
+  const play = (card: object, enemies: [string, string][], board: RulesetDef['board'] = { topology: 'lane', length: 9 }) => {
+    const pkg = contentGame({ board, player: { ...RULESET.player, deck: ['area'], handSize: 1 } });
+    pkg.content.push(
+      item('status', 'rot', { stacking: 'intensity' }),
+      item('card', 'area', card),
+      item('unit', 'bug', { hp: 20 }),
+      item('encounter', 'test', { units: [{ unit: 'hero', side: 'player', pos: board.topology === 'lane' ? '3' : '2,2' }, ...enemies.map(([unit, pos]) => ({ unit, side: 'enemy', pos }))] }),
+    );
+    const registry = new PackageRegistry();
+    registry.register(pkg);
+    const resolved = registry.resolve('plain');
+    if (!resolved.ok) throw new Error(resolved.issues.map((i) => i.message).join('\n'));
+    const rules = resolved.game.createRules();
+    const created = createGame(rules, resolved.game.createSetup({ seed: 1, encounter: 'plain:test' }));
+    if (!created.ok) throw new Error(created.error.message);
+    const action = legalActions(rules, created.state, 'player').find((a) => a.type === 'playCard');
+    const result = apply(rules, created.state, action!);
+    if (!result.ok) throw new Error(result.error.message);
+    const units = Object.values((result.state as GameState<StandardWorld>).world.board.units).filter((u) => u.side === 'enemy');
+    return { units, game: resolved.game };
+  };
+
+  it('pushes every selected unit away, the farthest first so a line moves together', () => {
+    const { units } = play(
+      {
+        targeting: { kind: 'none' },
+        effects: [{ op: 'selectUnits', as: 'near', range: 2 }, { op: 'push', unit: { $: 'near' }, distance: 2 }, { op: 'applyStatus', unit: { $: 'near' }, status: 'rot', stacks: 1 }],
+      },
+      [
+        ['foe', '4'],
+        ['bug', '5'],
+        ['foe', '1'],
+      ],
+    );
+    expect(units.map((u) => [u.def, u.pos, u.statuses['plain:rot']])).toEqual([
+      ['plain:foe', '6', 1],
+      ['plain:bug', '7', 1],
+      ['plain:foe', '0', 1],
+    ]);
+  });
+
+  it('pulls a list in, the nearest first, each stopping beside the puller', () => {
+    const { units } = play({ targeting: { kind: 'none' }, effects: [{ op: 'selectUnits', as: 'all' }, { op: 'pull', unit: { $: 'all' }, distance: 5 }] }, [
+      ['foe', '7'],
+      ['bug', '0'],
+    ]);
+    expect(units.map((u) => u.pos).sort()).toEqual(['2', '4']);
+  });
+
+  it('a pattern card pushes and applies to every unit in its cells', () => {
+    const { units } = play(
+      { targeting: { kind: 'pattern', shape: { kind: 'line', length: 3 } }, effects: [{ op: 'push', distance: 1 }, { op: 'applyStatus', status: 'rot', stacks: 2 }] },
+      [
+        ['foe', '4'],
+        ['bug', '6'],
+        ['foe', '8'],
+      ],
+    );
+    // The line east from 3 covers 4, 5 and 6: the foe at 4 and the bug at 6 move and rot; the foe at 8 doesn't.
+    expect(units.map((u) => [u.pos, u.statuses['plain:rot'] ?? 0])).toEqual([
+      ['5', 2],
+      ['7', 2],
+      ['8', 0],
+    ]);
+  });
+
+  it('reads as an area on the card', () => {
+    const { game } = play({ targeting: { kind: 'none' }, effects: [] }, [['foe', '5']]);
+    const text = (effects: object[]) => cardText({ effects } as never, game.ops, { name: () => 'Rot' });
+    expect(text([{ op: 'selectUnits', as: 'near', range: 1, relation: 'any' }, { op: 'push', unit: { $: 'near' }, distance: 2 }, { op: 'applyStatus', unit: { $: 'near' }, status: 'plain:rot', stacks: 1 }])).toBe(
+      'Each adjacent unit: Push 2. Apply 1 Rot.',
+    );
+    expect(text([{ op: 'selectUnits', as: 'all' }, { op: 'push', unit: { $: 'all' }, distance: 2 }, { op: 'draw', n: 1 }])).toBe('Each enemy: Push 2. Draw 1 card.');
+  });
+});

@@ -23,8 +23,10 @@
     "rootdrinker"
   ],
   "targeting": {
-    "kind": "unit",
-    "filter": "enemy",
-    "range": 4
+    "kind": "pattern",
+    "shape": {
+      "kind": "line",
+      "length": 4
+    }
   }
 }
