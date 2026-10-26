@@ -186,6 +186,7 @@ const ITEM_HINTS: Record<ContentKind, [string, WidgetHint][]> = {
     ['/expect/*/unit', 'unitDef'],
     ['/expect/*/status', 'status'],
   ],
+  theme: [],
 };
 
 /** Hints by field name, wherever it appears. */
@@ -200,6 +201,7 @@ const NAME_HINTS: Record<string, WidgetHint> = {
   art: 'asset',
   background: 'asset',
   icon: 'asset',
+  font: 'asset',
   behavior: 'behavior',
 };
 

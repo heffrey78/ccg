@@ -33,6 +33,7 @@ export function Hand({ cards, selected, onSelect, responding = false }: HandProp
             <button
               type="button"
               className={['ccg-card', card.playable && 'is-playable', responding && card.playable && 'is-eligible', selected === card.id && 'is-selected', face?.timing === 'reaction' && 'is-reaction'].filter(Boolean).join(' ')}
+              data-frame={face?.frame}
               aria-pressed={selected === card.id}
               aria-disabled={!card.playable}
               aria-keyshortcuts={i < 9 ? String(i + 1) : undefined}

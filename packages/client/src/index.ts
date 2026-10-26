@@ -13,3 +13,4 @@ export { Playback, beats, unitsAfter, BEAT_MS, type Beat, type PlaybackState, ty
 export { offers, choicesFor, anchorCell, type Anchor, type Choice, type Offers, type Selection } from './ui/play/selection.js';
 export type { BoardView, CardsView, IntentView, Layout, PermanentView, UnitView, WorldView } from './ui/play/world.js';
 export { CSS } from './ui/styles.js';
+export { themeCss } from './ui/theme.js';

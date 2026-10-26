@@ -38,6 +38,7 @@ export const KIND_FOLDERS: Readonly<Record<ContentKind, string>> = {
   tile: 'tiles',
   encounter: 'encounters',
   ruleset: 'rulesets',
+  theme: 'themes',
   scenario: 'scenarios',
 };
 

@@ -94,5 +94,7 @@ export function newItem(kind: ContentItem['kind'], id: string, name: string, pro
       const encounter = project ? itemsOfKind(project, 'encounter')[0]?.[1].id : undefined;
       return { ...base, encounter: encounter ?? 'first-fight', seed: 1 };
     }
+    case 'theme':
+      return { ...base, colors: {} };
   }
 }

@@ -144,6 +144,33 @@ describe('loadPackage reports problems with JSON Pointers', () => {
   });
 });
 
+describe('themes (#135)', () => {
+  const load = (edit: (files: Record<string, string>) => void) => loadPackage(sampleSource(edit), schemas);
+  const theme = (fields: object) => (files: Record<string, string>) => {
+    files['content/themes/look.json'] = JSON.stringify({ formatVersion: 1, kind: 'theme', id: 'look', name: 'Look', ...fields });
+  };
+
+  it('loads a theme and checks its font and image files exist', async () => {
+    const pkg = await load(
+      theme({
+        colors: { panel: '#222222', ink: '#eee' },
+        fonts: { display: { family: 'Spore Serif', font: 'assets/fonts/missing.woff2' } },
+        frames: [{ id: 'puff', match: { tags: ['puffball'] }, background: 'assets/frames/missing.svg', layout: 'full-art' }],
+      }),
+    );
+    expect(issuesFor(pkg, 'content/themes/look.json')).toEqual([
+      { file: 'content/themes/look.json', pointer: '/fonts/display/font', message: "missing asset 'assets/fonts/missing.woff2'" },
+      { file: 'content/themes/look.json', pointer: '/frames/0/background', message: "missing asset 'assets/frames/missing.svg'" },
+    ]);
+  });
+
+  it('rejects colours that are not hex, and font names that could escape CSS', async () => {
+    const pkg = await load(theme({ colors: { panel: 'red' }, fonts: { body: { family: 'x"; } body { color: red' } } }));
+    const pointers = issuesFor(pkg, 'content/themes/look.json').map((i) => i.pointer).sort();
+    expect(pointers).toEqual(['/colors/panel', '/fonts/body/family']);
+  });
+});
+
 describe('format versions and migrations', () => {
   it('rejects files from a newer format', async () => {
     const pkg = await loadPackage(

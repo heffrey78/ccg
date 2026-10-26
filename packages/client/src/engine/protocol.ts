@@ -55,6 +55,8 @@ export interface CardFace {
   /** Activated ability names by ability index, for a permanent card. */
   abilities: Record<string, string>;
   art?: string;
+  /** The theme frame the card is drawn in (#135); the plain card when absent. */
+  frame?: string;
 }
 
 /** Static display data for a game's content, keyed by qualified content id. */
@@ -64,6 +66,36 @@ export interface Catalog {
   statuses: Record<string, { name: string; description?: string; stacking: string }>;
   /** Art URLs by content id: unit sprites, tile art, status icons. */
   art: Record<string, string>;
+  /** How the game looks (#135), with asset paths resolved to URLs; absent for the default look. */
+  theme?: Theme;
+}
+
+/** A game's theme as the client applies it. */
+export interface Theme {
+  /** Colour tokens by name (background, panel, ink…). */
+  colors: Record<string, string>;
+  fonts: { body?: ThemeFont; display?: ThemeFont };
+  table?: { color?: string; image?: string };
+  frames: ThemeFrame[];
+}
+
+export interface ThemeFont {
+  family: string;
+  /** The font file's URL, when the package ships one. */
+  url?: string;
+}
+
+export interface ThemeFrame {
+  id: string;
+  layout: 'standard' | 'art-first' | 'full-art';
+  fill?: string;
+  /** The frame image's URL. */
+  image?: string;
+  border?: string;
+  borderWidth?: number;
+  radius?: number;
+  ink?: string;
+  accent?: string;
 }
 
 /** What a visible enemy intent will do, for the telegraph. */

@@ -10,6 +10,8 @@ export interface FaceOptions {
   name(ref: string): string | undefined;
   /** URL for the card's art path, if it has art. */
   art?(path: string): string | undefined;
+  /** The theme frame for the card (#135). */
+  frame?(card: ContentItem): string | undefined;
 }
 
 export function cardFace(item: ContentItem, ops: OpRegistry, options: FaceOptions): CardFace {
@@ -31,6 +33,8 @@ export function cardFace(item: ContentItem, ops: OpRegistry, options: FaceOption
   };
   const art = typeof item.art === 'string' ? options.art?.(item.art) : undefined;
   if (art) face.art = art;
+  const frame = options.frame?.(item);
+  if (frame) face.frame = frame;
   if (def.upgrade) {
     const upgrade = item.upgrade as { name?: string; cost?: Record<string, number>; effects?: unknown[] };
     const upgraded = {

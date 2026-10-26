@@ -25,7 +25,7 @@ export function CardFaceContent({ face, keyHint }: { face: CardFace | undefined;
 /** A card face on its own, e.g. the editor's live preview. */
 export function CardPreview({ face }: { face: CardFace }) {
   return (
-    <div className={['ccg-card', 'is-preview', face.timing === 'reaction' && 'is-reaction'].filter(Boolean).join(' ')} role="img" aria-label={`Card preview: ${face.name}. ${face.targeting} ${face.text}`}>
+    <div className={['ccg-card', 'is-preview', face.timing === 'reaction' && 'is-reaction'].filter(Boolean).join(' ')} data-frame={face.frame} role="img" aria-label={`Card preview: ${face.name}. ${face.targeting} ${face.text}`}>
       <CardFaceContent face={face} />
     </div>
   );
