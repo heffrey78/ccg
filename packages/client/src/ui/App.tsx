@@ -105,6 +105,7 @@ export function App({ engine, platform, seed, renderers, encounter, editable, on
           onSpeed={changeSpeed}
           view={view}
           onView={changeView}
+          {...(platform.setFullscreen && { setFullscreen: platform.setFullscreen })}
           onAct={(a: Action) => void run(() => engine.act(a))}
           onQuit={() => setSnapshot(null)}
           onDebug={() => setDebug(true)}

@@ -53,4 +53,6 @@ export function memoryStorage(initial: Record<string, string> = {}): KeyValueSto
 export interface Platform {
   storage: KeyValueStorage;
   settings: SettingsStore;
+  /** Native full screen for the app window (desktop); the browser's Fullscreen API is used without it. */
+  setFullscreen?(on: boolean): Promise<void>;
 }

@@ -33,6 +33,8 @@ export interface EncounterProps {
   /** Board size; standard when absent. */
   view?: ViewMode;
   onView?(view: ViewMode): void;
+  /** Native full screen (the desktop window); the browser's Fullscreen API without it. */
+  setFullscreen?(on: boolean): Promise<void>;
   onAct(action: Action): void;
   onQuit(): void;
   onDebug(): void;
@@ -54,7 +56,7 @@ export interface EncounterProps {
 const isTyping = (target: EventTarget | null) => target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
 const isControl = (target: EventTarget | null) => target instanceof Element && (target.tagName === 'BUTTON' || target.getAttribute('role') === 'button');
 
-export function Encounter({ snapshot, log, busy, speed, onSpeed, view: boardView = 'standard', onView, onAct, onQuit, onDebug, renderers, onChooseReward, autoPass = 0, onAutoPass, onUndo, onChooseNode, onChooseService }: EncounterProps) {
+export function Encounter({ snapshot, log, busy, speed, onSpeed, view: boardView = 'standard', onView, setFullscreen, onAct, onQuit, onDebug, renderers, onChooseReward, autoPass = 0, onAutoPass, onUndo, onChooseNode, onChooseService }: EncounterProps) {
   const { view, side, legal, deciding, catalog, run } = snapshot;
   const world = view.world as WorldView;
   const layout = layoutOf(snapshot.presentation);
@@ -182,7 +184,10 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, view: boardView
     if (next === 'full') {
       windowed.current = boardView;
       // The whole page goes full screen (the browser's own full-screen styles would override the section's); the view's fixed layout fills it.
-      void document.documentElement.requestFullscreen?.().catch(() => undefined);
+      if (setFullscreen) void setFullscreen(true).catch(() => undefined);
+      else void document.documentElement.requestFullscreen?.().catch(() => undefined);
+    } else if (boardView === 'full' && setFullscreen) {
+      void setFullscreen(false).catch(() => undefined);
     } else if (document.fullscreenElement) {
       void document.exitFullscreen().catch(() => undefined);
     }
