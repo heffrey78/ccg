@@ -9,6 +9,7 @@ and `desktop.ts` calls the Rust commands in `src-tauri/src/lib.rs`.
 | --- | --- | --- |
 | Saves and settings | IndexedDB | `storage.json` in the app-data folder |
 | Full screen | Fullscreen API | the native window |
+| Editor: Open folder | Chromium's folder picker (File System Access) | the native folder picker; the app can reach only folders opened this way, and a watcher reloads files changed outside the app (git, a text editor) |
 
 ## Run it
 

@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { ID_PATTERN } from '@ccg/content';
 import { openProject, type Files } from '../project.js';
-import type { DirectoryHandleLike } from '../stores/fsa.js';
+import type { OpenedFolder } from './EditorApp.js';
 import type { ProjectInfo, ProjectLibrary } from '../stores/indexeddb.js';
 import { memoryStore } from '../stores/store.js';
 import { unzipFiles } from '../stores/zip.js';
 import { TEMPLATES, blankProject, type TemplateBoard } from '../templates.js';
-import { directoryStore } from '../stores/fsa.js';
 import { Session } from './session.js';
 
 /** A game the host ships (e.g. the web app's bundled games) that can be opened for editing. */
@@ -22,7 +21,7 @@ export interface InstalledGame {
 export interface ProjectPickerProps {
   library: ProjectLibrary | null;
   /** Opens a folder picker (File System Access API); absent where unsupported. */
-  pickDirectory?: () => Promise<DirectoryHandleLike | null>;
+  openFolder?: () => Promise<OpenedFolder | null>;
   /** Games the host ships; each opens as a copy saved in this browser. */
   installed?: InstalledGame[];
   /** Opens this installed game's copy straight away, e.g. from Play's Edit button. */
@@ -41,7 +40,7 @@ export function slug(name: string): string {
     .replace(/^-+|-+$/g, '');
 }
 
-export function ProjectPicker({ library, pickDirectory, installed = [], edit, onOpen }: ProjectPickerProps) {
+export function ProjectPicker({ library, openFolder: pickFolder, installed = [], edit, onOpen }: ProjectPickerProps) {
   const [projects, setProjects] = useState<ProjectInfo[] | null>(null);
   const [name, setName] = useState('');
   const [board, setBoard] = useState<TemplateBoard>('lane');
@@ -124,14 +123,14 @@ export function ProjectPicker({ library, pickDirectory, installed = [], edit, on
       setProjects(await library.list());
     });
 
-  const openFolder = pickDirectory && (
+  const openFolder = pickFolder && (
     <button
       type="button"
       disabled={busy}
       onClick={() =>
         void attempt(async () => {
-          const dir = await pickDirectory();
-          if (dir) onOpen(await Session.open(directoryStore(dir), { kind: 'folder', name: dir.name }, library));
+          const folder = await pickFolder();
+          if (folder) onOpen(await Session.open(folder.store, { kind: 'folder', name: folder.name }, library));
         })
       }
     >
@@ -177,7 +176,7 @@ export function ProjectPicker({ library, pickDirectory, installed = [], edit, on
               </ul>
               <p className="ccg-muted ccg-picker-note">
                 Edit works on a copy saved in this browser.{' '}
-                {pickDirectory
+                {pickFolder
                   ? `To change a game's own files instead, use Open folder and choose its folder${installed.some((g) => g.folder) ? ` (${installed.flatMap((g) => (g.folder ? [`${g.name}: ${g.folder}`] : [])).join(', ')})` : ''}.`
                   : 'To change a game\'s own files instead, open its folder in Chrome or Edge; this browser can\'t open folders.'}
               </p>
@@ -230,7 +229,7 @@ export function ProjectPicker({ library, pickDirectory, installed = [], edit, on
             </label>
           </div>
           <p className="ccg-muted ccg-picker-note">
-            {pickDirectory ? 'Open folder edits a game package on disk; saving writes its files.' : "Opening a folder needs Chrome or Edge."} Import zip makes a copy in this browser from an exported zip.
+            {pickFolder ? 'Open folder edits a game package on disk; saving writes its files.' : "Opening a folder needs Chrome or Edge."} Import zip makes a copy in this browser from an exported zip.
           </p>
         </div>
 

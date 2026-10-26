@@ -4,9 +4,13 @@
  * this module; nothing else knows which platform it runs on.
  */
 import type { KeyValueStorage } from '@ccg/client';
+import type { ProjectStore } from '@ccg/editor';
 
 /** Calls a command in the desktop shell. */
 export type Invoke = <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
+
+/** Listens for an event from the desktop shell; resolves to a function that stops listening. */
+export type Listen = (event: string, handler: (event: { payload: unknown }) => void) => Promise<() => void>;
 
 /** Whether the page runs inside the desktop shell. */
 export const isDesktop = (): boolean => typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
@@ -25,6 +29,44 @@ export function desktopStorage(invoke: Invoke): KeyValueStorage {
 export async function tauriInvoke(): Promise<Invoke> {
   const { invoke } = await import('@tauri-apps/api/core');
   return invoke as Invoke;
+}
+
+/** The shell's event listener, loaded only on desktop. */
+export async function tauriListen(): Promise<Listen> {
+  const { listen } = await import('@tauri-apps/api/event');
+  return listen as Listen;
+}
+
+/**
+ * A project folder the user opened on desktop (#142), as the editor's store.
+ * Changes on disk arrive as `folder-changed` events, gathered for 300 ms so a
+ * save or a git checkout reads as one change.
+ */
+export function desktopFolderStore(invoke: Invoke, id: number, listen: Listen): ProjectStore {
+  return {
+    list: () => invoke<string[]>('folder_list', { id }),
+    read: async (path) => new Uint8Array(await invoke<ArrayBuffer>('folder_read', { id, path })),
+    write: (path, data) => invoke<void>('folder_write', { id, path, data: Array.from(data) }),
+    remove: (path) => invoke<void>('folder_remove', { id, path }),
+    watch(onChange) {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const stop = listen('folder-changed', (event) => {
+        if (event.payload !== id) return;
+        clearTimeout(timer);
+        timer = setTimeout(onChange, 300);
+      });
+      return () => {
+        clearTimeout(timer);
+        void stop.then((off) => off());
+      };
+    },
+  };
+}
+
+/** Asks for a folder with the native picker; null if the user cancels. */
+export async function desktopOpenFolder(invoke: Invoke, listen: Listen): Promise<{ store: ProjectStore; name: string } | null> {
+  const opened = await invoke<{ id: number; name: string } | null>('folder_open');
+  return opened && { store: desktopFolderStore(invoke, opened.id, listen), name: opened.name };
 }
 
 /** Native full screen for the app window. */

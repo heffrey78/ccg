@@ -4,7 +4,7 @@ import type { OpRegistry } from '@ccg/content';
 import { CSS as CLIENT_CSS } from '@ccg/client';
 import { EngineClient, createEngineHost, localTransport } from '@ccg/client/engine';
 import type { Project } from '../project.js';
-import type { DirectoryHandleLike } from '../stores/fsa.js';
+import type { ProjectStore } from '../stores/store.js';
 import type { ProjectLibrary } from '../stores/indexeddb.js';
 import { editorOps, simulateProject, validateProject, type ProjectIssue } from '../validate.js';
 import type { Simulator } from './BalancePanel.js';
@@ -13,11 +13,17 @@ import type { Session } from './session.js';
 import { CSS } from './styles.js';
 import { Workspace } from './Workspace.js';
 
+/** A project folder on disk, opened by the host: a File System Access handle on web, a native folder on desktop. */
+export interface OpenedFolder {
+  store: ProjectStore;
+  name: string;
+}
+
 export interface EditorAppProps {
   /** Where browser projects are kept; null when IndexedDB is unavailable (projects then live in memory). */
   library: ProjectLibrary | null;
-  /** Folder picker for editing a package on disk (Chromium's `showDirectoryPicker`). */
-  pickDirectory?: () => Promise<DirectoryHandleLike | null>;
+  /** Opens a project folder on disk (Chromium's folder picker on web, a native one on desktop); absent where unsupported. */
+  openFolder?: () => Promise<OpenedFolder | null>;
   /** Validation, e.g. in a worker. Defaults to validating on the main thread. */
   validate?: (project: Project) => Promise<ProjectIssue[]>;
   ops?: OpRegistry;
@@ -33,7 +39,7 @@ export interface EditorAppProps {
   onEdited?(): void;
 }
 
-export function EditorApp({ library, pickDirectory, validate, ops, playtestEngine, simulate, installed, edit, onEdited }: EditorAppProps) {
+export function EditorApp({ library, openFolder, validate, ops, playtestEngine, simulate, installed, edit, onEdited }: EditorAppProps) {
   const [session, setSession] = useState<Session | null>(null);
   const engine = useMemo(() => playtestEngine ?? new EngineClient(localTransport(createEngineHost({ debug: true }))), [playtestEngine]);
   const registry = useMemo(() => ops ?? editorOps(), [ops]);
@@ -47,7 +53,7 @@ export function EditorApp({ library, pickDirectory, validate, ops, playtestEngin
       ) : (
         <ProjectPicker
           library={library}
-          {...(pickDirectory && { pickDirectory })}
+          {...(openFolder && { openFolder })}
           {...(installed && { installed })}
           {...(edit && { edit })}
           onOpen={(s) => {
