@@ -9,13 +9,23 @@
   },
   "effects": [
     {
+      "op": "selectUnits",
+      "as": "enemies"
+    },
+    {
       "op": "push",
-      "distance": 3
+      "distance": 2,
+      "unit": {
+        "$": "enemies"
+      }
     },
     {
       "op": "applyStatus",
       "stacks": 1,
-      "status": "soaked"
+      "status": "soaked",
+      "unit": {
+        "$": "enemies"
+      }
     }
   ],
   "rarity": "uncommon",
@@ -23,8 +33,6 @@
     "rootdrinker"
   ],
   "targeting": {
-    "kind": "unit",
-    "filter": "enemy",
-    "range": 9
+    "kind": "none"
   }
 }

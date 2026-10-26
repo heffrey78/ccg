@@ -281,14 +281,26 @@ export function boardModule<W extends BoardWorld>(config: BoardConfig): RulesMod
     }
   };
 
-  /** The unit an effect acts on: explicit, else the bound target. */
-  const targetOf = (ctx: EffectContext<W>, p: Record<string, unknown>) => str(p.unit ?? ctx.item.vars.target);
   /** The unit doing something: explicit, else the playing unit. */
   const selfOf = (ctx: EffectContext<W>, p: Record<string, unknown>) => str(p.unit ?? ctx.item.vars.self ?? ctx.item.source);
   const targetsOf = (ctx: EffectContext<W>, p: Record<string, unknown>): string[] => {
     const t = p.target ?? ctx.item.vars.targets ?? ctx.item.vars.target;
     return Array.isArray(t) ? (t as string[]) : t === undefined ? [] : [str(t)];
   };
+
+  /** The units an effect acts on (#117): `unit` as one or a list, else the bound targets (a pattern's units), else the target. */
+  const unitsOf = (ctx: EffectContext<W>, p: Record<string, unknown>): string[] => {
+    const t = p.unit ?? ctx.item.vars.targets ?? ctx.item.vars.target;
+    return (Array.isArray(t) ? (t as string[]) : t === undefined ? [] : [str(t)]).filter((id) => unitOf(ctx, id));
+  };
+  /** Units in board order, or by distance from a tile: farthest first for pushes, so a line doesn't block itself. */
+  const byDistance = (ctx: EffectContext<W>, ids: string[], from: Pos, farthestFirst: boolean) =>
+    [...ids].sort((a, b) => {
+      const pa = unitOf(ctx, a)?.pos as Pos;
+      const pb = unitOf(ctx, b)?.pos as Pos;
+      const d = topo.distance(from, pb) - topo.distance(from, pa);
+      return (farthestFirst ? d : -d) || topo.compare(pa, pb);
+    });
 
   const sourcePos = (ctx: EffectContext<W>, p: Record<string, unknown>): Pos => {
     const ref = p.from ?? p.toward ?? ctx.item.vars.self ?? ctx.item.source;
@@ -606,35 +618,44 @@ export function boardModule<W extends BoardWorld>(config: BoardConfig): RulesMod
       push: defineOp(
         {
           displayName: 'Push',
-          description: 'Force a unit (the target) away from the playing unit, or in a direction. Collisions follow the game rule.',
-          params: z.object({ unit: unitRef.optional(), distance, dir: z.string().min(1).optional(), from: z.string().min(1).optional() }),
+          description: 'Force units (the target, or a list such as Select units stores) away from the playing unit, or in a direction. The farthest moves first; collisions follow the game rule.',
+          params: z.object({ unit: unitOrUnits.optional(), distance, dir: z.string().min(1).optional(), from: z.string().min(1).optional() }),
           text: 'Push {distance}.',
           widgets: { unit: 'unit', distance: 'number', dir: 'direction', from: 'unit' },
           category: 'movement',
         },
         (ctx, p) => {
-          const u = unitOf(ctx, targetOf(ctx, p));
-          if (!u) return;
-          const dir = (p.dir as Dir | undefined) ?? directionRelativeTo(u.pos, sourcePos(ctx, p), true);
-          if (dir) force(ctx, u.id, dir, num(p.distance), 'push');
+          const ids = unitsOf(ctx, p);
+          if (ids.length === 0) return;
+          const from = sourcePos(ctx, p);
+          for (const id of byDistance(ctx, ids, from, true)) {
+            const u = unitOf(ctx, id);
+            if (!u) continue;
+            const dir = (p.dir as Dir | undefined) ?? directionRelativeTo(u.pos, from, true);
+            if (dir) force(ctx, u.id, dir, num(p.distance), 'push');
+          }
         },
       ),
       pull: defineOp(
         {
           displayName: 'Pull',
-          description: 'Force a unit (the target) toward the playing unit, stopping next to it.',
-          params: z.object({ unit: unitRef.optional(), distance, toward: z.string().min(1).optional() }),
+          description: 'Force units (the target, or a list) toward the playing unit, stopping next to it. The nearest moves first.',
+          params: z.object({ unit: unitOrUnits.optional(), distance, toward: z.string().min(1).optional() }),
           text: 'Pull {distance}.',
           widgets: { unit: 'unit', distance: 'number', toward: 'unit' },
           category: 'movement',
         },
         (ctx, p) => {
-          const u = unitOf(ctx, targetOf(ctx, p));
-          if (!u) return;
+          const ids = unitsOf(ctx, p);
+          if (ids.length === 0) return;
           const toward = sourcePos(ctx, p);
-          const dir = directionRelativeTo(u.pos, toward, false);
-          const d = Math.min(num(p.distance), Math.max(0, topo.distance(u.pos, toward) - 1));
-          if (dir) force(ctx, u.id, dir, d, 'pull');
+          for (const id of byDistance(ctx, ids, toward, false)) {
+            const u = unitOf(ctx, id);
+            if (!u) continue;
+            const dir = directionRelativeTo(u.pos, toward, false);
+            const d = Math.min(num(p.distance), Math.max(0, topo.distance(u.pos, toward) - 1));
+            if (dir) force(ctx, u.id, dir, d, 'pull');
+          }
         },
       ),
       teleport: defineOp(
@@ -742,11 +763,11 @@ export function boardModule<W extends BoardWorld>(config: BoardConfig): RulesMod
       selectUnits: defineOp(
         {
           displayName: 'Select units',
-          description: 'Store the units within a range of a unit (default the acting one), filtered by side, in a variable — e.g. for area attacks.',
+          description: 'Store the units within a range of a unit (default the acting one; with no range, the whole board), filtered by side, in a variable — e.g. for area attacks.',
           params: z.object({
             as: z.string().min(1),
             near: unitRef.optional(),
-            range: z.number().int().min(0),
+            range: z.number().int().min(0).optional(),
             relation: z.enum(['enemy', 'ally', 'any']).optional(),
           }),
           text: '',
@@ -760,7 +781,7 @@ export function boardModule<W extends BoardWorld>(config: BoardConfig): RulesMod
           }
           const relation = p.relation ?? 'enemy';
           const picked = Object.values(boardOf(ctx.state).units)
-            .filter((u) => u.id !== center.id && topo.distance(center.pos, u.pos) <= num(p.range))
+            .filter((u) => u.id !== center.id && (p.range === undefined || topo.distance(center.pos, u.pos) <= num(p.range)))
             .filter((u) => relation === 'any' || (relation === 'ally') === (u.side === center.side))
             .sort((a, b) => topo.compare(a.pos, b.pos))
             .map((u) => u.id);

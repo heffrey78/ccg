@@ -9,13 +9,25 @@
   },
   "effects": [
     {
+      "op": "selectUnits",
+      "as": "around",
+      "range": 1,
+      "relation": "any"
+    },
+    {
       "op": "push",
-      "distance": 3
+      "distance": 2,
+      "unit": {
+        "$": "around"
+      }
     },
     {
       "op": "applyStatus",
       "stacks": 1,
-      "status": "rot"
+      "status": "rot",
+      "unit": {
+        "$": "around"
+      }
     }
   ],
   "rarity": "common",
@@ -23,8 +35,6 @@
     "puffball"
   ],
   "targeting": {
-    "kind": "unit",
-    "filter": "enemy",
-    "range": 1
+    "kind": "none"
   }
 }

@@ -112,15 +112,19 @@ export function statusesModule<W extends BoardWorld>(defs: Record<string, Status
       applyStatus: defineOp(
         {
           displayName: 'Apply status',
-          description: 'Give a unit (the target) stacks of a status.',
-          params: z.object({ unit: z.string().min(1).optional(), status: z.string().min(1), stacks: z.number().int().min(1) }),
+          description: 'Give units (the target, or a list such as Select units stores) stacks of a status.',
+          params: z.object({ unit: z.union([z.string().min(1), z.array(z.string().min(1))]).optional(), status: z.string().min(1), stacks: z.number().int().min(1) }),
           text: 'Apply {stacks} {status}.',
           widgets: { unit: 'unit', status: 'status', stacks: 'number' },
           category: 'statuses',
         },
         (ctx, p) => {
-          const unit = str(p.unit ?? ctx.item.vars.target);
-          if (ctx.state.world.board.units[unit]) ctx.step({ kind: 'status', unit, status: p.status, delta: p.stacks });
+          // One unit or a list (#117), else the bound targets (a pattern's units), else the target; in the order they entered play.
+          const t = p.unit ?? ctx.item.vars.targets ?? ctx.item.vars.target;
+          const units = (Array.isArray(t) ? (t as string[]) : t === undefined ? [] : [str(t)]).filter((id) => ctx.state.world.board.units[id]);
+          const order = Object.keys(ctx.state.world.board.units);
+          units.sort((a, b) => order.indexOf(a) - order.indexOf(b));
+          if (units.length > 0) ctx.step(units.map((unit) => ({ kind: 'status', unit, status: p.status, delta: p.stacks })));
         },
       ),
       removeStatus: defineOp(

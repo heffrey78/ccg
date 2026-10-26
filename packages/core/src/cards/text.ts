@@ -44,10 +44,36 @@ export function cardText(card: { text?: string; effects: Effect[] }, registry: O
 }
 
 export function effectsText(effects: Effect[], registry: OpRegistry, options: TextOptions = {}): string {
-  return effects
-    .map((e) => effectText(e, registry, options))
-    .filter((t) => t.length > 0)
-    .join(' ');
+  // Effects on a Select units selection read as a group under it (#117): "Each adjacent enemy: Push 2. Apply 1 Rot."
+  const selections = new Map<string, string>();
+  const parts: { label?: string; text: string }[] = [];
+  for (const e of effects) {
+    if (e.op === 'selectUnits' && typeof e.as === 'string') {
+      selections.set(e.as, selectionText(e));
+      continue;
+    }
+    const text = effectText(e, registry, options);
+    if (text.length === 0) continue;
+    const ref = [e.unit, e.target].find((v) => isVarRef(v) && selections.has(v.$));
+    const label = isVarRef(ref) ? selections.get(ref.$) : undefined;
+    parts.push({ ...(label && { label }), text });
+  }
+  const out: string[] = [];
+  for (let i = 0; i < parts.length; ) {
+    const label = parts[i]?.label;
+    const texts: string[] = [];
+    do texts.push((parts[i++] as { text: string }).text);
+    while (label && i < parts.length && parts[i]?.label === label);
+    out.push(label ? `${label}: ${texts.join(' ')}` : texts.join(' '));
+  }
+  return out.join(' ');
+}
+
+/** "Each adjacent enemy", "Each unit within 3", for a Select units effect. */
+function selectionText(e: Effect): string {
+  const who = e.relation === 'ally' ? 'ally' : e.relation === 'any' ? 'unit' : 'enemy';
+  if (typeof e.range !== 'number') return `Each ${who}`;
+  return e.range === 1 ? `Each adjacent ${who}` : `Each ${who} within ${e.range}`;
 }
 
 function effectText(effect: Effect, registry: OpRegistry, options: TextOptions): string {
