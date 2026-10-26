@@ -8,6 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
     "e2e": "playwright test"
   },
   "dependencies": {
@@ -16,6 +17,7 @@
     "@ccg/editor": "workspace:*",
     "@ccg/game-sandbox": "workspace:*",
     "@ccg/sdk": "workspace:*",
+    "@tauri-apps/api": "2.12.4",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "zod": "^4.6.7"

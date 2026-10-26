@@ -23,7 +23,7 @@ const determinismRules = {
 };
 
 export default tseslint.config(
-  { ignores: ['**/dist/**', '**/node_modules/**', '**/.turbo/**', '**/test-results/**', '**/playwright-report/**'] },
+  { ignores: ['**/dist/**', '**/node_modules/**', '**/.turbo/**', '**/test-results/**', '**/playwright-report/**', '**/src-tauri/target/**', '**/src-tauri/gen/**'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {

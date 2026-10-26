@@ -1,0 +1,16 @@
+{
+  "name": "@ccg/desktop",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "The desktop app (#31): the web client and editor in a Tauri 2 window, with desktop adapters.",
+  "scripts": {
+    "dev": "tauri dev",
+    "build:desktop": "tauri build",
+    "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "2.12.4"
+  }
+}

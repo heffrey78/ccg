@@ -1,12 +1,10 @@
 /** The page: Play or Create. Its own module, so editing the UI hot-swaps it without restarting the engine. */
 import { Suspense, lazy, useEffect, useState } from 'react';
-import { App, SettingsStore, memoryStorage, type EngineClient, type KeyValueStorage } from '@ccg/client';
+import { App, type EngineClient } from '@ccg/client';
 import { INSTALLED } from './bundled.js';
-import { indexedDbStorage } from './platform/indexeddb.js';
+import { createPlatform } from './platform/index.js';
 
-// Private browsing can disable IndexedDB; fall back to memory rather than failing.
-const storage: KeyValueStorage = typeof indexedDB === 'undefined' ? memoryStorage() : indexedDbStorage();
-const settings = new SettingsStore(storage);
+const platform = createPlatform();
 const params = new URLSearchParams(location.search);
 const seed = params.get('seed') ?? undefined;
 // Play one encounter rather than the game's run, e.g. `?encounter=duel:first-fight` (handy for testing).
@@ -74,7 +72,7 @@ export function Root({ engine }: { engine: EngineClient }) {
       ) : (
         <App
           engine={engine}
-          platform={{ storage, settings }}
+          platform={platform}
           editable={editable}
           onEdit={(game) => (location.hash = `#/create/edit/${game}`)}
           {...(seed !== undefined && { seed })}
