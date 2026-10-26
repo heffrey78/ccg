@@ -2,6 +2,7 @@
 //! behind the web app's desktop adapters (`apps/web/src/platform/desktop.ts`).
 
 mod folders;
+mod packages;
 mod storage;
 
 use folders::Folders;
@@ -13,6 +14,7 @@ use storage::Storage;
 use tauri::ipc::Response;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_dialog::DialogExt;
+use tauri_plugin_opener::OpenerExt;
 
 #[tauri::command]
 fn kv_get(store: State<Storage>, key: String) -> Option<String> {
@@ -95,10 +97,40 @@ fn folder_remove(id: u32, path: String, folders: State<Folders>) -> Result<(), S
     folders::remove(&folders.root(id)?, &path)
 }
 
+/// `<app data>/packages`, where installed game packages live (#143).
+fn packages_dir(app: &AppHandle) -> Result<std::path::PathBuf, String> {
+    Ok(app.path().app_data_dir().map_err(|e| e.to_string())?.join("packages"))
+}
+
+#[tauri::command]
+fn packages_list(app: AppHandle) -> Result<Vec<packages::Package>, String> {
+    packages::scan(&packages_dir(&app)?)
+}
+
+/// A folder package's file, or a zip package's bytes when no path is given.
+#[tauri::command]
+fn packages_read(app: AppHandle, name: String, path: Option<String>) -> Result<Response, String> {
+    Ok(Response::new(packages::read(&packages_dir(&app)?, &name, path.as_deref())?))
+}
+
+#[tauri::command]
+fn packages_install(app: AppHandle, name: String, data: Vec<u8>) -> Result<(), String> {
+    packages::install_zip(&packages_dir(&app)?, &name, &data).map(|_| ())
+}
+
+/// Shows the packages folder in the system's file manager, creating it first.
+#[tauri::command]
+fn packages_reveal(app: AppHandle) -> Result<(), String> {
+    let dir = packages_dir(&app)?;
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    app.opener().open_path(dir.to_string_lossy(), None::<&str>).map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             let dir = app.path().app_data_dir()?;
             app.manage(Storage::open(dir.join("storage.json")));
@@ -116,7 +148,11 @@ pub fn run() {
             folder_list,
             folder_read,
             folder_write,
-            folder_remove
+            folder_remove,
+            packages_list,
+            packages_read,
+            packages_install,
+            packages_reveal
         ])
         .run(tauri::generate_context!())
         .expect("error while running the desktop app");

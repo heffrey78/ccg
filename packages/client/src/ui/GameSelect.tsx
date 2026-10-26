@@ -12,9 +12,11 @@ export interface GameSelectProps {
   onEdit?(game: string): void;
   /** Loads a zipped game package (as the editor exports). */
   onImport?(file: File): void;
+  /** Shows the folder installed packages are read from (desktop). */
+  onRevealPackages?(): void;
 }
 
-export function GameSelect({ games, lastPlayed, difficulties = {}, onDifficulty, onStart, editable = [], onEdit, onImport }: GameSelectProps) {
+export function GameSelect({ games, lastPlayed, difficulties = {}, onDifficulty, onStart, editable = [], onEdit, onImport, onRevealPackages }: GameSelectProps) {
   return (
     <section aria-labelledby="games-heading">
       <h1 id="games-heading">Choose a game</h1>
@@ -31,6 +33,11 @@ export function GameSelect({ games, lastPlayed, difficulties = {}, onDifficulty,
             }}
           />
         </label>
+      )}
+      {onRevealPackages && (
+        <button type="button" className="ccg-reveal-packages" onClick={onRevealPackages} title="Put a game's folder or exported zip here, then come back to Play">
+          Open packages folder
+        </button>
       )}
       {games.length === 0 && <p>No games are installed.</p>}
       <ul style={{ listStyle: 'none', padding: 0, display: 'grid', gap: 12 }}>

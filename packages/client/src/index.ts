@@ -1,5 +1,5 @@
 export * from './engine/index.js';
-export { SettingsStore, memoryStorage, type KeyValueStorage, type Platform } from './platform.js';
+export { SettingsStore, memoryStorage, type InstalledPackage, type KeyValueStorage, type Platform } from './platform.js';
 export { App, type AppProps } from './ui/App.js';
 export { DebugEncounter, type DebugEncounterProps } from './ui/DebugEncounter.js';
 export { describeAction, describeEvent, type EventContext } from './ui/describe.js';

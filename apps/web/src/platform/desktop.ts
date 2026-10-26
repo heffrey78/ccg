@@ -3,7 +3,7 @@
  * shell's commands (`apps/desktop/src-tauri`). Only `platform/index.ts` uses
  * this module; nothing else knows which platform it runs on.
  */
-import type { KeyValueStorage } from '@ccg/client';
+import type { InstalledPackage, KeyValueStorage } from '@ccg/client';
 import type { ProjectStore } from '@ccg/editor';
 
 /** Calls a command in the desktop shell. */
@@ -68,6 +68,23 @@ export async function desktopOpenFolder(invoke: Invoke, listen: Listen): Promise
   const opened = await invoke<{ id: number; name: string } | null>('folder_open');
   return opened && { store: desktopFolderStore(invoke, opened.id, listen), name: opened.name };
 }
+
+/** Every package in the packages folder (#143): a folder's files, or a zip's bytes. */
+export async function desktopPackages(invoke: Invoke): Promise<InstalledPackage[]> {
+  const listed = await invoke<({ kind: 'folder'; name: string; files: string[] } | { kind: 'zip'; name: string })[]>('packages_list');
+  const read = async (name: string, path?: string) => new Uint8Array(await invoke<ArrayBuffer>('packages_read', { name, ...(path && { path }) }));
+  return Promise.all(
+    listed.map(async (p): Promise<InstalledPackage> => {
+      if (p.kind === 'zip') return { name: p.name, zip: await read(p.name) };
+      const files: Record<string, Uint8Array> = {};
+      for (const path of p.files) files[path] = await read(p.name, path);
+      return { name: p.name, files };
+    }),
+  );
+}
+
+/** Installs an exported zip in the packages folder, replacing an earlier one of the same name. */
+export const desktopInstallPackage = (invoke: Invoke) => (name: string, zip: Uint8Array) => invoke<void>('packages_install', { name, data: Array.from(zip) });
 
 /** Native full screen for the app window. */
 export async function setDesktopFullscreen(on: boolean): Promise<void> {

@@ -77,3 +77,29 @@ describe('desktop project folders (#142)', () => {
     vi.useRealTimers();
   });
 });
+
+describe('the packages folder (#143)', () => {
+  it('reads folder packages file by file and zip packages whole, and installs zips', async () => {
+    const { desktopInstallPackage, desktopPackages } = await import('./desktop.js');
+    const calls: [string, Record<string, unknown> | undefined][] = [];
+    const invoke = (async (command: string, args?: Record<string, unknown>) => {
+      calls.push([command, args]);
+      if (command === 'packages_list')
+        return [
+          { kind: 'folder', name: 'duel', files: ['content/a.json', 'game.json'] },
+          { kind: 'zip', name: 'spore' },
+        ];
+      if (command === 'packages_read') return new Uint8Array([args?.path ? 1 : 2]).buffer;
+      return undefined;
+    }) as Invoke;
+    expect(await desktopPackages(invoke)).toEqual([
+      { name: 'duel', files: { 'content/a.json': new Uint8Array([1]), 'game.json': new Uint8Array([1]) } },
+      { name: 'spore', zip: new Uint8Array([2]) },
+    ]);
+    await desktopInstallPackage(invoke)('spore', new Uint8Array([9, 9]));
+    expect(calls.at(-1)).toEqual(['packages_install', { name: 'spore', data: [9, 9] }]);
+    const platform = createPlatform({ desktop: true, invoke: Promise.resolve(invoke) });
+    expect(platform.packages).toBeTypeOf('function');
+    expect(platform.revealPackages).toBeTypeOf('function');
+  });
+});

@@ -40,7 +40,23 @@ export function App({ engine, platform, seed, renderers, encounter, editable, on
   const [difficulties, setDifficulties] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    void engine.listGames().then(setGames, (e: Error) => setError(e.message));
+    // Packages installed on the device load first, so they're in the list (#143).
+    const installed = async () => {
+      const failed: string[] = [];
+      for (const pkg of (await platform.packages?.()) ?? []) {
+        try {
+          if ('zip' in pkg) await engine.importZip(pkg.zip);
+          else await engine.loadFiles(pkg.files);
+        } catch (e) {
+          failed.push(`${pkg.name}: ${(e as Error).message}`);
+        }
+      }
+      if (failed.length > 0) setError(`Some installed packages didn't load. ${failed.join('; ')}`);
+    };
+    void installed()
+      .catch((e: Error) => setError(e.message))
+      .then(() => engine.listGames())
+      .then((list) => list && setGames(list), (e: Error) => setError(e.message));
     void platform.settings.get<string | null>('lastPlayed', null).then(setLastPlayed);
     void platform.settings.get<number | null>('animationSpeed', null).then((s) => s !== null && setSpeed(s));
     void platform.settings.get<number>('autoPass', 0).then(setAutoPass);
@@ -134,6 +150,7 @@ export function App({ engine, platform, seed, renderers, encounter, editable, on
           onDifficulty={chooseDifficulty}
           {...(onEdit && { onEdit, editable })}
           onStart={start}
+          {...(platform.revealPackages && { onRevealPackages: () => void platform.revealPackages?.().catch((e: Error) => setError(e.message)) })}
           onImport={(file) =>
             void file
               .arrayBuffer()

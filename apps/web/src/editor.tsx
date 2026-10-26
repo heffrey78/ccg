@@ -3,7 +3,7 @@ import { indexedDbLibrary, type Project, type ProjectIssue } from '@ccg/editor';
 import { EngineClient, workerTransport } from '@ccg/client/engine';
 import { EditorApp, type InstalledGame, type Simulator } from '@ccg/editor/ui';
 import type { GameRecord } from '@ccg/core';
-import { folderOpener } from './platform/folders.js';
+import { folderOpener, packageInstaller } from './platform/folders.js';
 
 function workerValidator(): (project: Project) => Promise<ProjectIssue[]> {
   const worker = new Worker(new URL('./validate.worker.ts', import.meta.url), { type: 'module' });
@@ -59,6 +59,7 @@ const playtestEngine = new EngineClient(workerTransport(new Worker(new URL('./pl
 const validate = workerValidator();
 const simulate = workerSimulator();
 const openFolder = folderOpener();
+const installPackage = packageInstaller();
 
 export default function Editor({ installed, edit, onEdited }: { installed: InstalledGame[]; edit?: string; onEdited(): void }) {
   return (
@@ -71,6 +72,7 @@ export default function Editor({ installed, edit, onEdited }: { installed: Insta
       onEdited={onEdited}
       {...(edit && { edit })}
       {...(openFolder && { openFolder })}
+      {...(installPackage && { installPackage })}
     />
   );
 }
