@@ -13,7 +13,7 @@ describe('theme contrast (#136)', () => {
 
   it('a readable theme, and the default look, raise nothing', () => {
     expect(themeContrastProblems(theme({}))).toEqual([]);
-    expect(themeContrastProblems(theme({ colors: { page: '#120e0b', panel: '#2a221b', ink: '#f1e6d2', muted: '#b8a68a', accent: '#8a4f12' } }))).toEqual([]);
+    expect(themeContrastProblems(theme({ colors: { page: '#120e0b', panel: '#2a221b', ink: '#f1e6d2', muted: '#b8a68a', accent: '#8a4f12', accentText: '#e0a85a' } }))).toEqual([]);
   });
 
   it('points at each pair below AA: panels, the table, buttons and frames', () => {

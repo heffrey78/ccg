@@ -13,6 +13,7 @@ const TOKENS: Record<string, string> = {
   muted: '--muted',
   line: '--line',
   accent: '--accent',
+  accentText: '--accent-text',
   cell: '--cell',
   mine: '--mine',
   enemy: '--enemy',

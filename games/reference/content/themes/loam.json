@@ -1,0 +1,126 @@
+{
+  "formatVersion": 1,
+  "kind": "theme",
+  "id": "loam",
+  "name": "Loam",
+  "colors": {
+    "accent": "#8a5216",
+    "accentText": "#e0a85a",
+    "block": "#6f9ee0",
+    "cell": "#33281f",
+    "enemy": "#d0573d",
+    "hp": "#5fb36a",
+    "ink": "#efe5d0",
+    "line": "#47382a",
+    "mine": "#6fae4a",
+    "muted": "#b9a88c",
+    "page": "#120e0b",
+    "panel": "#221a14",
+    "reaction": "#b58ae0",
+    "target": "#f2bf2c",
+    "threat": "#ec6a4c"
+  },
+  "defaultFrame": "knot",
+  "fonts": {
+    "display": {
+      "family": "Fraunces",
+      "font": "assets/fonts/fraunces-600.woff2"
+    }
+  },
+  "frames": [
+    {
+      "id": "knot",
+      "name": "The Knot",
+      "accent": "#7a5414",
+      "border": "#c9a25a",
+      "borderWidth": 2,
+      "fill": "#2b2318",
+      "layout": "art-first",
+      "match": {
+        "tags": [
+          "knot"
+        ]
+      },
+      "radius": 12
+    },
+    {
+      "id": "rotcap",
+      "name": "Rotcap",
+      "accent": "#46691d",
+      "border": "#8fbf3f",
+      "borderWidth": 2,
+      "fill": "#1d2618",
+      "layout": "art-first",
+      "match": {
+        "tags": [
+          "rotcap"
+        ]
+      },
+      "radius": 12
+    },
+    {
+      "id": "puffball",
+      "name": "Puffball",
+      "accent": "#1e6b62",
+      "border": "#4fd1b9",
+      "borderWidth": 2,
+      "fill": "#15262a",
+      "layout": "art-first",
+      "match": {
+        "tags": [
+          "puffball"
+        ]
+      },
+      "radius": 12
+    },
+    {
+      "id": "glowcap",
+      "name": "Glowcap",
+      "accent": "#5b3fa8",
+      "border": "#a78bf0",
+      "borderWidth": 2,
+      "fill": "#1b1a33",
+      "layout": "art-first",
+      "match": {
+        "tags": [
+          "glowcap"
+        ]
+      },
+      "radius": 12
+    },
+    {
+      "id": "rootdrinker",
+      "name": "Rootdrinker",
+      "accent": "#255f91",
+      "border": "#5fa8e6",
+      "borderWidth": 2,
+      "fill": "#14222f",
+      "layout": "art-first",
+      "match": {
+        "tags": [
+          "rootdrinker"
+        ]
+      },
+      "radius": 12
+    },
+    {
+      "id": "cordyceps",
+      "name": "Cordyceps",
+      "accent": "#9a3f22",
+      "border": "#f08a4b",
+      "borderWidth": 2,
+      "fill": "#2c1a1c",
+      "layout": "art-first",
+      "match": {
+        "tags": [
+          "cordyceps"
+        ]
+      },
+      "radius": 12
+    }
+  ],
+  "table": {
+    "background": "assets/theme/table.svg",
+    "color": "#120e0b"
+  }
+}

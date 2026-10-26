@@ -250,11 +250,12 @@ function StatusPreview({ project, item }: { project: Project; item: ContentItem 
   );
 }
 
-/** Every asset path a theme or card names, for preview URLs. */
+/** Every asset path a theme names, plus any paths given directly, for preview URLs. */
 function assetPaths(...nodes: unknown[]): string[] {
   const out = new Set<string>();
   const walk = (n: unknown): void => {
-    if (Array.isArray(n)) n.forEach(walk);
+    if (typeof n === 'string' && n.startsWith('assets/')) out.add(n);
+    else if (Array.isArray(n)) n.forEach(walk);
     else if (typeof n === 'object' && n !== null) {
       for (const [k, v] of Object.entries(n)) {
         if (typeof v === 'string' && ['art', 'background', 'font'].includes(k)) out.add(v);
