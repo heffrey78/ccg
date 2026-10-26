@@ -45,9 +45,29 @@ export function NumberInput({ value, onCommit, label, min, max, integer }: { val
 }
 
 /** A labelled row with its validation messages, addressable by JSON Pointer for jump-to-field. */
-export function Row({ label, pointer, errors, flagged, actions, children, block, help }: { label: string; pointer: string; errors: string[]; flagged: boolean; actions?: ReactNode; children: ReactNode; block?: boolean; help?: string | undefined }) {
+export function Row({
+  label,
+  pointer,
+  errors,
+  warnings = [],
+  flagged,
+  actions,
+  children,
+  block,
+  help,
+}: {
+  label: string;
+  pointer: string;
+  errors: string[];
+  warnings?: string[] | undefined;
+  flagged: boolean;
+  actions?: ReactNode;
+  children: ReactNode;
+  block?: boolean;
+  help?: string | undefined;
+}) {
   return (
-    <div className={['ccg-form-row', block && 'is-block', errors.length > 0 && 'has-error', flagged && 'is-flagged'].filter(Boolean).join(' ')} data-pointer={pointer}>
+    <div className={['ccg-form-row', block && 'is-block', errors.length > 0 ? 'has-error' : warnings.length > 0 && 'has-warning', flagged && 'is-flagged'].filter(Boolean).join(' ')} data-pointer={pointer}>
       <div className="ccg-form-label">
         <span>{label}</span>
         {actions}
@@ -58,6 +78,11 @@ export function Row({ label, pointer, errors, flagged, actions, children, block,
         {errors.map((e, i) => (
           <p key={i} className="ccg-error">
             {e}
+          </p>
+        ))}
+        {warnings.map((w, i) => (
+          <p key={`w${i}`} className="ccg-warning">
+            {w}
           </p>
         ))}
       </div>

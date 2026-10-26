@@ -5,6 +5,7 @@
  */
 import { createContentSchemas, loadPackage, mapRefs, parseRef, REF_PATTERN, type OpRegistry } from '@ccg/content';
 import { PackageRegistry, builtinOps, runMapIssues, runScenarios, simulate, type RunMap, type GameRecord, type ScenarioResult, type SimOptions } from '@ccg/core';
+import { themeContrastProblems } from './contrast.js';
 import { boardIssues, projectBoard } from './encounters.js';
 import { projectFiles, type Project } from './project.js';
 import { fileSource } from './stores/store.js';
@@ -16,6 +17,8 @@ export interface ProjectIssue {
   /** JSON Pointer within the item or file. */
   pointer: string;
   message: string;
+  /** Warnings (e.g. low contrast) don't stop a playtest or an export; errors do. */
+  severity?: 'warning';
 }
 
 /** The op vocabulary content can use: the engine's built-ins (game packages with code add theirs). */
@@ -44,6 +47,11 @@ export async function validateProject(project: Project, ops: OpRegistry = editor
       if (!seen.has(id)) issues.push(issue);
       seen.add(id);
     });
+  }
+  // Themes: warn where text would be hard to read (#136).
+  for (const [key, item] of Object.entries(project.items)) {
+    if (item.kind !== 'theme') continue;
+    for (const p of themeContrastProblems(item)) issues.push({ file: project.paths[key] as string, key, pointer: p.pointer, message: p.message, severity: 'warning' });
   }
   // A run map must be walkable: known nodes, fights with encounters, no loops.
   for (const [key, item] of Object.entries(project.items)) {

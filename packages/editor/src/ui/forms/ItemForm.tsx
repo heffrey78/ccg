@@ -7,14 +7,15 @@ import { useMemo, useState } from 'react';
 import { previewIntents } from '../../behavior.js';
 import { previewSetup } from '../../forms/patterns.js';
 import { createContentSchemas, type ContentItem, type ContentKind, type OpRegistry } from '@ccg/content';
-import { CardPreview, RunMap } from '@ccg/client';
-import { runMapDepths, type RunMap as RunMapData } from '@ccg/core';
-import { cardFace } from '@ccg/client/engine';
+import { Board, CardPreview, RunMap, themeCss, type Layout, type UnitView } from '@ccg/client';
+import { LaneTopology, runMapDepths, type RunMap as RunMapData } from '@ccg/core';
+import { cardFace, frameFor, resolveTheme } from '@ccg/client/engine';
 import { describe, jsonSchemaOf } from '../../forms/schema.js';
 import type { PreviewBoard } from '../../forms/patterns.js';
 import type { Project } from '../../project.js';
 import type { ProjectIssue } from '../../validate.js';
-import { AssetPreview, useAssetUrl } from '../AssetPanel.js';
+import { AssetPreview, useAssetUrl, useAssetUrls } from '../AssetPanel.js';
+import { itemsOfKind } from '../../project.js';
 import { EncounterBoard } from './EncounterBoard.js';
 import { Form, ObjectFields, type FormContext } from './SchemaField.js';
 
@@ -89,8 +90,12 @@ export function ItemForm({ project, ops, item, issues, flagged, board, setBoard,
   const spec = describe(root, root);
   const ctx: FormContext = useMemo(() => {
     const byPointer = new Map<string, string[]>();
-    for (const i of issues) byPointer.set(i.pointer, [...(byPointer.get(i.pointer) ?? []), i.message]);
-    return { project, ops, kind: item.kind, board, setBoard, issues: byPointer, flagged };
+    const warnings = new Map<string, string[]>();
+    for (const i of issues) {
+      const map = i.severity === 'warning' ? warnings : byPointer;
+      map.set(i.pointer, [...(map.get(i.pointer) ?? []), i.message]);
+    }
+    return { project, ops, kind: item.kind, board, setBoard, issues: byPointer, warnings, flagged };
   }, [project, ops, item.kind, board, setBoard, issues, flagged]);
   if (spec.kind !== 'object') return null;
 
@@ -124,6 +129,7 @@ export function ItemForm({ project, ops, item, issues, flagged, board, setBoard,
         {item.kind === 'status' && <StatusPreview project={project} item={item} />}
         {item.kind === 'unit' && <IntentPreview project={project} ops={ops} item={item} board={board} />}
         {item.kind === 'ruleset' && <MapPreview project={project} item={item} />}
+        {item.kind === 'theme' && <ThemePreview project={project} ops={ops} item={item} />}
       </div>
     </Form.Provider>
   );
@@ -240,6 +246,110 @@ function StatusPreview({ project, item }: { project: Project; item: ContentItem 
         <span className="ccg-muted">{String(item.stacking)}</span>
       </div>
       {typeof item.description === 'string' && <p>{item.description}</p>}
+    </aside>
+  );
+}
+
+/** Every asset path a theme or card names, for preview URLs. */
+function assetPaths(...nodes: unknown[]): string[] {
+  const out = new Set<string>();
+  const walk = (n: unknown): void => {
+    if (Array.isArray(n)) n.forEach(walk);
+    else if (typeof n === 'object' && n !== null) {
+      for (const [k, v] of Object.entries(n)) {
+        if (typeof v === 'string' && ['art', 'background', 'font'].includes(k)) out.add(v);
+        else walk(v);
+      }
+    }
+  };
+  nodes.forEach(walk);
+  return [...out].sort();
+}
+
+const SAMPLE_LANE: Layout = { ...new LaneTopology(5).layout(), tiles: {} };
+const sampleUnit = (id: string, def: string, side: string, pos: string, hp: number): UnitView => ({ id, def, side, pos, facing: side === 'player' ? 'e' : 'w', hp, maxHp: hp, block: 0, statuses: {} });
+
+/**
+ * The theme as it will look in play (#136): the table, a panel, a small board
+ * and a sample card in each frame, drawn by the play client with the theme's CSS.
+ */
+function ThemePreview({ project, ops, item }: { project: Project; ops: OpRegistry; item: ContentItem }) {
+  const cards = itemsOfKind(project, 'card').map(([, c]) => c);
+  const frames = ((item.frames as { id: string; name?: string }[] | undefined) ?? []).filter((f) => typeof f.id === 'string');
+  // A project card for each frame, and one for the plain card, when there is one.
+  const samples = [
+    ...frames.map((f) => ({ label: f.name ?? f.id, frame: f.id, card: cards.find((c) => frameFor(item, c) === f.id) })),
+    ...(item.defaultFrame ? [] : [{ label: 'No frame', frame: undefined, card: cards.find((c) => frameFor(item, c) === undefined) }]),
+  ];
+  const encounter = itemsOfKind(project, 'encounter')[0]?.[1] as { units?: { unit: string; side: string }[] } | undefined;
+  const mine = encounter?.units?.find((u) => u.side === 'player')?.unit;
+  const foe = encounter?.units?.find((u) => u.side !== 'player')?.unit;
+  const unitArt = [mine, foe].flatMap((u) => (u ? [project.items[`unit:${u}`]?.art] : []));
+  const urls = useAssetUrls(project, assetPaths(item, samples.map((s) => s.card?.art), unitArt));
+  // A theme mid-edit can be malformed; the preview then shows the default look.
+  const css = (() => {
+    try {
+      return themeCss(resolveTheme(item, (path) => urls[path] ?? ''), '.ccg-theme-sample');
+    } catch {
+      return '';
+    }
+  })();
+  const name = (ref: string) => project.items[`unit:${ref}`]?.name ?? project.items[`status:${ref}`]?.name ?? project.items[`card:${ref}`]?.name ?? ref;
+  const art: Record<string, string> = {};
+  for (const u of [mine, foe]) {
+    const path = u ? project.items[`unit:${u}`]?.art : undefined;
+    if (u && typeof path === 'string' && urls[path]) art[u] = urls[path] as string;
+  }
+  const units = { a: sampleUnit('a', mine ?? 'hero', 'player', '1', 30), b: sampleUnit('b', foe ?? 'foe', 'enemy', '3', 20) };
+  return (
+    <aside className="ccg-preview ccg-theme-preview" aria-label="Theme preview">
+      <style>{css}</style>
+      <div className="ccg-app ccg-theme-page">
+        <div className="ccg-theme-sample">
+          <h2>{project.manifest.name}</h2>
+          <div className="ccg-theme-panel">
+            <p>
+              Your decision <span className="ccg-muted">· round 2</span>
+            </p>
+            <button type="button" className="ccg-primary" tabIndex={-1}>
+              End turn
+            </button>
+          </div>
+          <Board
+            layout={SAMPLE_LANE}
+            units={units}
+            tiles={{}}
+            side="player"
+            intents={[]}
+            intentSummaries={{}}
+            names={{}}
+            targets={[]}
+            effect={null}
+            selectable={new Set()}
+            selected={null}
+            onUnit={() => undefined}
+            onInspect={() => undefined}
+            speed={0}
+            art={art}
+          />
+          <div className="ccg-theme-cards">
+            {samples.map((s) => {
+              let face;
+              try {
+                face = s.card ? cardFace(s.card, ops, { name, art: (path) => urls[path], ...(s.frame && { frame: () => s.frame }) }) : undefined;
+              } catch {
+                face = undefined;
+              }
+              return (
+                <figure key={s.label}>
+                  {face ? <CardPreview face={face} /> : <div className="ccg-card is-preview" data-frame={s.frame} />}
+                  <figcaption className="ccg-muted">{s.label}</figcaption>
+                </figure>
+              );
+            })}
+          </div>
+        </div>
+      </div>
     </aside>
   );
 }
