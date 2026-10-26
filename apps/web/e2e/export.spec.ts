@@ -20,6 +20,7 @@ test('imports art, exports the project as a zip, and plays it in the play client
   await page.keyboard.press('Control+s');
 
   const download = page.waitForEvent('download');
+  await page.getByText('Export', { exact: true }).click();
   await page.getByRole('button', { name: 'Export zip' }).click();
   const zip = await (await download).path();
   expect((await download).suggestedFilename()).toBe('zip-game-0.1.0.zip');

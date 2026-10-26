@@ -40,7 +40,7 @@ function Field({ label, value, onCommit, placeholder }: { label: string; value: 
   );
 }
 
-export function ManifestPanel({ project, run }: Pick<PanelProps, 'project' | 'run'>) {
+export function ManifestPanel({ project, run, onSelect, onPlaytest, onBalance }: Pick<PanelProps, 'project' | 'run'> & { onSelect?(selection: Selection): void; onPlaytest?(): void; onBalance?(): void }) {
   const m = project.manifest;
   const set = (field: keyof Manifest, label: string) => (value: string) => {
     const next = { ...m } as Record<string, unknown>;
@@ -58,9 +58,41 @@ export function ManifestPanel({ project, run }: Pick<PanelProps, 'project' | 'ru
       <Field label="Version" value={m.version} onCommit={set('version', 'Change version')} />
       <Field label="Description" value={m.description ?? ''} onCommit={set('description', 'Edit description')} />
       <Field label="Engine range" value={m.engine} onCommit={set('engine', 'Change engine range')} />
+      <h3>Where to start</h3>
+      <p className="ccg-muted">{contentSummary(project)}</p>
+      <div className="ccg-row ccg-start-links">
+        {onSelect &&
+          Object.entries(project.items)
+            .filter(([, i]) => i.kind === 'ruleset')
+            .map(([key]) => (
+              <button key={key} type="button" onClick={() => onSelect({ kind: 'item', key })} title="Board, the player's deck and hand, the run and difficulty levels">
+                Rules and difficulty
+              </button>
+            ))}
+        {onPlaytest && (
+          <button type="button" onClick={onPlaytest} title="Play an encounter, a scenario or the whole run as you edit">
+            Play it now
+          </button>
+        )}
+        {onBalance && (
+          <button type="button" onClick={onBalance} title="Simulate many games with a bot">
+            Bot simulation
+          </button>
+        )}
+      </div>
     </section>
   );
 }
+
+/** "34 cards, 14 units and 9 encounters", for the kinds the project has. */
+function contentSummary(project: Project): string {
+  const counts = new Map<string, number>();
+  for (const item of Object.values(project.items)) counts.set(item.kind, (counts.get(item.kind) ?? 0) + 1);
+  const parts = [...counts].map(([kind, n]) => `${n} ${n === 1 ? KIND_SINGULAR[kind as keyof typeof KIND_SINGULAR] : PLURAL[kind] ?? `${kind}s`}`);
+  if (parts.length === 0) return 'No content yet.';
+  return `This game has ${parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}` : parts[0]}.`;
+}
+const PLURAL: Record<string, string> = { status: 'statuses' };
 
 export function ItemPanel({
   project,
@@ -150,7 +182,7 @@ export function ItemPanel({
       <div className="ccg-fields">
         <Field label="Name" value={item.name} onCommit={(name) => update(`Rename ${item.name} to ${name}`, { name })} />
         <Field
-          label="Id"
+          label="ID"
           value={item.id}
           onCommit={(id) => {
             const err = run(`Change id ${item.id} → ${id}`, renameItem(itemKey, id, ops));

@@ -56,8 +56,8 @@ test('composes a card: palette effect, cost, targeting pattern, variables', asyn
 
 test('shows validation errors on the field, and picks references from the project', async ({ page }) => {
   await openItem(page, /^Hero hero/);
-  await page.getByLabel('Hp', { exact: true }).fill('0');
-  await page.getByLabel('Hp', { exact: true }).press('Enter');
+  await page.getByLabel('HP', { exact: true }).fill('0');
+  await page.getByLabel('HP', { exact: true }).press('Enter');
   const row = page.locator('.ccg-form-row[data-pointer="/hp"]');
   await expect(row).toHaveClass(/has-error/);
   await expect(row.locator('.ccg-error')).toContainText(/>=\s*1|at least 1/);

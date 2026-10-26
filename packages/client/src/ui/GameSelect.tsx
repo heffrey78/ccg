@@ -7,11 +7,14 @@ export interface GameSelectProps {
   difficulties?: Record<string, string>;
   onDifficulty?(game: string, level: string): void;
   onStart(game: string, difficulty?: string): void;
+  /** Games that can be opened in an editor; each gets an Edit button. */
+  editable?: string[] | undefined;
+  onEdit?(game: string): void;
   /** Loads a zipped game package (as the editor exports). */
   onImport?(file: File): void;
 }
 
-export function GameSelect({ games, lastPlayed, difficulties = {}, onDifficulty, onStart, onImport }: GameSelectProps) {
+export function GameSelect({ games, lastPlayed, difficulties = {}, onDifficulty, onStart, editable = [], onEdit, onImport }: GameSelectProps) {
   return (
     <section aria-labelledby="games-heading">
       <h1 id="games-heading">Choose a game</h1>
@@ -55,6 +58,11 @@ export function GameSelect({ games, lastPlayed, difficulties = {}, onDifficulty,
                   </label>
                   {chosen.description && <small className="ccg-muted">{chosen.description}</small>}
                 </div>
+              )}
+              {onEdit && editable.includes(game.id) && (
+                <button type="button" className="ccg-game-edit" aria-label={`Edit ${game.name}`} title="Open this game in the editor" onClick={() => onEdit(game.id)}>
+                  Edit
+                </button>
               )}
             </li>
           );

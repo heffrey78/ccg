@@ -16,7 +16,7 @@ test('a three-encounter run with rewards plays end to end from the editor', asyn
 
   // Quick fights: a 1 HP foe, and a Strike that reaches it from anywhere.
   await content(page).getByRole('button', { name: /^Foe foe/ }).click();
-  await commit(page, 'Hp', '1');
+  await commit(page, 'HP', '1');
   await content(page).getByRole('button', { name: /^Strike strike/ }).click();
   await commit(page, 'Range', '9');
 
