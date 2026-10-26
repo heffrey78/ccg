@@ -69,6 +69,7 @@ export const CSS = `
 .ccg-cell.is-special { fill: var(--cell-special); }
 .ccg-cell.is-blocking { fill: var(--cell-blocking); }
 .ccg-cell.is-threatened { stroke: var(--threat); stroke-width: 3; stroke-dasharray: 6 4; }
+.ccg-cell.is-intended { stroke: var(--reaction); stroke-width: 3; stroke-dasharray: 2 5; stroke-linecap: round; }
 .ccg-tile-label { font-size: 9px; fill: var(--muted); }
 .ccg-unit { cursor: default; }
 .ccg-unit[role="button"] { cursor: pointer; }
@@ -133,6 +134,8 @@ export const CSS = `
 .ccg-app .ccg-reward:hover .ccg-card { transform: translateY(-4px); border-color: var(--target); }
 .ccg-cell.is-fogged { fill: color-mix(in srgb, var(--ink) 22%, var(--cell)); }
 .has-scene .ccg-cell { fill: color-mix(in srgb, var(--cell) 22%, transparent); stroke: color-mix(in srgb, #fff 28%, transparent); }
+.has-scene .ccg-cell.is-threatened { stroke: var(--threat); }
+.has-scene .ccg-cell.is-intended { stroke: var(--reaction); }
 .has-scene .ccg-cell.is-fogged { fill: color-mix(in srgb, #000 55%, transparent); }
 .has-scene .ccg-cell.is-blocking { fill: color-mix(in srgb, var(--cell-blocking) 70%, transparent); }
 .ccg-unit-ground { fill: #000; opacity: .28; }

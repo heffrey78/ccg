@@ -113,7 +113,7 @@ export function standardRules(ruleset: RulesetDef, input: StandardGameInput): Ga
     ...(ruleset.move && { moveAction: { range: ruleset.move.range, oncePerTurn: ruleset.move.oncePerTurn ?? true } }),
   };
   const behaviors = Object.fromEntries(Object.entries(defs.units).flatMap(([id, def]) => (def.behavior ? [[id, def.behavior]] : [])));
-  const intents = intentsModule<StandardWorld>({ topology, behaviors });
+  const intents = intentsModule<StandardWorld>({ topology, behaviors, tiles: defs.tiles });
 
   return composeRules<StandardWorld>(
     {

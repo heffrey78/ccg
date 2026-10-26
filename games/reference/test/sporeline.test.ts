@@ -65,8 +65,9 @@ describe('Sporeline content', () => {
     expect(JSON.stringify(items)).toMatch(/"visibility":"(partial|hidden)"/);
     const ruleset = game.definitions.rulesets['sporeline:main'] as RulesetDef;
     expect(ruleset.fog).toBeDefined();
-    // 6 to 8 bugs and a boss.
-    const bugs = items.filter((i) => i.kind === 'unit' && i.behavior && i.id !== 'sporeline:weevil-matriarch');
+    // 6 to 8 bugs and a boss, counting the bugs met in encounters (not the ones summoned, #115).
+    const placed = new Set(items.filter((i) => i.kind === 'encounter').flatMap((e) => (e.units as { unit: string }[]).map((u) => u.unit)));
+    const bugs = items.filter((i) => i.kind === 'unit' && i.behavior && placed.has(i.id) && i.id !== 'sporeline:weevil-matriarch');
     expect(bugs.length).toBeGreaterThanOrEqual(6);
     expect(bugs.length).toBeLessThanOrEqual(8);
     // A run of 5 to 8 fights along any path.

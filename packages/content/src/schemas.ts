@@ -169,6 +169,8 @@ export function createContentSchemas(ops: OpRegistry, { formatVersion: version =
       .object({ kind: z.literal('unit'), select: selector, range: count.optional(), bound: z.enum(['unit', 'tile']).optional() })
       .strict(),
     z.object({ kind: z.literal('pattern'), shape: patternShape, aim: z.enum(['nearestEnemy', 'facing']) }).strict(),
+    /** Empty tiles next to the unit, e.g. to summon onto (#115). */
+    z.object({ kind: z.literal('freeAdjacent'), count: z.number().int().min(1).max(6).optional() }).strict(),
   ]);
   const intent = z
     .object({

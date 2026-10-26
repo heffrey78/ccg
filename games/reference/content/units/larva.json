@@ -1,0 +1,48 @@
+{
+  "formatVersion": 1,
+  "kind": "unit",
+  "id": "larva",
+  "name": "Larva",
+  "art": "assets/units/larva.svg",
+  "behavior": {
+    "kind": "if",
+    "cond": {
+      "kind": "enemyWithin",
+      "range": 1
+    },
+    "else": {
+      "kind": "intent",
+      "intent": {
+        "name": "March",
+        "effects": [
+          {
+            "op": "approach",
+            "distance": 2
+          }
+        ],
+        "target": {
+          "kind": "unit",
+          "select": "nearestEnemy"
+        }
+      }
+    },
+    "then": {
+      "kind": "intent",
+      "intent": {
+        "name": "Bite",
+        "effects": [
+          {
+            "op": "damage",
+            "amount": 4
+          }
+        ],
+        "target": {
+          "kind": "unit",
+          "range": 1,
+          "select": "nearestEnemy"
+        }
+      }
+    }
+  },
+  "hp": 7
+}
