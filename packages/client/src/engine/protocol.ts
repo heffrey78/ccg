@@ -37,7 +37,27 @@ export type EngineRequest =
   | { type: 'debug'; at?: number }
   /** Debug hosts only: rewind to after `at` actions and play on from there, dropping the later ones. */
   | { type: 'branch'; at: number }
-  | { type: 'view' };
+  | { type: 'view' }
+  /** The game in progress as a save (#144), or null when none is running. */
+  | { type: 'exportSave' }
+  /** Restores a save: the same game, the same state, and the same AI from there on. */
+  | { type: 'loadSave'; save: SaveGame };
+
+/** A game in progress, enough to rebuild it exactly (#144). Plain JSON. */
+export interface SaveGame {
+  format: 1;
+  /** The game package's id and version. */
+  game: string;
+  version: string;
+  /** How the current encounter was set up, and every action since, every side's. */
+  options: Record<string, unknown>;
+  actions: Action[];
+  /** The seed the AI's choices come from. */
+  aiSeed: string | number;
+  /** A run's progress (deck, HP, map), in the host's own form. */
+  run?: unknown;
+  undoFloor?: number;
+}
 
 /** A card as the UI shows it: text is generated from its effects (decision #12). */
 export interface CardFace {
@@ -185,4 +205,5 @@ export type EngineReply =
   | { ok: true; type: 'games'; games: GameListing[]; /** The package a zip import loaded. */ loaded?: string }
   | { ok: true; type: 'snapshot'; snapshot: Snapshot }
   | { ok: true; type: 'debug'; debug: DebugInfo }
+  | { ok: true; type: 'save'; save: SaveGame | null }
   | { ok: false; error: ApplyError | { code: 'not-started' | 'unknown-game' | 'invalid-package'; message: string } };

@@ -4,7 +4,7 @@
  * while AI thinks) or `localTransport` to run the host in-process.
  */
 import type { EngineHost } from './host.js';
-import type { DebugInfo, EngineReply, EngineRequest, GameListing, ServiceChoice, Snapshot } from './protocol.js';
+import type { DebugInfo, EngineReply, EngineRequest, GameListing, SaveGame, ServiceChoice, Snapshot } from './protocol.js';
 import type { Action } from '@ccg/core';
 
 export interface EngineTransport {
@@ -139,6 +139,18 @@ export class EngineClient {
 
   view(): Promise<Snapshot> {
     return this.snapshot({ type: 'view' });
+  }
+
+  /** The game in progress as a save, or null when none is running (#144). */
+  async exportSave(): Promise<SaveGame | null> {
+    const reply = await this.transport.request({ type: 'exportSave' });
+    if (!reply.ok) throw new EngineError(reply.error.code, reply.error.message);
+    return reply.type === 'save' ? reply.save : null;
+  }
+
+  /** Continues a saved game exactly where it was. */
+  loadSave(save: SaveGame): Promise<Snapshot> {
+    return this.snapshot({ type: 'loadSave', save });
   }
 
   private async snapshot(request: EngineRequest): Promise<Snapshot> {

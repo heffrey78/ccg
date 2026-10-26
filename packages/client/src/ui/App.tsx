@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Action, GameEvent } from '@ccg/core';
 import type { EngineClient } from '../engine/client.js';
-import type { GameListing, Snapshot } from '../engine/protocol.js';
+import type { GameListing, SaveGame, Snapshot } from '../engine/protocol.js';
 import type { Platform } from '../platform.js';
 import { DebugEncounter } from './DebugEncounter.js';
 import { Encounter } from './Encounter.js';
@@ -24,6 +24,16 @@ export interface AppProps {
   onEdit?(game: string): void;
 }
 
+/** The game in progress, kept through platform storage so it survives closing the app (#144). */
+interface SavedGame {
+  save: SaveGame;
+  /** What the Continue button says: the game's name and where it was left. */
+  title: string;
+  detail: string;
+  savedAt: number;
+}
+const SAVE_KEY = 'save:current';
+
 const reducedMotion = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 export function App({ engine, platform, seed, renderers, encounter, editable, onEdit }: AppProps) {
@@ -38,6 +48,7 @@ export function App({ engine, platform, seed, renderers, encounter, editable, on
   const [autoPass, setAutoPass] = useState(0);
   const [view, setView] = useState<ViewMode>('standard');
   const [difficulties, setDifficulties] = useState<Record<string, string>>({});
+  const [saved, setSaved] = useState<SavedGame | null>(null);
 
   useEffect(() => {
     // Packages installed on the device load first, so they're in the list (#143).
@@ -62,7 +73,36 @@ export function App({ engine, platform, seed, renderers, encounter, editable, on
     void platform.settings.get<number>('autoPass', 0).then(setAutoPass);
     void platform.settings.get<Record<string, string>>('difficulties', {}).then(setDifficulties);
     void platform.settings.get<ViewMode>('boardView', 'standard').then((v) => v !== 'full' && setView(v));
+    void platform.storage.get(SAVE_KEY).then((text) => {
+      try {
+        if (text) setSaved(JSON.parse(text) as SavedGame);
+      } catch {
+        // An unreadable save is no save.
+      }
+    });
   }, [engine, platform]);
+
+  /** Saves after every step; a finished game or run has nothing to continue. */
+  const persist = async (next: Snapshot) => {
+    const finished = next.view.outcome !== null && next.view.outcome !== undefined && (!next.run || next.run.status === 'won' || next.run.status === 'lost');
+    if (finished) {
+      setSaved(null);
+      await platform.storage.delete(SAVE_KEY);
+      return;
+    }
+    const save = await engine.exportSave();
+    if (!save) return;
+    const entry: SavedGame = {
+      save,
+      title: next.game.name,
+      detail: next.run ? `Encounter ${next.run.stage} of ${next.run.total}, round ${next.view.turn.round}` : `Round ${next.view.turn.round}`,
+      savedAt: Date.now(),
+    };
+    setSaved(entry);
+    await platform.storage.set(SAVE_KEY, JSON.stringify(entry));
+  };
+  const persistRef = useRef(persist);
+  persistRef.current = persist;
 
   const changeSpeed = (s: number) => {
     setSpeed(s);
@@ -81,6 +121,7 @@ export function App({ engine, platform, seed, renderers, encounter, editable, on
       const next = await work();
       setSnapshot(next);
       setLog((l) => [...l, ...next.events]);
+      void persistRef.current(next).catch(() => undefined);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -150,6 +191,13 @@ export function App({ engine, platform, seed, renderers, encounter, editable, on
           onDifficulty={chooseDifficulty}
           {...(onEdit && { onEdit, editable })}
           onStart={start}
+          {...(saved && {
+            resume: { title: saved.title, detail: saved.detail, savedAt: saved.savedAt },
+            onContinue: () => {
+              setLog([]);
+              void run(() => engine.loadSave(saved.save)).then(() => undefined);
+            },
+          })}
           {...(platform.revealPackages && { onRevealPackages: () => void platform.revealPackages?.().catch((e: Error) => setError(e.message)) })}
           onImport={(file) =>
             void file
