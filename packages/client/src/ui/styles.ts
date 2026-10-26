@@ -173,6 +173,7 @@ export const CSS = `
 .ccg-game { display: flex; gap: 12px; align-items: stretch; flex-wrap: wrap; }
 .ccg-difficulty { display: flex; flex-direction: column; justify-content: center; gap: 4px; max-width: 220px; }
 .ccg-difficulty select { font: inherit; }
+.ccg-app .ccg-game-edit { align-self: center; }
 
 /* Beat motions (#123): durations divide by the animation speed. */
 .ccg-unit-figure { --ccg-beat: calc(420ms / var(--ccg-speed, 1)); }

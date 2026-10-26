@@ -1,7 +1,7 @@
 /** The web editor: projects in IndexedDB, folders via File System Access, validation in a worker. */
 import { indexedDbLibrary, type DirectoryHandleLike, type Project, type ProjectIssue } from '@ccg/editor';
 import { EngineClient, workerTransport } from '@ccg/client/engine';
-import { EditorApp, type Simulator } from '@ccg/editor/ui';
+import { EditorApp, type InstalledGame, type Simulator } from '@ccg/editor/ui';
 import type { GameRecord } from '@ccg/core';
 
 function workerValidator(): (project: Project) => Promise<ProjectIssue[]> {
@@ -70,6 +70,17 @@ const pickDirectory = picker
     }
   : undefined;
 
-export default function Editor() {
-  return <EditorApp library={library} validate={validate} playtestEngine={playtestEngine} simulate={simulate} {...(pickDirectory && { pickDirectory })} />;
+export default function Editor({ installed, edit, onEdited }: { installed: InstalledGame[]; edit?: string; onEdited(): void }) {
+  return (
+    <EditorApp
+      library={library}
+      validate={validate}
+      playtestEngine={playtestEngine}
+      simulate={simulate}
+      installed={installed}
+      onEdited={onEdited}
+      {...(edit && { edit })}
+      {...(pickDirectory && { pickDirectory })}
+    />
+  );
 }

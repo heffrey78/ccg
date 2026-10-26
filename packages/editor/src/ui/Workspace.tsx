@@ -6,7 +6,7 @@
  *
  * Shortcuts: Ctrl/Cmd+S save · Ctrl/Cmd+Z undo · Ctrl/Cmd+Shift+Z or Ctrl+Y redo.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ContentKind, OpRegistry } from '@ccg/content';
 import { EditorError, createItem, type Command } from '../commands.js';
 import { itemKey, projectFiles, splitKey, type Project } from '../project.js';
@@ -137,47 +137,72 @@ export function Workspace({ session, ops, validate, playtestEngine, simulate, on
     return error;
   };
 
-  const where = session.source.kind === 'folder' ? `folder ${session.source.name}` : 'this browser';
+  const where = session.source.kind === 'folder' ? `folder ${session.source.name}` : session.source.id.startsWith('edit-') ? 'this browser (your copy)' : 'this browser';
+  const exportMenu = useRef<HTMLDetailsElement>(null);
+  const closeMenu = () => exportMenu.current?.removeAttribute('open');
   return (
     <section className="ccg-workspace" aria-labelledby="project-heading">
       <header className="ccg-toolbar">
         <h1 id="project-heading">{project.manifest.name}</h1>
         <span className="ccg-muted">{store.dirty ? 'Unsaved changes' : `Saved in ${where}`}</span>
         <span className="ccg-spacer" />
-        <button type="button" disabled={!store.canUndo} title={store.undoLabel ? `Undo ${store.undoLabel}` : undefined} aria-keyshortcuts="Control+Z" onClick={() => store.undo()}>
-          Undo
-        </button>
-        <button type="button" disabled={!store.canRedo} title={store.redoLabel ? `Redo ${store.redoLabel}` : undefined} aria-keyshortcuts="Control+Shift+Z" onClick={() => store.redo()}>
-          Redo
-        </button>
-        <button type="button" className="ccg-primary" disabled={!store.dirty} aria-keyshortcuts="Control+S" onClick={() => void save()}>
-          Save
-        </button>
-        <button type="button" onClick={exportZip} title="A zip the play client loads (Play → Load a game from a zip)">
-          Export zip
-        </button>
-        <button type="button" onClick={exportModule} title="One JavaScript file, assets included, that hosts load by URL">
-          Export JS module
-        </button>
-        <button type="button" aria-pressed={playtest} onClick={() => setPlaytest((p) => !p)}>
-          Playtest
-        </button>
-        <button type="button" aria-pressed={balance} onClick={() => setBalance((b) => !b)} title="Simulate many games with a bot">
-          Balance
-        </button>
-        <button
-          type="button"
-          title="Run every scenario that has expectations"
-          onClick={() => {
-            setTests({ running: true, results: null, error: null });
-            testProject(project).then(
-              (results) => setTests({ running: false, results, error: null }),
-              (e: Error) => setTests({ running: false, results: null, error: e.message }),
-            );
-          }}
-        >
-          Run tests
-        </button>
+        <span className="ccg-toolbar-group" role="group" aria-label="Edit">
+          <button type="button" disabled={!store.canUndo} title={store.undoLabel ? `Undo ${store.undoLabel}` : undefined} aria-keyshortcuts="Control+Z" onClick={() => store.undo()}>
+            Undo
+          </button>
+          <button type="button" disabled={!store.canRedo} title={store.redoLabel ? `Redo ${store.redoLabel}` : undefined} aria-keyshortcuts="Control+Shift+Z" onClick={() => store.redo()}>
+            Redo
+          </button>
+          <button type="button" className={store.dirty ? 'ccg-primary' : undefined} disabled={!store.dirty} aria-keyshortcuts="Control+S" onClick={() => void save()}>
+            Save
+          </button>
+        </span>
+        <span className="ccg-toolbar-group" role="group" aria-label="Test">
+          <button type="button" aria-pressed={playtest} onClick={() => setPlaytest((p) => !p)}>
+            Playtest
+          </button>
+          <button type="button" aria-pressed={balance} onClick={() => setBalance((b) => !b)} title="Simulate many games with a bot">
+            Balance
+          </button>
+          <button
+            type="button"
+            title="Run every scenario that has expectations"
+            onClick={() => {
+              setTests({ running: true, results: null, error: null });
+              testProject(project).then(
+                (results) => setTests({ running: false, results, error: null }),
+                (e: Error) => setTests({ running: false, results: null, error: e.message }),
+              );
+            }}
+          >
+            Run tests
+          </button>
+        </span>
+        <details className="ccg-menu" ref={exportMenu}>
+          <summary>Export</summary>
+          <div className="ccg-menu-items">
+            <button
+              type="button"
+              onClick={() => {
+                exportZip();
+                closeMenu();
+              }}
+              title="A zip the play client loads (Play → Load a game from a zip)"
+            >
+              Export zip
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                exportModule();
+                closeMenu();
+              }}
+              title="One JavaScript file, assets included, that hosts load by URL"
+            >
+              Export JS module
+            </button>
+          </div>
+        </details>
         <button type="button" onClick={() => (store.dirty ? setConfirmClose(true) : onClose())}>
           Close
         </button>
@@ -244,7 +269,7 @@ export function Workspace({ session, ops, validate, playtestEngine, simulate, on
           ) : shown?.kind === 'asset' ? (
             <AssetPanel project={project} path={shown.path} run={run} onSelect={setSelection} />
           ) : shown?.kind === 'manifest' ? (
-            <ManifestPanel project={project} run={run} />
+            <ManifestPanel project={project} run={run} onSelect={setSelection} onPlaytest={() => setPlaytest(true)} onBalance={() => setBalance(true)} />
           ) : (
             <p className="ccg-muted">Select something to edit.</p>
           )}

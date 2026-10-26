@@ -65,8 +65,15 @@ export function Row({ label, pointer, errors, flagged, actions, children, block,
   );
 }
 
-/** "maxHp" → "Max hp", "onEnter" → "On enter" */
+/** Words shown in capitals in labels. */
+const ACRONYMS: Record<string, string> = { hp: 'HP', id: 'ID', ai: 'AI', js: 'JS', url: 'URL' };
+
+/** "maxHp" → "Max HP", "onEnter" → "On enter" */
 export function humanize(key: string): string {
   const words = key.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/[-_]/g, ' ').toLowerCase();
-  return words.charAt(0).toUpperCase() + words.slice(1);
+  const out = words
+    .split(' ')
+    .map((w) => ACRONYMS[w] ?? w)
+    .join(' ');
+  return out.charAt(0).toUpperCase() + out.slice(1);
 }

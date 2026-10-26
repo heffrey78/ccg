@@ -8,7 +8,7 @@ import type { DirectoryHandleLike } from '../stores/fsa.js';
 import type { ProjectLibrary } from '../stores/indexeddb.js';
 import { editorOps, simulateProject, validateProject, type ProjectIssue } from '../validate.js';
 import type { Simulator } from './BalancePanel.js';
-import { ProjectPicker } from './ProjectPicker.js';
+import { ProjectPicker, type InstalledGame } from './ProjectPicker.js';
 import type { Session } from './session.js';
 import { CSS } from './styles.js';
 import { Workspace } from './Workspace.js';
@@ -25,9 +25,15 @@ export interface EditorAppProps {
   playtestEngine?: EngineClient;
   /** Balance simulations, e.g. over a worker pool. Defaults to this thread. */
   simulate?: Simulator;
+  /** Games the host ships, offered for editing as browser copies. */
+  installed?: InstalledGame[];
+  /** An installed game to open straight away (e.g. from Play's Edit button). */
+  edit?: string;
+  /** Called once the requested game is open, so the host can forget the request. */
+  onEdited?(): void;
 }
 
-export function EditorApp({ library, pickDirectory, validate, ops, playtestEngine, simulate }: EditorAppProps) {
+export function EditorApp({ library, pickDirectory, validate, ops, playtestEngine, simulate, installed, edit, onEdited }: EditorAppProps) {
   const [session, setSession] = useState<Session | null>(null);
   const engine = useMemo(() => playtestEngine ?? new EngineClient(localTransport(createEngineHost({ debug: true }))), [playtestEngine]);
   const registry = useMemo(() => ops ?? editorOps(), [ops]);
@@ -39,7 +45,16 @@ export function EditorApp({ library, pickDirectory, validate, ops, playtestEngin
       {session ? (
         <Workspace key={session.id} session={session} ops={registry} validate={check} playtestEngine={engine} simulate={simulate ?? ((p, o) => simulateProject(p, o))} onClose={() => setSession(null)} />
       ) : (
-        <ProjectPicker library={library} {...(pickDirectory && { pickDirectory })} onOpen={setSession} />
+        <ProjectPicker
+          library={library}
+          {...(pickDirectory && { pickDirectory })}
+          {...(installed && { installed })}
+          {...(edit && { edit })}
+          onOpen={(s) => {
+            setSession(s);
+            onEdited?.();
+          }}
+        />
       )}
     </div>
   );

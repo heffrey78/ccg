@@ -39,6 +39,7 @@ export function Browser({ project, selection, issues, onSelect, onCreate, onImpo
       <input type="search" placeholder="Search content" aria-label="Search content" value={query} onChange={(e) => setQuery(e.target.value)} />
       {allTags.length > 0 && (
         <div className="ccg-tags" role="group" aria-label="Filter by tag">
+          <span className="ccg-muted ccg-tags-label">Tags</span>
           {allTags.map((t) => (
             <button
               key={t}

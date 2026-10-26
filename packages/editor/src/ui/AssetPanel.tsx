@@ -1,5 +1,5 @@
 /** The asset manager (#41): previews, what uses each file, import and delete. */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { assetPathFor, assetRefs, mimeType } from '../assets.js';
 import { putAsset, removeAsset, type Command } from '../commands.js';
 import type { Project } from '../project.js';
@@ -7,10 +7,17 @@ import type { Selection } from './Workspace.js';
 
 /** An object URL for an asset's bytes, revoked when it changes or unmounts. */
 export function useAssetUrl(data: Uint8Array | undefined, path: string): string | null {
-  const url = useMemo(() => (data ? URL.createObjectURL(new Blob([data as BlobPart], { type: mimeType(path) })) : null), [data, path]);
-  useEffect(() => () => {
-    if (url) URL.revokeObjectURL(url);
-  }, [url]);
+  // Made in the effect, not memoised: StrictMode re-runs effects, and a memoised URL would be revoked but kept.
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!data) {
+      setUrl(null);
+      return;
+    }
+    const made = URL.createObjectURL(new Blob([data as BlobPart], { type: mimeType(path) }));
+    setUrl(made);
+    return () => URL.revokeObjectURL(made);
+  }, [data, path]);
   return url;
 }
 

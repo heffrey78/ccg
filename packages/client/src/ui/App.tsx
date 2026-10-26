@@ -19,11 +19,14 @@ export interface AppProps {
   renderers?: Record<string, BoardRenderer>;
   /** Start this encounter (a qualified id) instead of the game's default or run. */
   encounter?: string;
+  /** Games the host can open in an editor, by id; each gets an Edit button. */
+  editable?: string[];
+  onEdit?(game: string): void;
 }
 
 const reducedMotion = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-export function App({ engine, platform, seed, renderers, encounter }: AppProps) {
+export function App({ engine, platform, seed, renderers, encounter, editable, onEdit }: AppProps) {
   const [games, setGames] = useState<GameListing[] | null>(null);
   const [lastPlayed, setLastPlayed] = useState<string | null>(null);
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
@@ -128,6 +131,7 @@ export function App({ engine, platform, seed, renderers, encounter }: AppProps) 
           lastPlayed={lastPlayed}
           difficulties={difficulties}
           onDifficulty={chooseDifficulty}
+          {...(onEdit && { onEdit, editable })}
           onStart={start}
           onImport={(file) =>
             void file
