@@ -17,8 +17,8 @@ const sporelineText = filesOf(
   }) as Record<string, string>,
   'games/reference/',
 );
-// Raster art (PNG, WebP, JPEG) is bundled as URLs and fetched as bytes.
-const sporelineImages = import.meta.glob('../../../games/reference/assets/**/*.{png,webp,jpg,jpeg}', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
+// Raster art (PNG, WebP, JPEG) and fonts are bundled as URLs and fetched as bytes.
+const sporelineImages = import.meta.glob('../../../games/reference/assets/**/*.{png,webp,jpg,jpeg,woff2,woff,ttf,otf}', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
 
 const loaders: Record<string, () => Promise<Record<string, Uint8Array>>> = {
   duel: async () => duel,

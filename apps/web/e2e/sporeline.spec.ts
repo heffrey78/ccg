@@ -121,3 +121,23 @@ test('a difficulty picked on the game list scales the fights and is remembered (
   await page.reload();
   await expect(page.getByLabel('Sporeline difficulty')).toHaveValue('story');
 });
+
+test('Sporeline plays in its own theme: loam colours, Fraunces headings, strain card frames; Duel keeps the plain look (#137)', async ({ page }) => {
+  await page.goto('/?seed=3');
+  await page.getByRole('button', { name: /^Sporeline/ }).click();
+  await expect(page.getByRole('status')).toHaveText('Your decision');
+  const encounter = page.locator('.ccg-encounter');
+  await expect(encounter).toHaveClass(/ccg-themed/);
+  await expect(page.locator('.ccg-tray')).toHaveCSS('background-color', 'rgb(34, 26, 20)');
+  // The starting deck is the Knot's own cards, in the Knot's frame.
+  const hand = page.getByRole('list', { name: 'Hand' }).getByRole('button');
+  await expect(hand.first()).toHaveAttribute('data-frame', 'knot');
+  await expect(page.locator('#encounter-heading')).toHaveCSS('font-family', /Fraunces/);
+  await expect.poll(() => page.evaluate(() => document.fonts.check('600 16px "ccg-display"'))).toBe(true);
+
+  await page.getByRole('button', { name: 'Quit' }).click();
+  await page.getByRole('button', { name: /^Duel/ }).click();
+  await expect(page.getByRole('status')).toHaveText('Your decision');
+  await expect(page.locator('.ccg-encounter')).not.toHaveClass(/ccg-themed/);
+  await expect(page.getByRole('list', { name: 'Hand' }).getByRole('button').first()).not.toHaveAttribute('data-frame');
+});

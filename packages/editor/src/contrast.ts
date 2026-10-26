@@ -60,6 +60,8 @@ export function themeContrastProblems(theme: ContentItem): ContrastProblem[] {
   if (t.table?.color) check(color('ink'), t.table.color, '/table/color', 'text on the table');
   else check(color('ink'), color('page'), '/colors/page', 'text on the page');
   check(BADGE_TEXT, color('accent'), '/colors/accent', 'white text on buttons and cost badges');
+  const accentText = t.colors?.accentText ?? color('accent');
+  check(accentText, color('panel'), t.colors?.accentText ? '/colors/accentText' : '/colors/accent', 'accent-coloured text on panels');
   (t.frames ?? []).forEach((f, i) => {
     if (f.ink || f.fill) check(f.ink ?? color('ink'), f.fill ?? color('panel'), `/frames/${i}/${f.ink ? 'ink' : 'fill'}`, `text on frame ${f.id}`);
     if (f.accent) check(BADGE_TEXT, f.accent, `/frames/${i}/accent`, `the cost badge on frame ${f.id}`);

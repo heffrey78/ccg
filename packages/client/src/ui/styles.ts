@@ -108,7 +108,7 @@ export const CSS = `
 .ccg-tray { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 10px; }
 .ccg-tray-info { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; position: relative; }
 .ccg-resources { display: flex; gap: 10px; }
-.ccg-resource strong { font-size: 1.2rem; color: var(--accent); }
+.ccg-resource strong { font-size: 1.2rem; color: var(--accent-text, var(--accent)); }
 .ccg-piles { display: flex; gap: 6px; flex-wrap: wrap; align-items: flex-start; }
 .ccg-pile-list { position: absolute; top: 100%; left: 0; z-index: 2; min-width: 200px; max-height: 260px; overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; box-shadow: var(--shadow); }
 .ccg-hand { list-style: none; display: flex; gap: 8px; margin: 0; padding: 0; overflow-x: auto; }
@@ -173,7 +173,7 @@ export const CSS = `
 .ccg-deck-pick { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; max-height: 60vh; overflow: auto; }
 .ccg-app .ccg-deck-pick > button { padding: 0; border: none; background: none; }
 .ccg-app .ccg-deck-pick > button:last-child { padding: 6px 12px; border: 1px solid var(--line); background: var(--panel); }
-.ccg-run-progress { font-weight: 600; color: var(--accent); }
+.ccg-run-progress { font-weight: 600; color: var(--accent-text, var(--accent)); }
 .ccg-game { display: flex; gap: 12px; align-items: stretch; flex-wrap: wrap; }
 .ccg-difficulty { display: flex; flex-direction: column; justify-content: center; gap: 4px; max-width: 220px; }
 .ccg-difficulty select { font: inherit; }
