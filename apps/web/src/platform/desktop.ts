@@ -6,14 +6,19 @@
 import type { InstalledPackage, KeyValueStorage } from '@ccg/client';
 import type { ProjectStore } from '@ccg/editor';
 
-/** Calls a command in the desktop shell. */
+/** Calls a command in the app's shell. */
 export type Invoke = <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
 
 /** Listens for an event from the desktop shell; resolves to a function that stops listening. */
 export type Listen = (event: string, handler: (event: { payload: unknown }) => void) => Promise<() => void>;
 
 /** Whether the page runs inside the desktop shell. */
-export const isDesktop = (): boolean => typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+export const isDesktop = (): boolean => inShell() && !isAndroid();
+
+/** Whether the page runs inside the Android app (#156), the same shell without what needs a desktop. */
+export const isAndroid = (): boolean => inShell() && /\bAndroid\b/.test(navigator.userAgent);
+
+const inShell = (): boolean => typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 
 /** Saves and settings in the shell's app-data file. */
 export function desktopStorage(invoke: Invoke): KeyValueStorage {

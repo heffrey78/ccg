@@ -1,10 +1,10 @@
 /**
- * The one place that picks the platform (#31): IndexedDB in a browser, the
- * Tauri shell's app-data file on desktop. The rest of the app takes what this
- * module returns.
+ * The one place that picks the platform (#31, #156): IndexedDB in a browser, the
+ * Tauri shell's app-data file on desktop and Android. The rest of the app takes
+ * what this module returns.
  */
 import { SettingsStore, memoryStorage, type KeyValueStorage, type Platform } from '@ccg/client';
-import { desktopPackages, desktopStorage, isDesktop, setDesktopFullscreen, tauriInvoke, type Invoke } from './desktop.js';
+import { desktopPackages, desktopStorage, isAndroid, isDesktop, setDesktopFullscreen, tauriInvoke, type Invoke } from './desktop.js';
 import { indexedDbStorage } from './indexeddb.js';
 
 /** Storage that waits for the desktop bridge to load before its first call. */
@@ -17,8 +17,12 @@ function deferred(load: Promise<KeyValueStorage>): KeyValueStorage {
   };
 }
 
-export function createPlatform(options: { desktop?: boolean; invoke?: Promise<Invoke> } = {}): Platform {
+export function createPlatform(options: { desktop?: boolean; android?: boolean; invoke?: Promise<Invoke> } = {}): Platform {
   const desktop = options.desktop ?? isDesktop();
+  if (options.android ?? isAndroid()) {
+    const storage = deferred((options.invoke ?? tauriInvoke()).then(desktopStorage));
+    return { storage, settings: new SettingsStore(storage), playOnly: true };
+  }
   if (desktop) {
     const invoke = options.invoke ?? tauriInvoke();
     const storage = deferred(invoke.then(desktopStorage));
