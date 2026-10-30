@@ -3,10 +3,13 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "description": "The desktop app (#31): the web client and editor in a Tauri 2 window, with desktop adapters.",
+  "description": "The desktop and Android apps (#31, #156): the web client in a Tauri 2 shell, with platform adapters.",
   "scripts": {
     "dev": "tauri dev",
     "build:desktop": "tauri build",
+    "build:android": "android/build.sh aarch64",
+    "build:android:emulator": "android/build.sh x86_64",
+    "android:install": "android/install.sh",
     "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
     "tauri": "tauri"
   },

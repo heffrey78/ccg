@@ -1,4 +1,4 @@
-# Desktop app
+# Desktop and Android apps
 
 The play client and the editor in a [Tauri 2](https://tauri.app) window (#31). It runs
 the `apps/web` build unchanged; only the platform adapters differ, and they all live
@@ -41,3 +41,25 @@ shows a game, and fails after a minute if it never does.
 
 The builds are unsigned, so Windows SmartScreen warns about an unknown publisher (More
 info, then Run anyway), and macOS needs Open Anyway in Privacy & Security.
+
+## Android
+
+The Android app (#156, decision #157) is this same crate, with what needs a desktop
+behind `cfg(desktop)` (`src-tauri/src/desktop.rs`). It offers play only, without the
+editor, and keeps saves and settings in the app's own storage.
+
+```sh
+pnpm --filter @ccg/desktop build:android           # a debug-signed APK for a phone
+pnpm --filter @ccg/desktop build:android:emulator  # the same for an x86_64 emulator
+pnpm --filter @ccg/desktop android:install         # install the last APK over adb, and open it
+```
+
+The tools aren't on PATH: `android/env.sh` points at the Android SDK, NDK 27 and JDK 17
+that come with Unity, and at Rust with the Android targets in its own rustup folder.
+Set `UNITY_ANDROID` or `CCG_RUST_HOME` if yours are elsewhere. Unity's SDK has no accepted
+licences, so Gradle can't download anything missing, and `android/build.sh` points the
+generated project at compile SDK 36 and target SDK 34. That's fine for sideloading; the
+Play Store would need a higher target and a release key.
+
+The Gradle project (`src-tauri/gen/android`) is generated and not committed. Delete it to
+regenerate it.
