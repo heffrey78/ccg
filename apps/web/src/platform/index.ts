@@ -5,7 +5,7 @@
  */
 import { SettingsStore, memoryStorage, type KeyValueStorage, type Platform } from '@ccg/client';
 import { desktopPackages, desktopStorage, isAndroid, isDesktop, setDesktopFullscreen, tauriInvoke, type Invoke } from './desktop.js';
-import { exitAndroid, onAndroidBack } from './android.js';
+import { exitAndroid, onAndroidBack, onAndroidBackground } from './android.js';
 import { indexedDbStorage } from './indexeddb.js';
 
 /** Storage that waits for the desktop bridge to load before its first call. */
@@ -22,7 +22,7 @@ export function createPlatform(options: { desktop?: boolean; android?: boolean; 
   const desktop = options.desktop ?? isDesktop();
   if (options.android ?? isAndroid()) {
     const storage = deferred((options.invoke ?? tauriInvoke()).then(desktopStorage));
-    return { storage, settings: new SettingsStore(storage), playOnly: true, onBack: onAndroidBack, exit: exitAndroid };
+    return { storage, settings: new SettingsStore(storage), playOnly: true, onBack: onAndroidBack, exit: exitAndroid, onBackground: onAndroidBackground };
   }
   if (desktop) {
     const invoke = options.invoke ?? tauriInvoke();
