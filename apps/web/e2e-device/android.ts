@@ -95,6 +95,25 @@ try {
   expect(await page.getByRole('list', { name: 'Hand' }).getByRole('button').allTextContents()).toEqual(hand);
   screenshot('4-continued');
 
+  step('Going to the background suspends audio; returning resumes it');
+  await page.evaluate(() => {
+    const calls: string[] = [];
+    (window as unknown as { audioCalls: string[] }).audioCalls = calls;
+    for (const method of ['suspend', 'resume'] as const) {
+      const original = AudioContext.prototype[method];
+      AudioContext.prototype[method] = function () {
+        calls.push(method);
+        return original.call(this);
+      };
+    }
+  });
+  const audioCalls = () => page.evaluate(() => (window as unknown as { audioCalls: string[] }).audioCalls);
+  adb('shell', 'input', 'keyevent', 'KEYCODE_HOME');
+  await expect.poll(audioCalls).toEqual(['suspend']);
+  launch();
+  await expect.poll(audioCalls).toEqual(['suspend', 'resume']);
+  await expect(page.locator('header').getByText('Round 2')).toBeVisible();
+
   step('Tapping a unit shows its details');
   await tap(page, page.locator('[data-unit]').first());
   await expect(page.getByRole('region', { name: 'Unit details' }).or(page.getByLabel('Unit details'))).toContainText('HP');
