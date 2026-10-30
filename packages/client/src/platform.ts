@@ -62,6 +62,10 @@ export interface Platform {
   revealPackages?(): Promise<void>;
   /** Only playing is offered, not the editor (the Android app, decision #157). */
   playOnly?: boolean;
+  /** Android's back, the gesture or the button; returns how to stop listening. */
+  onBack?(handler: () => void): () => void;
+  /** Leaves the app (back from its first page). */
+  exit?(): void;
   /** Native full screen for the app window (desktop); the browser's Fullscreen API is used without it. */
   setFullscreen?(on: boolean): Promise<void>;
 }
