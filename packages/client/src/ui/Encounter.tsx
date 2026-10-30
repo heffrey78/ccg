@@ -57,12 +57,14 @@ export interface EncounterProps {
   onChooseNode?(node: string): void;
   /** At a spring or fruiting log. */
   onChooseService?(choice: ServiceChoice): void;
+  /** Set to what closes the topmost open thing; it says whether there was one (Android's back, #162). */
+  closeRef?: { current: (() => boolean) | null };
 }
 
 const isTyping = (target: EventTarget | null) => target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
 const isControl = (target: EventTarget | null) => target instanceof Element && (target.tagName === 'BUTTON' || target.getAttribute('role') === 'button');
 
-export function Encounter({ snapshot, log, busy, speed, onSpeed, sound, volume = 0, onVolume, view: boardView = 'standard', onView, setFullscreen, onAct, onQuit, onDebug, renderers, onChooseReward, autoPass = 0, onAutoPass, onUndo, onChooseNode, onChooseService }: EncounterProps) {
+export function Encounter({ snapshot, log, busy, speed, onSpeed, sound, volume = 0, onVolume, view: boardView = 'standard', onView, setFullscreen, onAct, onQuit, onDebug, renderers, onChooseReward, autoPass = 0, onAutoPass, onUndo, onChooseNode, onChooseService, closeRef }: EncounterProps) {
   const { view, side, legal, deciding, catalog, run } = snapshot;
   const world = view.world as WorldView;
   const layout = layoutOf(snapshot.presentation);
@@ -141,6 +143,7 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, sound, volume =
   const [selection, setSelection] = useState<Selection>(null);
   const [focus, setFocus] = useState(0);
   const [hovered, setHovered] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   useEffect(() => {
     setSelection(null);
     setFocus(0);
@@ -204,6 +207,16 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, sound, volume =
   }, [countdown, o.pass, act]);
 
   // ---- board view: full screen fills the window and asks the browser for the whole screen ----
+  if (closeRef) {
+    closeRef.current = () => {
+      if (selection) setSelection(null);
+      else if (settingsOpen) setSettingsOpen(false);
+      else if (hovered) setHovered(null);
+      else if (boardView === 'full') changeView(windowed.current);
+      else return false;
+      return true;
+    };
+  }
   const windowed = useRef<ViewMode>(boardView === 'full' ? 'wide' : boardView);
   const changeView = (next: ViewMode) => {
     if (!onView || next === boardView) return;
@@ -328,6 +341,11 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, sound, volume =
           {status}
         </span>
         <span className="ccg-spacer" />
+        {/* At phone width the settings fold away behind this; wider, it's hidden and they sit in the bar. */}
+        <button type="button" className="ccg-settings-toggle" aria-expanded={settingsOpen} onClick={() => setSettingsOpen((open) => !open)}>
+          Settings
+        </button>
+        <div className={`ccg-settings${settingsOpen ? ' is-open' : ''}`}>
         <label className="ccg-speed">
           Animation{' '}
           <select value={speed} onChange={(e) => onSpeed(Number(e.target.value))}>
@@ -375,6 +393,7 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, sound, volume =
         <button type="button" onClick={onDebug}>
           Debug view
         </button>
+        </div>
         <button type="button" onClick={onQuit}>
           Quit
         </button>

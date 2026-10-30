@@ -17,6 +17,8 @@ if [[ ! -d gen/android ]]; then
   cp -r "$icons"/android/* gen/android/app/src/main/res/
   rm -rf "$icons"
 fi
+# The app's own activity, in place of the template's.
+cp ../android/MainActivity.kt gen/android/app/src/main/java/dev/ccg/engine/MainActivity.kt
 sed -i -E 's/compileSdk = [0-9]+/compileSdk = 36/; s/targetSdk = [0-9]+/targetSdk = 34/' gen/android/app/build.gradle.kts
 # Gradle runs `node tauri …` from src-tauri, where there's no "tauri": give it the CLI's script.
 find gen/android/buildSrc -name BuildTask.kt -exec sed -i "s|listOf(\"tauri\", \"android\", \"android-studio-script\")|listOf(\"${tauri[1]}\", \"android\", \"android-studio-script\")|" {} +
