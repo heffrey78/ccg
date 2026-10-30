@@ -83,6 +83,9 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, sound, volume =
     playback.play(snapshot.events, speed);
   }, [snapshot, playback]);
   const playing = !play.done;
+  // A game's own sounds, from its theme (#159).
+  const gameSounds = JSON.stringify(catalog.theme?.sounds ?? {});
+  useEffect(() => sound?.setSounds(JSON.parse(gameSounds) as Record<string, string>), [gameSounds, sound]);
   // Each beat sounds as it starts; skipping drops the rest.
   useEffect(() => {
     const event = play.done ? undefined : play.beats[play.shown - 1]?.event;

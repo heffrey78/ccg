@@ -421,6 +421,18 @@ describe('engine host', () => {
       await expect(engine.start('live', 1, { difficulty: 'nightmare' })).rejects.toMatchObject({ message: expect.stringContaining("no difficulty 'nightmare'") });
     });
 
+    it('resolves a theme\'s sounds to URLs by cue, and an unset list to none (#159)', async () => {
+      const engine = client();
+      await engine.loadFiles({
+        ...files(5),
+        'assets/audio/thud.ogg': enc.encode('thud'),
+        'content/themes/look.json': json({ formatVersion: 1, kind: 'theme', id: 'look', name: 'Look', sounds: [{ cue: 'hit', sound: 'assets/audio/thud.ogg' }] }),
+      });
+      const snap = await engine.start('live', 1);
+      expect(snap.catalog.theme?.sounds?.hit).toMatch(/^blob:/);
+      expect(Object.keys(snap.catalog.theme?.sounds ?? {})).toEqual(['hit']);
+    });
+
     it('resolves the game\'s theme, with font and frame URLs, and gives each card its frame (#135)', async () => {
       const card = (id: string, fields: object) => json({ formatVersion: 1, kind: 'card', id, name: id, targeting: { kind: 'none' }, effects: [], ...fields });
       const engine = client();

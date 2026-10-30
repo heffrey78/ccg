@@ -17,7 +17,11 @@ const count = z.number().int().min(0);
 const assetPath = z.string().regex(/^assets\/[^\\]+$/, 'must be a path under assets/');
 const color = z.string().regex(/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/, 'must be a colour like #1d1c1a');
 /** Field names that hold asset paths, at any depth of an item: their files must exist in the package. */
-export const ASSET_KEYS: readonly string[] = ['art', 'icon', 'background', 'font'];
+export const ASSET_KEYS: readonly string[] = ['art', 'icon', 'background', 'font', 'sound'];
+
+/** The moments of play that make a sound (#155). */
+export const SOUND_CUES = ['card', 'move', 'hit', 'block', 'heal', 'status', 'death', 'spawn', 'win', 'lose'] as const;
+export type SoundCue = (typeof SOUND_CUES)[number];
 const semver = z.string().regex(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/, 'must be a semver version like 1.2.3');
 
 export const patternShape = z.discriminatedUnion('kind', [
@@ -469,6 +473,10 @@ export function createContentSchemas(ops: OpRegistry, { formatVersion: version =
       fonts: z.object({ body: fontFace.optional(), display: fontFace.describe('Headings and card names.').optional() }).strict().optional(),
       /** What the play area sits on. */
       table: z.object({ color: color.optional(), background: assetPath.describe('An image behind the play area.').optional() }).strict().optional(),
+      /** Sounds that replace the built-in ones (#159); any cue left out keeps its built-in sound. */
+      sounds: z
+        .array(z.object({ cue: z.enum(SOUND_CUES), sound: assetPath.describe('An audio file in the package (ogg, mp3, wav or m4a).') }).strict())
+        .optional(),
       /** Card frames, chosen per card: the first frame matching one of its tags, else its rarity, else the default. */
       frames: z
         .array(

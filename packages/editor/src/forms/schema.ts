@@ -209,6 +209,7 @@ const NAME_HINTS: Record<string, WidgetHint> = {
   background: 'asset',
   icon: 'asset',
   font: 'asset',
+  sound: 'asset',
   behavior: 'behavior',
 };
 
