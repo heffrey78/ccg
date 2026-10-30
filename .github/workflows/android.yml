@@ -1,0 +1,95 @@
+name: Android
+
+# The Android app (#156, #164): a debug-signed APK for phones, built as apps/desktop/android/build.sh
+# builds it locally, on the runner's Android SDK and the NDK the local build uses. Every push to main
+# that changes the app replaces it on the "Android (latest)" pre-release, at a fixed address a phone's
+# browser can open.
+#
+# Signed with the debug key in the ANDROID_DEBUG_KEYSTORE secret (base64), so each APK installs over
+# the last and keeps its saves. Without the secret the build still works, but each run signs with a
+# new key, and installing it means uninstalling the app first.
+on:
+  push:
+    branches: [main]
+    paths: ['apps/desktop/**', 'apps/web/**', 'packages/**', 'games/**', 'examples/**', 'pnpm-lock.yaml', '.github/workflows/android.yml']
+  pull_request:
+    paths: ['apps/desktop/**', 'apps/web/src/platform/**', 'pnpm-lock.yaml', '.github/workflows/android.yml']
+  workflow_dispatch:
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      CCG_ANDROID_ENV: given
+      NDK_VERSION: 27.2.12479018
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri -> target
+      - name: The NDK
+        run: |
+          ndk="$ANDROID_HOME/ndk/$NDK_VERSION"
+          [ -d "$ndk" ] || yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;$NDK_VERSION" > /dev/null
+          echo "NDK_HOME=$ndk" >> "$GITHUB_ENV"
+      - run: pnpm install --frozen-lockfile
+      - name: The owner's debug key, where Gradle signs a debug build with it
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_DEBUG_KEYSTORE }}
+        run: |
+          [ -n "$KEYSTORE" ] || { echo "::warning::No ANDROID_DEBUG_KEYSTORE: this APK is signed with a new key, and won't install over an earlier one."; exit 0; }
+          echo "$KEYSTORE" | base64 -d > "$RUNNER_TEMP/debug.keystore"
+          echo "CCG_ANDROID_DEBUG_KEYSTORE=$RUNNER_TEMP/debug.keystore" >> "$GITHUB_ENV"
+      - run: pnpm --filter @ccg/desktop build:android
+      - name: The APK under a name that stays the same
+        run: cp "$(find apps/desktop/src-tauri/gen/android/app/build/outputs/apk -name '*.apk' | head -n 1)" ccg-android.apk
+      - uses: actions/upload-artifact@v7
+        with:
+          name: android-apk
+          path: ccg-android.apk
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          name: android-apk
+      - name: The "Android (latest)" pre-release, at this commit
+        run: |
+          gh api -X PATCH "repos/$GH_REPO/git/refs/tags/android-latest" -f sha="$GITHUB_SHA" -F force=true > /dev/null 2>&1 \
+            || gh api "repos/$GH_REPO/git/refs" -f ref=refs/tags/android-latest -f sha="$GITHUB_SHA" > /dev/null
+          cat > notes.md <<NOTES
+          A debug-signed build of the Android app, from ${GITHUB_SHA::7}, for sideloading on a phone. Allow installing from your browser when Android asks.
+          NOTES
+          if gh release view android-latest > /dev/null 2>&1; then
+            gh release edit android-latest --prerelease --title "Android (latest)" --notes-file notes.md
+          else
+            gh release create android-latest --prerelease --verify-tag --title "Android (latest)" --notes-file notes.md
+          fi
+          gh release upload android-latest ccg-android.apk --clobber
