@@ -126,9 +126,38 @@ fn packages_reveal(app: AppHandle) -> Result<(), String> {
     app.opener().open_path(dir.to_string_lossy(), None::<&str>).map_err(|e| e.to_string())
 }
 
+/// How the smoke test (#160) reports: with CCG_SMOKE set, the app quits once the page has shown a game, or fails.
+const SMOKE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
+const SMOKE_PAGE_CHECK: &str = r#"
+const smokeCheck = () => {
+  if (document.body && document.body.innerText.includes('Duel')) window.__TAURI_INTERNALS__.invoke('smoke_passed');
+  else setTimeout(smokeCheck, 200);
+};
+smokeCheck();
+"#;
+
+#[tauri::command]
+fn smoke_passed() {
+    println!("smoke test passed: the page shows a game");
+    std::process::exit(0);
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let smoke = std::env::var_os("CCG_SMOKE").is_some();
+    if smoke {
+        std::thread::spawn(|| {
+            std::thread::sleep(SMOKE_TIMEOUT);
+            eprintln!("smoke test failed: no game on the page after {SMOKE_TIMEOUT:?}");
+            std::process::exit(1);
+        });
+    }
     tauri::Builder::default()
+        .on_page_load(move |webview, payload| {
+            if smoke && payload.event() == tauri::webview::PageLoadEvent::Finished {
+                let _ = webview.eval(SMOKE_PAGE_CHECK);
+            }
+        })
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
@@ -152,7 +181,8 @@ pub fn run() {
             packages_list,
             packages_read,
             packages_install,
-            packages_reveal
+            packages_reveal,
+            smoke_passed
         ])
         .run(tauri::generate_context!())
         .expect("error while running the desktop app");
