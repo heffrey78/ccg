@@ -18,7 +18,8 @@ import { Inspector, Piles, Resources, StackPanel } from './play/Panels.js';
 import { Playback, effectOf, unitsAfter, type PlaybackState } from './play/playback.js';
 import { anchorCell, choicesFor, offers, type Selection } from './play/selection.js';
 import { layoutOf, permanentOfUnit, type UnitView, type WorldView } from './play/world.js';
-import { SPEEDS, VIEWS, type ViewMode } from './settings.js';
+import { SOUND_LEVELS, SPEEDS, VIEWS, type ViewMode } from './settings.js';
+import { cueOf, digest, type Sound } from './sound.js';
 import { themeCss } from './theme.js';
 
 
@@ -30,6 +31,11 @@ export interface EncounterProps {
   /** Animation speed multiplier; 0 shows results at once. */
   speed: number;
   onSpeed(speed: number): void;
+  /** Plays the step's sounds; silent without it. */
+  sound?: Sound;
+  /** Sound volume, 0 to 1, with its control shown when it can be changed. */
+  volume?: number;
+  onVolume?(volume: number): void;
   /** Board size; standard when absent. */
   view?: ViewMode;
   onView?(view: ViewMode): void;
@@ -56,7 +62,7 @@ export interface EncounterProps {
 const isTyping = (target: EventTarget | null) => target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
 const isControl = (target: EventTarget | null) => target instanceof Element && (target.tagName === 'BUTTON' || target.getAttribute('role') === 'button');
 
-export function Encounter({ snapshot, log, busy, speed, onSpeed, view: boardView = 'standard', onView, setFullscreen, onAct, onQuit, onDebug, renderers, onChooseReward, autoPass = 0, onAutoPass, onUndo, onChooseNode, onChooseService }: EncounterProps) {
+export function Encounter({ snapshot, log, busy, speed, onSpeed, sound, volume = 0, onVolume, view: boardView = 'standard', onView, setFullscreen, onAct, onQuit, onDebug, renderers, onChooseReward, autoPass = 0, onAutoPass, onUndo, onChooseNode, onChooseService }: EncounterProps) {
   const { view, side, legal, deciding, catalog, run } = snapshot;
   const world = view.world as WorldView;
   const layout = layoutOf(snapshot.presentation);
@@ -69,12 +75,29 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, view: boardView
   const playback = useMemo(() => new Playback(setPlay), []);
   useEffect(() => () => playback.dispose(), [playback]);
   useLayoutEffect(() => {
+    // With nothing to play out, the step still sounds. Not the snapshot a game opens or continues on.
+    if (speed === 0 && previous.current && previous.current !== snapshot) sound?.playDigest(digest(snapshot.events));
     setStart(previous.current ?? snapshot);
     previous.current = snapshot;
     // Speed changes apply from the next action, so only a new snapshot restarts playback.
     playback.play(snapshot.events, speed);
   }, [snapshot, playback]);
   const playing = !play.done;
+  // Each beat sounds as it starts; skipping drops the rest.
+  useEffect(() => {
+    const event = play.done ? undefined : play.beats[play.shown - 1]?.event;
+    const cue = event && cueOf(event);
+    if (cue) sound?.play(cue);
+  }, [play, sound]);
+  // The end of the game sounds once its last beat has played.
+  const ended = useRef(view.outcome != null);
+  useEffect(() => {
+    if (view.outcome == null) ended.current = false;
+    else if (!playing && !ended.current) {
+      ended.current = true;
+      sound?.play(view.outcome.winners.includes(side) ? 'win' : 'lose');
+    }
+  }, [view.outcome, playing, side, sound]);
   const shownView = playing ? start.view : view;
   const shownWorld = shownView.world as WorldView;
   const finalUnits = world.board?.units ?? {};
@@ -312,6 +335,18 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, view: boardView
             ))}
           </select>
         </label>
+        {onVolume && (
+          <label className="ccg-speed">
+            Sound{' '}
+            <select value={volume} onChange={(e) => onVolume(Number(e.target.value))}>
+              {SOUND_LEVELS.map((l) => (
+                <option key={l.value} value={l.value}>
+                  {l.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         {onView && (
           <label className="ccg-speed">
             View{' '}

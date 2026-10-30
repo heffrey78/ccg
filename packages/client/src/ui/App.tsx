@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Action, GameEvent } from '@ccg/core';
 import type { EngineClient } from '../engine/client.js';
 import type { GameListing, SaveGame, Snapshot } from '../engine/protocol.js';
@@ -7,7 +7,8 @@ import { DebugEncounter } from './DebugEncounter.js';
 import { Encounter } from './Encounter.js';
 import { GameSelect } from './GameSelect.js';
 import type { BoardRenderer } from './play/Board.js';
-import type { ViewMode } from './settings.js';
+import { DEFAULT_SOUND_LEVEL, type ViewMode } from './settings.js';
+import { Sound } from './sound.js';
 import { CSS } from './styles.js';
 
 export interface AppProps {
@@ -45,6 +46,8 @@ export function App({ engine, platform, seed, renderers, encounter, editable, on
   const [error, setError] = useState<string | null>(null);
   const [debug, setDebug] = useState(false);
   const [speed, setSpeed] = useState(reducedMotion() ? 0 : 1);
+  const [volume, setVolume] = useState<number>(DEFAULT_SOUND_LEVEL);
+  const sound = useMemo(() => new Sound(), []);
   const [autoPass, setAutoPass] = useState(0);
   const [view, setView] = useState<ViewMode>('standard');
   const [difficulties, setDifficulties] = useState<Record<string, string>>({});
@@ -70,6 +73,11 @@ export function App({ engine, platform, seed, renderers, encounter, editable, on
       .then((list) => list && setGames(list), (e: Error) => setError(e.message));
     void platform.settings.get<string | null>('lastPlayed', null).then(setLastPlayed);
     void platform.settings.get<number | null>('animationSpeed', null).then((s) => s !== null && setSpeed(s));
+    sound.setVolume(DEFAULT_SOUND_LEVEL);
+    void platform.settings.get<number>('soundVolume', DEFAULT_SOUND_LEVEL).then((v) => {
+      setVolume(v);
+      sound.setVolume(v);
+    });
     void platform.settings.get<number>('autoPass', 0).then(setAutoPass);
     void platform.settings.get<Record<string, string>>('difficulties', {}).then(setDifficulties);
     void platform.settings.get<ViewMode>('boardView', 'standard').then((v) => v !== 'full' && setView(v));
@@ -108,6 +116,13 @@ export function App({ engine, platform, seed, renderers, encounter, editable, on
     setSpeed(s);
     void platform.settings.set('animationSpeed', s);
   };
+  const changeVolume = (v: number) => {
+    setVolume(v);
+    sound.setVolume(v);
+    sound.play('card');
+    void platform.settings.set('soundVolume', v);
+  };
+  useEffect(() => sound.attach(document), [sound]);
   // Full screen needs a click to enter, so only the windowed views are remembered.
   const changeView = (v: ViewMode) => {
     setView(v);
@@ -160,6 +175,9 @@ export function App({ engine, platform, seed, renderers, encounter, editable, on
           busy={busy}
           speed={speed}
           onSpeed={changeSpeed}
+          sound={sound}
+          volume={volume}
+          onVolume={changeVolume}
           view={view}
           onView={changeView}
           {...(platform.setFullscreen && { setFullscreen: platform.setFullscreen })}
