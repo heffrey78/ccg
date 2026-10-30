@@ -26,7 +26,7 @@ test('imports art, exports the project as a zip, and plays it in the play client
   expect((await download).suggestedFilename()).toBe('zip-game-0.1.0.zip');
 
   // Load the zip in the play client and play the encounter.
-  await page.goto('/#/');
+  await page.goto('/?seed=4#/'); // Seeded: an unseeded hand can be all Guards, with no Strike to check.
   await page.getByLabel('Load a game from a zip…').setInputFiles(zip);
   await page.getByRole('button', { name: /Zip Game/ }).click();
   await expect(page.getByRole('status')).toHaveText('Your decision');

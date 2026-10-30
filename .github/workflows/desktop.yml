@@ -1,10 +1,13 @@
 name: Desktop
 
-# The desktop app (#31) on Linux and Windows. It is slow, so it runs only when
-# something it builds from changes, and on demand.
+# The desktop app (#31, #160) on Linux, Windows and, as best effort, Apple-silicon Mac. It is
+# slow, so it runs only when something it builds from changes, and on demand. Every push to main
+# refreshes the "Desktop (test builds)" pre-release; a tag vX.Y.Z drafts a release (the owner
+# publishes it). Paths aren't checked for tags.
 on:
   push:
     branches: [main]
+    tags: ['v*']
     paths: ['apps/desktop/**', 'apps/web/**', 'packages/**', 'games/**', 'examples/**', 'pnpm-lock.yaml', '.github/workflows/desktop.yml']
   pull_request:
     paths: ['apps/desktop/**', 'apps/web/src/platform/**', 'pnpm-lock.yaml', '.github/workflows/desktop.yml']
@@ -19,8 +22,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, windows-latest]
+        include:
+          - os: ubuntu-22.04
+            best-effort: false
+          - os: windows-latest
+            best-effort: false
+          - os: macos-15
+            best-effort: true
     runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.best-effort }}
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -32,14 +42,41 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: apps/desktop/src-tauri -> target
-      - name: Linux webview libraries
+      - name: The tag names the app's version
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          version=$(node -p "require('./apps/desktop/src-tauri/tauri.conf.json').version")
+          [ "v$version" = "$GITHUB_REF_NAME" ] || { echo "::error::Tag $GITHUB_REF_NAME doesn't match the app's version $version"; exit 1; }
+      - name: Linux webview libraries, and the GStreamer plugins sound plays through and the AppImage carries
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xvfb \
+            gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-pulseaudio
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @ccg/desktop test:rust
       - run: pnpm --filter @ccg/desktop build:desktop
+      - name: The app shows a game (Linux, installed from the deb)
+        if: runner.os == 'Linux'
+        env:
+          CCG_SMOKE: '1'
+        run: |
+          sudo apt-get install -y ./apps/desktop/src-tauri/target/release/bundle/deb/*.deb
+          xvfb-run -a ccg-desktop
+      - name: The app shows a game (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          CCG_SMOKE: '1'
+        run: |
+          $app = Start-Process -FilePath apps/desktop/src-tauri/target/release/ccg-desktop.exe -PassThru -Wait
+          if ($app.ExitCode -ne 0) { throw "The smoke test failed with exit code $($app.ExitCode)" }
+      - name: The app shows a game (Mac)
+        if: runner.os == 'macOS'
+        env:
+          CCG_SMOKE: '1'
+        run: apps/desktop/src-tauri/target/release/ccg-desktop
       - uses: actions/upload-artifact@v7
         with:
           name: ccg-desktop-${{ runner.os }}
@@ -49,4 +86,54 @@ jobs:
             apps/desktop/src-tauri/target/release/bundle/**/*.rpm
             apps/desktop/src-tauri/target/release/bundle/**/*.msi
             apps/desktop/src-tauri/target/release/bundle/**/*.exe
+            apps/desktop/src-tauri/target/release/bundle/**/*.dmg
           if-no-files-found: error
+
+  # The bundles under names that stay the same. The Mac's is there when its best-effort build worked.
+  publish:
+    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          path: artifacts
+      - name: Name the bundles
+        run: |
+          mkdir out
+          name() { src=$(find artifacts -name "$1" | head -n 1); [ -z "$src" ] || cp "$src" "out/$2"; }
+          name '*.AppImage' ccg-linux-x86_64.AppImage
+          name '*.deb' ccg-linux-amd64.deb
+          name '*.rpm' ccg-linux-x86_64.rpm
+          name '*-setup.exe' ccg-windows-setup.exe
+          name '*.msi' ccg-windows.msi
+          name '*.dmg' ccg-macos-apple-silicon.dmg
+          ls -la out
+      - name: The "Desktop (test builds)" pre-release, at this commit
+        if: github.ref == 'refs/heads/main'
+        run: |
+          gh api -X PATCH "repos/$GH_REPO/git/refs/tags/desktop-test-builds" -f sha="$GITHUB_SHA" -F force=true > /dev/null 2>&1 \
+            || gh api "repos/$GH_REPO/git/refs" -f ref=refs/tags/desktop-test-builds -f sha="$GITHUB_SHA" > /dev/null
+          cat > notes.md <<NOTES
+          Unsigned test builds of the desktop app, from ${GITHUB_SHA::7}, rebuilt from every push to main that changes the app. Each started and showed a game on GitHub's runners.
+
+          **Linux:** the AppImage runs anywhere (\`chmod +x\` it first). The deb and rpm install what sound needs.
+
+          **Windows:** SmartScreen warns about an unknown publisher. Choose More info, then Run anyway.
+
+          **Mac with Apple silicon** (when its best-effort build worked): drag it to Applications, then choose Open Anyway in System Settings > Privacy & Security, as it isn't notarized.
+          NOTES
+          if gh release view desktop-test-builds > /dev/null 2>&1; then
+            gh release edit desktop-test-builds --prerelease --title "Desktop (test builds)" --notes-file notes.md
+          else
+            gh release create desktop-test-builds --prerelease --verify-tag --title "Desktop (test builds)" --notes-file notes.md
+          fi
+          gh release upload desktop-test-builds out/* --clobber
+      - name: A draft release, for the owner to publish
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: gh release create "$GITHUB_REF_NAME" --draft --verify-tag --generate-notes --title "$GITHUB_REF_NAME" out/*
