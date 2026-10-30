@@ -97,6 +97,8 @@ export interface Theme {
   fonts: { body?: ThemeFont; display?: ThemeFont };
   table?: { color?: string; image?: string };
   frames: ThemeFrame[];
+  /** Sound files' URLs by cue, replacing the built-in sounds. */
+  sounds?: Record<string, string>;
 }
 
 export interface ThemeFont {

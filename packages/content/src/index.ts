@@ -20,6 +20,8 @@ export { REF_WIDGETS, mapRefs, type RefVisitor } from './refs.js';
 export { filesSource, unzipFiles, zipFiles, type PackageFiles } from './zip.js';
 export {
   ASSET_KEYS,
+  SOUND_CUES,
+  type SoundCue,
   CONTENT_KINDS,
   createContentSchemas,
   patternShape,

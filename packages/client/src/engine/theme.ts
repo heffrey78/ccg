@@ -11,6 +11,7 @@ type ThemeItem = ContentItem & {
   table?: { color?: string; background?: string };
   frames?: (Omit<ThemeFrame, 'layout' | 'image'> & { name?: string; layout?: ThemeFrame['layout']; background?: string; match?: { tags?: string[]; rarity?: string[] } })[];
   defaultFrame?: string;
+  sounds?: { cue: string; sound: string }[];
 };
 
 /** The theme with its asset paths turned into URLs. */
@@ -28,6 +29,7 @@ export function resolveTheme(item: ContentItem, url: (path: string) => string): 
       layout: layout ?? 'standard',
       ...(background && { image: url(background) }),
     })),
+    ...(t.sounds?.length && { sounds: Object.fromEntries(t.sounds.map((s) => [s.cue, url(s.sound)])) }),
   };
 }
 

@@ -15,6 +15,11 @@ package. A game without a theme looks as it always has.
 | `table` | A `color` and a `background` image behind the play area. |
 | `frames` | Card frames: `fill`, a `background` image stretched over the face, `border`, `borderWidth`, `radius`, `ink` (text), `accent` (the cost badge) and a `layout`. |
 | `defaultFrame` | The frame for cards no frame matches. Without one, they keep the plain card. |
+| `sounds` | Audio files in the package that replace built-in sounds: a list of `cue` and `sound`. Any cue left out keeps its built-in sound. Use ogg or mp3, which every platform plays. |
+
+Sound cues: `card`, `move`, `hit`, `block`, `heal`, `status`, `death`, `spawn`,
+`win` and `lose`. A file that's missing or won't decode falls back to the
+built-in sound, and the editor warns about a missing one.
 
 A card's frame is the first frame whose `match.tags` shares a tag with the
 card, else the first whose `match.rarity` lists the card's rarity, else the
