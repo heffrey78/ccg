@@ -95,6 +95,23 @@ try {
   expect(await page.getByRole('list', { name: 'Hand' }).getByRole('button').allTextContents()).toEqual(hand);
   screenshot('4-continued');
 
+  step('Tapping a unit shows its details');
+  await tap(page, page.locator('[data-unit]').first());
+  await expect(page.getByRole('region', { name: 'Unit details' }).or(page.getByLabel('Unit details'))).toContainText('HP');
+
+  step('Back closes what is open, then leaves the game, which stays saved, then the app');
+  await tap(page, page.getByRole('button', { name: 'Settings' }));
+  await expect(page.getByLabel('Sound')).toBeVisible();
+  adb('shell', 'input', 'keyevent', 'KEYCODE_BACK');
+  await expect(page.getByLabel('Sound')).toBeHidden();
+  await expect(page.locator('header').getByText('Round 2')).toBeVisible();
+  adb('shell', 'input', 'keyevent', 'KEYCODE_BACK'); // The details that tap opened.
+  adb('shell', 'input', 'keyevent', 'KEYCODE_BACK');
+  await expect(page.getByRole('button', { name: /^Continue/ })).toBeVisible();
+  screenshot('5-games-with-continue');
+  adb('shell', 'input', 'keyevent', 'KEYCODE_BACK');
+  await expect.poll(() => adb('shell', 'dumpsys', 'activity', 'activities').includes(`topResumedActivity=ActivityRecord{`) && adb('shell', 'dumpsys', 'activity', 'activities').match(/topResumedActivity=.*/)?.[0].includes(PACKAGE)).toBe(false);
+
   step('Passed');
 } finally {
   await device.close();

@@ -35,7 +35,38 @@ export const CSS = `
 .ccg-speed select { font: inherit; }
 
 .ccg-main { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 12px; }
-@media (max-width: 760px) { .ccg-main { grid-template-columns: 1fr; } .ccg-log ol { max-height: 12rem; overflow-y: auto; } }
+.ccg-settings { display: contents; }
+.ccg-app .ccg-settings-toggle { display: none; }
+@media (max-width: 760px) {
+  .ccg-main { grid-template-columns: 1fr; }
+  .ccg-log ol { max-height: 4.5rem; overflow-y: auto; }
+  .ccg-topbar { gap: 4px 10px; }
+  .ccg-game { flex-direction: column; }
+  .ccg-difficulty { max-width: none; }
+}
+@media (max-width: 760px), (max-height: 500px) {
+  .ccg-app .ccg-settings-toggle { display: inline-block; }
+  .ccg-settings { display: none; }
+  .ccg-settings.is-open { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; order: 1; width: 100%; }
+}
+/* A phone on its side: the board and the hand both fit, with the hand beside its resources and buttons. */
+@media (max-height: 500px) and (min-width: 761px) {
+  .ccg-encounter { gap: 6px; }
+  .ccg-app .ccg-stage { padding: 2px; }
+  .ccg-app .ccg-board { max-height: 30vh; }
+  .ccg-inspector { flex: none; height: auto; padding: 4px 8px; }
+  .ccg-side { gap: 6px; }
+  .ccg-log { min-height: 0; }
+  .ccg-app .ccg-tray { display: grid; grid-template-columns: minmax(150px, auto) minmax(0, 1fr); grid-template-areas: 'info hand' 'actions hand'; gap: 4px 10px; padding: 6px 8px; }
+  .ccg-tray-info { grid-area: info; gap: 4px 8px; }
+  .ccg-tray .ccg-hand { grid-area: hand; }
+  .ccg-tray .ccg-actions { grid-area: actions; justify-content: flex-start; }
+  .ccg-app .ccg-tray .ccg-card { min-height: 104px; }
+}
+/* A finger is bigger than a pointer. */
+@media (pointer: coarse) {
+  .ccg-app button, .ccg-app select { min-height: 44px; }
+}
 /* Beside the board, the side panel takes the board's height and the log scrolls in what is left, so nothing in it pushes the hand down. */
 @media (min-width: 761px) {
   .ccg-side { contain: size; overflow-y: auto; }
@@ -48,6 +79,7 @@ export const CSS = `
 .ccg-side > section, .ccg-inspector { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; box-shadow: var(--shadow); }
 /* A fixed height, so hovering a unit never moves the log or the hand below it. */
 .ccg-inspector { height: 11rem; overflow-y: auto; box-sizing: border-box; }
+@media (max-width: 760px) { .ccg-inspector { height: auto; max-height: 8rem; } }
 .ccg-inspector h3 { margin: 0 0 4px; }
 .ccg-inspector p { margin: 4px 0; }
 .ccg-status-list { margin: 4px 0; padding-left: 18px; }
