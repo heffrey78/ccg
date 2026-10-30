@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { onAndroidBackground } from './android.js';
 import { createPlatform } from './index.js';
 import { isAndroid, isDesktop, type Invoke } from './desktop.js';
 
@@ -39,6 +40,17 @@ describe('the platform adapters (#141)', () => {
     expect(platform.packages).toBeUndefined();
     expect(platform.revealPackages).toBeUndefined();
     expect(platform.setFullscreen).toBeUndefined();
+  });
+
+  it('passes on the activity going to the background and returning, until stopped (#163)', () => {
+    const target = new EventTarget();
+    const seen: boolean[] = [];
+    const stop = onAndroidBackground((background) => seen.push(background), target);
+    target.dispatchEvent(new Event('ccg-background'));
+    target.dispatchEvent(new Event('ccg-foreground'));
+    stop();
+    target.dispatchEvent(new Event('ccg-background'));
+    expect(seen).toEqual([true, false]);
   });
 
   it('tells the Android app from the desktop app and a browser by the shell and the user agent', () => {

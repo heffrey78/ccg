@@ -23,3 +23,15 @@ export function onAndroidBack(handler: () => void): () => void {
 export function exitAndroid(): void {
   void import('@tauri-apps/api/app').then(({ exit }) => exit(0));
 }
+
+/** Tells when the app goes to the background and returns, as its activity says. Returns how to stop listening. */
+export function onAndroidBackground(handler: (background: boolean) => void, target: EventTarget = window): () => void {
+  const background = () => handler(true);
+  const foreground = () => handler(false);
+  target.addEventListener('ccg-background', background);
+  target.addEventListener('ccg-foreground', foreground);
+  return () => {
+    target.removeEventListener('ccg-background', background);
+    target.removeEventListener('ccg-foreground', foreground);
+  };
+}
