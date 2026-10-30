@@ -1,14 +1,15 @@
 /**
  * Sound (#155, #158). Each game event that makes a noise maps to a cue, and each
  * cue has a small synthesized recipe, so every game has sound without any audio
- * files. Sound follows the events playback shows, so it reveals nothing hidden
+ * files; a game's theme can replace any of them (#159). Sound follows the events playback shows, so it reveals nothing hidden
  * from the player. Framework-free, with an injectable AudioContext for tests,
  * and it never throws: a broken audio stack must not stop the game.
  */
+import { SOUND_CUES, type SoundCue } from '@ccg/content';
 import type { GameEvent } from '@ccg/core';
 
-export const CUES = ['card', 'move', 'hit', 'block', 'heal', 'status', 'death', 'spawn', 'win', 'lose'] as const;
-export type Cue = (typeof CUES)[number];
+export const CUES = SOUND_CUES;
+export type Cue = SoundCue;
 
 export const EVENT_CUES: Record<string, Cue> = {
   ItemAnnounced: 'card',
@@ -81,6 +82,7 @@ const RECIPES: Record<Cue, Tone[]> = {
 export type CreateContext = () => AudioContext | null;
 
 const browserContext: CreateContext = () => (typeof AudioContext === 'undefined' ? null : new AudioContext());
+const browserFetch = async (url: string) => (await fetch(url)).arrayBuffer();
 
 export class Sound {
   #context: AudioContext | null = null;
@@ -88,8 +90,22 @@ export class Sound {
   #noise: AudioBuffer | null = null;
   #volume = 0;
   #hidden = false;
+  #files: Partial<Record<Cue, string>> = {};
+  #buffers: Partial<Record<Cue, AudioBuffer>> = {};
+  #wanted = false;
 
-  constructor(private readonly createContext: CreateContext = browserContext) {}
+  constructor(
+    private readonly createContext: CreateContext = browserContext,
+    private readonly fetchFile: (url: string) => Promise<ArrayBuffer> = browserFetch,
+  ) {}
+
+  /** The game's own sounds by cue, loaded once there's audio; others keep their built-in sound. */
+  setSounds(files: Partial<Record<Cue, string>>): void {
+    this.#files = files;
+    this.#buffers = {};
+    this.#wanted = true;
+    if (this.#context) this.#load(this.#context);
+  }
 
   /** 0 to 1; 0 makes no sound and needs no audio at all. */
   setVolume(volume: number): void {
@@ -108,7 +124,9 @@ export class Sound {
         void context.resume()?.catch(() => {});
         return;
       }
-      for (const tone of RECIPES[cue]) this.#schedule(context, tone, delay);
+      const buffer = this.#buffers[cue];
+      if (buffer) this.#playBuffer(context, buffer, delay);
+      else for (const tone of RECIPES[cue]) this.#schedule(context, tone, delay);
     } catch {
       // No sound is better than no game.
     }
@@ -159,7 +177,30 @@ export class Sound {
     this.#master.gain.value = this.#volume;
     this.#master.connect(context.destination);
     this.#context = context;
+    if (this.#wanted) this.#load(context);
     return context;
+  }
+
+  /** Decodes the game's sounds. One that won't load keeps the built-in sound. */
+  #load(context: AudioContext): void {
+    this.#wanted = false;
+    const files = this.#files;
+    for (const [cue, url] of Object.entries(files) as [Cue, string][]) {
+      void this.fetchFile(url)
+        .then((bytes) => context.decodeAudioData(bytes))
+        .then((buffer) => {
+          // A different game may have started while this one loaded.
+          if (this.#files === files) this.#buffers[cue] = buffer;
+        })
+        .catch((e: unknown) => console.warn(`Sound for '${cue}' didn't load, using the built-in sound.`, e));
+    }
+  }
+
+  #playBuffer(context: AudioContext, buffer: AudioBuffer, delay: number): void {
+    const source = context.createBufferSource();
+    source.buffer = buffer;
+    source.connect(this.#master as GainNode);
+    source.start(context.currentTime + delay);
   }
 
   #schedule(context: AudioContext, tone: Tone, delay: number): void {
