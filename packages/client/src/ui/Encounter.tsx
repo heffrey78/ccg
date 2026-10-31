@@ -144,10 +144,20 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, sound, volume =
   const [focus, setFocus] = useState(0);
   const [hovered, setHovered] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [logOpen, setLogOpen] = useState(false);
+  // On a phone on its side the hand is a drawer (#172); wider or taller, the styles ignore this.
+  const [handOpen, setHandOpen] = useState(false);
+  const swipeFrom = useRef<number | null>(null);
+  const swiped = useRef(false);
   useEffect(() => {
     setSelection(null);
     setFocus(0);
+    setHandOpen(false);
   }, [snapshot]);
+  // Targets are on the board, so the drawer gets out of the way of choosing one.
+  useEffect(() => {
+    if (selection) setHandOpen(false);
+  }, [selection]);
   const choices = useMemo(() => choicesFor(selection, o, world, layout, side), [selection, o, world, layout, side]);
   const canAct = !busy && deciding === side && !view.outcome;
 
@@ -209,7 +219,9 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, sound, volume =
   // ---- board view: full screen fills the window and asks the browser for the whole screen ----
   if (closeRef) {
     closeRef.current = () => {
-      if (selection) setSelection(null);
+      if (handOpen) setHandOpen(false);
+      else if (selection) setSelection(null);
+      else if (logOpen) setLogOpen(false);
       else if (settingsOpen) setSettingsOpen(false);
       else if (hovered) setHovered(null);
       else if (boardView === 'full') changeView(windowed.current);
@@ -325,7 +337,7 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, sound, volume =
   }, [logLines.length]);
 
   return (
-    <section className={`ccg-encounter is-view-${boardView}${catalog.theme ? ' ccg-themed' : ''}`} aria-labelledby="encounter-heading">
+    <section className={`ccg-encounter is-view-${boardView}${catalog.theme ? ' ccg-themed' : ''}${logOpen ? ' is-log-open' : ''}`} aria-labelledby="encounter-heading">
       {catalog.theme && <style>{themeCss(catalog.theme, '.ccg-themed')}</style>}
       <header className="ccg-topbar">
         <h1 id="encounter-heading">{snapshot.game.name}</h1>
@@ -341,6 +353,9 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, sound, volume =
           {status}
         </span>
         <span className="ccg-spacer" />
+        <button type="button" className="ccg-log-toggle" aria-expanded={logOpen} onClick={() => setLogOpen((open) => !open)}>
+          Log
+        </button>
         {/* At phone width the settings fold away behind this; wider, it's hidden and they sit in the bar. */}
         <button type="button" className="ccg-settings-toggle" aria-expanded={settingsOpen} onClick={() => setSettingsOpen((open) => !open)}>
           Settings
@@ -483,7 +498,27 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, sound, volume =
         </aside>
       </div>
 
-      <div className="ccg-tray">
+      <div
+        className={`ccg-tray${handOpen ? ' is-open' : ''}`}
+        onPointerDown={(e) => {
+          swipeFrom.current = e.clientY;
+          swiped.current = false;
+        }}
+        onPointerUp={(e) => {
+          const moved = swipeFrom.current === null ? 0 : e.clientY - swipeFrom.current;
+          swipeFrom.current = null;
+          if (Math.abs(moved) < 24) return;
+          swiped.current = true;
+          setHandOpen(moved < 0);
+        }}
+        onClick={(e) => {
+          // The peeking cards raise the drawer.
+          if (!handOpen && !swiped.current && !(e.target as Element).closest('button, select, a')) setHandOpen(true);
+        }}
+      >
+        <button type="button" className="ccg-hand-toggle" aria-expanded={handOpen} onClick={() => setHandOpen((open) => !open)}>
+          Hand {hand.length} {handOpen ? '▾' : '▴'}
+        </button>
         <div className="ccg-tray-info">
           <Resources world={world} side={side} />
           <Piles world={world} side={side} catalog={catalog} />

@@ -37,12 +37,30 @@ async function appPage(device: AndroidDevice): Promise<Page> {
   return webview.page();
 }
 
-/** Where the webview sits on the screen, in device pixels. */
+/** Where the webview sits on the screen, in device pixels. The dump fails while the screen is animating, so it tries again. */
 function webviewOrigin(): { x: number; y: number } {
-  const ui = execFileSync(ADB, ['exec-out', 'uiautomator', 'dump', '/dev/tty'], { encoding: 'utf8' });
-  const node = /class="android\.webkit\.WebView"[^>]*?bounds="\[(\d+),(\d+)\]/.exec(ui);
-  if (!node) throw new Error('No webview on the screen.');
-  return { x: Number(node[1]), y: Number(node[2]) };
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const ui = execFileSync(ADB, ['exec-out', 'uiautomator', 'dump', '/dev/tty'], { encoding: 'utf8' });
+    const node = /class="android\.webkit\.WebView"[^>]*?bounds="\[(\d+),(\d+)\]/.exec(ui);
+    if (node) return { x: Number(node[1]), y: Number(node[2]) };
+    execFileSync('sleep', ['1']);
+  }
+  throw new Error('No webview on the screen.');
+}
+
+/** Android explains hiding the system bars once, the first time an app does, in a dialog of its own. */
+function dismissFullScreenHint() {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const ui = execFileSync(ADB, ['exec-out', 'uiautomator', 'dump', '/dev/tty'], { encoding: 'utf8' });
+    const button = /text="Got it"[^>]*?bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/.exec(ui);
+    if (button) {
+      const [, left, top, right, bottom] = button.map(Number);
+      adb('shell', 'input', 'tap', String(((left as number) + (right as number)) / 2), String(((top as number) + (bottom as number)) / 2));
+      return;
+    }
+    if (ui.includes('android.webkit.WebView')) return;
+    execFileSync('sleep', ['1']);
+  }
 }
 
 /** Touches an element with a real tap on the screen, as a finger would. */
@@ -68,6 +86,15 @@ const [device] = await _android.devices();
 if (!device) throw new Error('No device: start the emulator or plug in a phone.');
 try {
   let page = await appPage(device);
+  dismissFullScreenHint();
+
+  step('The app takes the whole screen, and the shell gives the page its insets');
+  const [, displayWidth, displayHeight] = /Physical size: (\d+)x(\d+)/.exec(adb('shell', 'wm', 'size')) as RegExpExecArray;
+  const longest = Math.max(Number(displayWidth), Number(displayHeight));
+  await expect.poll(() => page.evaluate(() => Math.round(Math.max(innerWidth, innerHeight) * devicePixelRatio))).toBeGreaterThanOrEqual(longest - 3);
+  const area = await page.evaluate(() => JSON.parse((window as unknown as { ccgShell: { safeArea(): string } }).ccgShell.safeArea()) as Record<string, number>);
+  expect(Object.keys(area).sort()).toEqual(['bottom', 'left', 'right', 'top']);
+  screenshot('0-whole-screen');
 
   step('Play is offered without the editor');
   await expect(page.getByRole('button', { name: /^Duel/ })).toBeVisible({ timeout: 30_000 });
