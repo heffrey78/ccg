@@ -35,3 +35,20 @@ export function onAndroidBackground(handler: (background: boolean) => void, targ
     target.removeEventListener('ccg-foreground', foreground);
   };
 }
+
+/**
+ * Keeps the page clear of a camera cutout and any system bars showing (#172). The app draws edge to
+ * edge and the webview doesn't report them reliably, so the shell gives them, in CSS pixels, as
+ * `window.ccgShell.safeArea()`, and fires `ccg-insets` when they change, as on rotating.
+ */
+export function followAndroidInsets(): void {
+  if (typeof window === 'undefined') return;
+  const apply = () => {
+    const shell = (window as unknown as { ccgShell?: { safeArea(): string } }).ccgShell;
+    if (!shell) return;
+    const area = JSON.parse(shell.safeArea()) as Record<string, number>;
+    for (const [edge, px] of Object.entries(area)) document.documentElement.style.setProperty(`--ccg-safe-${edge}`, `${px}px`);
+  };
+  apply();
+  window.addEventListener('ccg-insets', apply);
+}
