@@ -154,10 +154,6 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, sound, volume =
     setFocus(0);
     setHandOpen(false);
   }, [snapshot]);
-  // Targets are on the board, so the drawer gets out of the way of choosing one.
-  useEffect(() => {
-    if (selection) setHandOpen(false);
-  }, [selection]);
   const choices = useMemo(() => choicesFor(selection, o, world, layout, side), [selection, o, world, layout, side]);
   const canAct = !busy && deciding === side && !view.outcome;
 
@@ -187,6 +183,9 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, sound, volume =
     }
     setSelection(list.length > 0 ? next : null);
     setFocus(0);
+    // Targets are on the board, so the drawer gets out of the way of choosing one. This must land in the
+    // same render as the selection: an effect would leave a frame with targets showing behind a raised drawer.
+    if (list.length > 0) setHandOpen(false);
   };
 
   const targets: BoardTarget[] = choices.flatMap((c, i) => {
