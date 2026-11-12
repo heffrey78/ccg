@@ -85,7 +85,7 @@ export interface InspectorProps {
 export function Inspector({ unit, intent, summary, permanent, catalog, world, abilities, onAbility }: InspectorProps) {
   if (!unit)
     return (
-      <section className="ccg-inspector" aria-label="Unit details">
+      <section className="ccg-inspector is-empty" aria-label="Unit details">
         <p className="ccg-muted">Hover, tap or focus a unit for details.</p>
       </section>
     );

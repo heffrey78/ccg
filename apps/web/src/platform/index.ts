@@ -5,7 +5,7 @@
  */
 import { SettingsStore, memoryStorage, type KeyValueStorage, type Platform } from '@ccg/client';
 import { desktopPackages, desktopStorage, isAndroid, isDesktop, setDesktopFullscreen, tauriInvoke, type Invoke } from './desktop.js';
-import { exitAndroid, onAndroidBack, onAndroidBackground } from './android.js';
+import { exitAndroid, followAndroidInsets, onAndroidBack, onAndroidBackground } from './android.js';
 import { indexedDbStorage } from './indexeddb.js';
 
 /** Storage that waits for the desktop bridge to load before its first call. */
@@ -21,6 +21,7 @@ function deferred(load: Promise<KeyValueStorage>): KeyValueStorage {
 export function createPlatform(options: { desktop?: boolean; android?: boolean; invoke?: Promise<Invoke> } = {}): Platform {
   const desktop = options.desktop ?? isDesktop();
   if (options.android ?? isAndroid()) {
+    followAndroidInsets();
     const storage = deferred((options.invoke ?? tauriInvoke()).then(desktopStorage));
     return { storage, settings: new SettingsStore(storage), playOnly: true, onBack: onAndroidBack, exit: exitAndroid, onBackground: onAndroidBackground };
   }
