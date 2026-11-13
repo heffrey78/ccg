@@ -62,6 +62,11 @@ export function Resources({ world, side }: { world: WorldView; side: string }) {
     <div className="ccg-resources" aria-label="Resources">
       {entries.map(([r, n]) => (
         <span key={r} className="ccg-resource">
+          <span className="ccg-pips" aria-hidden="true">
+            {Array.from({ length: Math.max(0, Math.min(n, 10)) }, (_, i) => (
+              <i key={i} />
+            ))}
+          </span>
           <strong>{n}</strong> {r}
         </span>
       ))}

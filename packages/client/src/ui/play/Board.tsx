@@ -16,6 +16,10 @@ export interface BoardTarget {
   onUnit: boolean;
   focused: boolean;
   onPick(): void;
+  /** The choice's index among the selection's choices, so a drag can aim at it. */
+  choice?: number;
+  /** What picking it would do to the unit there, e.g. "14 → 8". */
+  forecast?: string;
 }
 
 /** A permanent drawn on the board: an aura on its tile, or an attachment on its host. */
@@ -68,6 +72,8 @@ export interface BoardProps {
   art?: Record<string, string>;
   /** The scene behind the board. */
   background?: string | undefined;
+  /** The theme frame unit cards are printed on, where a board draws units as cards. */
+  cardFrame?: string | undefined;
 }
 
 export type BoardRenderer = (props: BoardProps) => ReactNode;

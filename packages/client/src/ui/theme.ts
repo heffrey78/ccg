@@ -80,6 +80,7 @@ export function themeCss(theme: Theme, scope: string): string {
   // The encounter carries the table too: where it covers the page (full screen, and on phones) the table is still under it.
   if (table) out.push(`${page}, .ccg-encounter${scope} { ${table} }`);
   if (body) out.push(`${scope} { font-family: ${body}; }`);
+  if (display) out.push(`${scope} { --ccg-display: ${display}; }`);
   if (display) out.push(`${scope} h1, ${scope} h2, ${scope} .ccg-card-name, ${scope} .ccg-banner { font-family: ${display}; }`);
   for (const frame of theme.frames) out.push(frameCss(scope, frame));
   return out.filter(Boolean).join('\n');

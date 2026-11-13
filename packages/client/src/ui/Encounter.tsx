@@ -8,12 +8,15 @@
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { Action, GameEvent } from '@ccg/core';
-import type { RunProgress, ServiceChoice, Snapshot } from '../engine/protocol.js';
+import type { RunProgress, ServiceChoice, Snapshot, UnitPreview } from '../engine/protocol.js';
 import { describeAction, describeEvent, type EventContext } from './describe.js';
 import { Board, type BoardMarker, type BoardRenderer, type BoardTarget } from './play/Board.js';
 import { CardPreview } from './play/CardFace.js';
 import { RunMap } from './play/RunMap.js';
+import { FanHand } from './play/FanHand.js';
 import { Hand } from './play/Hand.js';
+import { TableBoard } from './play/TableBoard.js';
+import { isLine } from './play/tablePath.js';
 import { Inspector, Piles, Resources, StackPanel } from './play/Panels.js';
 import { Playback, effectOf, unitsAfter, type PlaybackState } from './play/playback.js';
 import { anchorCell, choicesFor, offers, type Selection } from './play/selection.js';
@@ -61,6 +64,39 @@ export interface EncounterProps {
   closeRef?: { current: (() => boolean) | null };
 }
 
+/** The screens the phone layouts are for: a phone held upright, or on its side. */
+const PHONE = '(max-width: 560px), (max-height: 500px) and (min-width: 561px)';
+function usePhone(): boolean {
+  const [on, setOn] = useState(() => typeof matchMedia === 'function' && matchMedia(PHONE).matches);
+  useEffect(() => {
+    if (typeof matchMedia !== 'function') return;
+    const query = matchMedia(PHONE);
+    const update = () => setOn(query.matches);
+    update();
+    query.addEventListener('change', update);
+    return () => query.removeEventListener('change', update);
+  }, []);
+  return on;
+}
+
+/** What a play would do to one unit, in a few characters: "14 → 8", "Kill", "Rot +2". */
+function forecastOf(change: UnitPreview | undefined, unit: UnitView | undefined, name: (id: string) => string, steps: (from: string, to: string) => number): string | undefined {
+  if (!change || !unit) return undefined;
+  if (change.gone || (change.hp !== undefined && change.hp <= 0)) return 'Kill';
+  if (change.hp !== undefined) return `${unit.hp} → ${change.hp}`;
+  if (change.statuses) {
+    const now = change.statuses;
+    const id = [...new Set([...Object.keys(now), ...Object.keys(unit.statuses)])].find((s) => (now[s] ?? 0) !== (unit.statuses[s] ?? 0));
+    if (id) {
+      const delta = (now[id] ?? 0) - (unit.statuses[id] ?? 0);
+      return `${name(id)} ${delta > 0 ? '+' : ''}${delta}`;
+    }
+  }
+  if (change.block !== undefined) return `${change.block > unit.block ? '+' : ''}${change.block - unit.block} block`;
+  if (change.pos !== undefined) return `Moves ${steps(unit.pos, change.pos)}`;
+  return undefined;
+}
+
 const isTyping = (target: EventTarget | null) => target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
 const isControl = (target: EventTarget | null) => target instanceof Element && (target.tagName === 'BUTTON' || target.getAttribute('role') === 'button');
 
@@ -69,6 +105,10 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, sound, volume =
   const world = view.world as WorldView;
   const layout = layoutOf(snapshot.presentation);
   const o = useMemo(() => offers(legal), [legal]);
+  // A theme can ask for the card table, which a phone draws for a lane (and a custom renderer overrides).
+  const phone = usePhone();
+  const table = phone && catalog.theme?.board === 'table' && layout !== null && isLine(layout) && !renderers?.[layout.kind];
+  const section = useRef<HTMLElement>(null);
 
   // ---- playback: animate from the previous snapshot to this one ----
   const previous = useRef<Snapshot | null>(null);
@@ -149,6 +189,9 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, sound, volume =
   const [handOpen, setHandOpen] = useState(false);
   // A card raised to be read, by touch: one that can't be played now has no other way to be seen whole.
   const [reading, setReading] = useState<string | null>(null);
+  // A card dragged from the fanned hand: the line from where it waits to the finger, or to the target it has found.
+  const [aim, setAim] = useState<{ x1: number; y1: number; x2: number; y2: number; locked: boolean } | null>(null);
+  const aimed = useRef<number | null>(null);
   const swipeFrom = useRef<number | null>(null);
   const swiped = useRef(false);
   useEffect(() => {
@@ -156,6 +199,8 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, sound, volume =
     setFocus(0);
     setHandOpen(false);
     setReading(null);
+    setAim(null);
+    aimed.current = null;
   }, [snapshot]);
   const choices = useMemo(() => choicesFor(selection, o, world, layout, side), [selection, o, world, layout, side]);
   const canAct = !busy && deciding === side && !view.outcome;
@@ -217,12 +262,63 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, sound, volume =
     choose({ kind: 'card', card }, true);
   };
 
+  const cellAt = (pos: string) => layout?.cells.find((c) => c.pos === pos);
+  const stepsBetween = (from: string, to: string) => {
+    const [a, b] = [cellAt(from), cellAt(to)];
+    return a && b ? Math.round(Math.hypot(a.x - b.x, a.y - b.y)) : 0;
+  };
+  /** What an action would do to a unit, from the engine's dry run. */
+  const forecast = (action: Action, unit: string): { forecast?: string } => {
+    const text = forecastOf(snapshot.previews?.[legal.indexOf(action)]?.[unit], world.board?.units[unit], (id) => catalog.names[id] ?? id, stepsBetween);
+    return text ? { forecast: text } : {};
+  };
   const targets: BoardTarget[] = choices.flatMap((c, i) => {
     const cell = anchorCell(c.anchor, world.board, layout);
     return cell === null
       ? []
-      : [{ cell, label: describeAction(c.action, labelNames, eventContext.cardDefs, layout?.kind), onUnit: c.anchor.kind === 'unit', focused: i === focus, onPick: () => act(c.action) }];
+      : [
+          {
+            cell,
+            label: describeAction(c.action, labelNames, eventContext.cardDefs, layout?.kind),
+            onUnit: c.anchor.kind === 'unit',
+            focused: i === focus,
+            onPick: () => act(c.action),
+            choice: i,
+            ...(c.anchor.kind === 'unit' && forecast(c.action, c.anchor.unit)),
+          },
+        ];
   });
+
+  // ---- dragging a card from the fanned hand onto the table ----
+  const onGrab = (card: string) => {
+    setReading(null);
+    choose({ kind: 'card', card }, true);
+  };
+  const onAim = (point: { x: number; y: number }, from: { x: number; y: number } | null) => {
+    let best: { index: number; distance: number; x: number; y: number } | null = null;
+    for (const el of section.current?.querySelectorAll<HTMLElement>('[data-choice]') ?? []) {
+      const r = el.getBoundingClientRect();
+      const [x, y] = [r.left + r.width / 2, r.top + r.height / 2];
+      const inside = point.x >= r.left && point.x <= r.right && point.y >= r.top && point.y <= r.bottom;
+      const distance = Math.hypot(x - point.x, y - point.y);
+      if ((inside || distance < 56) && (!best || distance < best.distance)) best = { index: Number(el.dataset.choice), distance, x, y };
+    }
+    aimed.current = best ? best.index : null;
+    setFocus(best ? best.index : -1);
+    setAim(from ? { x1: from.x, y1: from.y, x2: best ? best.x : point.x, y2: best ? best.y : point.y, locked: best !== null } : null);
+  };
+  const onDrop = (above: boolean) => {
+    const index = aimed.current;
+    aimed.current = null;
+    setAim(null);
+    const only = choices.length === 1 && choices[0]?.anchor.kind === 'none' ? choices[0] : undefined;
+    const choice = index !== null ? choices[index] : above ? only : undefined;
+    if (choice) act(choice.action);
+    else {
+      setSelection(null);
+      setFocus(0);
+    }
+  };
 
   const onUnit = (unit: string) => {
     if (o.units.has(unit)) choose({ kind: 'unit', unit });
@@ -332,7 +428,15 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, sound, volume =
           usable: canAct && o.abilities.has(`${permanent.id}:${index}`),
         }))
       : [];
-  const Renderer = (layout && renderers?.[layout.kind]) ?? Board;
+  const Renderer = table ? TableBoard : ((layout && renderers?.[layout.kind]) ?? Board);
+  const handCards = hand.map((id) => {
+    const instance = world.cards?.instances[id];
+    const base = instance ? catalog.cards[instance.def] : undefined;
+    const face = instance?.upgraded ? (base?.upgrade ?? base) : base;
+    return { id, ...(face && { face }), playable: canAct && o.cards.has(id) };
+  });
+  const shownCard = selection?.kind === 'card' ? selection.card : reading;
+  const captionFace = handCards.find((c) => c.id === shownCard)?.face;
   const cardName = (instance: string) => {
     const def = world.cards?.instances[instance]?.def;
     return def ? (catalog.names[def] ?? def) : 'Face-down card';
@@ -366,7 +470,12 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, sound, volume =
   }, [logLines.length]);
 
   return (
-    <section className={`ccg-encounter is-view-${boardView}${catalog.theme ? ' ccg-themed' : ''}${logOpen ? ' is-log-open' : ''}`} aria-labelledby="encounter-heading">
+    <section
+      ref={section}
+      className={`ccg-encounter is-view-${boardView}${catalog.theme ? ' ccg-themed' : ''}${logOpen ? ' is-log-open' : ''}${table ? ' is-table' : ''}${table && hovered ? ' is-inspecting' : ''}`}
+      aria-labelledby="encounter-heading"
+      {...(table && snapshot.scene?.background && { style: { ['--ccg-scene' as string]: `url("${snapshot.scene.background}")` } })}
+    >
       {catalog.theme && <style>{themeCss(catalog.theme, '.ccg-themed')}</style>}
       <header className="ccg-topbar">
         <h1 id="encounter-heading">{snapshot.game.name}</h1>
@@ -478,6 +587,7 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, sound, volume =
               markers={markers}
               art={catalog.art}
               background={snapshot.scene?.background}
+              cardFrame={catalog.theme?.frames[0]?.id}
             />
           ) : (
             <p className="ccg-muted">This game has no board layout; use the debug view.</p>
@@ -561,18 +671,33 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, sound, volume =
             ) : null,
           )}
         </div>
-        <Hand
-          cards={hand.map((id) => {
-            const instance = world.cards?.instances[id];
-            const base = instance ? catalog.cards[instance.def] : undefined;
-            const face = instance?.upgraded ? (base?.upgrade ?? base) : base;
-            return { id, ...(face && { face }), playable: canAct && o.cards.has(id) };
-          })}
-          selected={selection?.kind === 'card' ? selection.card : null}
-          lifted={reading}
-          onSelect={onCard}
-          responding={prompted}
-        />
+        {table && (
+          <p className="ccg-caption" aria-hidden="true">
+            {captionFace ? (
+              <>
+                <b>{captionFace.name}.</b> {captionFace.text}
+                {selection?.kind === 'card' && <i> {choices.some((c) => c.anchor.kind !== 'none') ? 'Tap what glows, or drag the card there.' : 'Tap it again to play, or drag it onto the table.'}</i>}
+              </>
+            ) : (
+              (logLines.at(-1) ?? '')
+            )}
+          </p>
+        )}
+        {table ? (
+          <FanHand
+            cards={handCards}
+            selected={selection?.kind === 'card' ? selection.card : null}
+            lifted={reading}
+            onSelect={onCard}
+            responding={prompted}
+            aiming={selection?.kind === 'card' && choices.some((c) => c.anchor.kind !== 'none')}
+            onGrab={onGrab}
+            onAim={onAim}
+            onDrop={onDrop}
+          />
+        ) : (
+          <Hand cards={handCards} selected={selection?.kind === 'card' ? selection.card : null} lifted={reading} onSelect={onCard} responding={prompted} />
+        )}
         <div className="ccg-actions">
           {selection && (
             <div className="ccg-choices" role="group" aria-label="Choose a target">
@@ -604,6 +729,13 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, sound, volume =
           )}
         </div>
       </div>
+
+      {aim && (
+        <svg className={`ccg-aim${aim.locked ? ' is-locked' : ''}`} aria-hidden="true">
+          <path d={`M${aim.x1} ${aim.y1} Q${aim.x1} ${aim.y2} ${aim.x2} ${aim.y2}`} />
+          <circle cx={aim.x2} cy={aim.y2} r={aim.locked ? 15 : 9} />
+        </svg>
+      )}
 
       {view.outcome && !playing && (
         <div className="ccg-outcome" role="dialog" aria-labelledby="outcome-heading">

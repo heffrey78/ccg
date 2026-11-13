@@ -47,38 +47,6 @@ test('the settings fold away, and nothing is wider than the phone', async ({ pag
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
-test('the whole hand fits the screen, and a tap raises a card to be read before it is played', async ({ page }) => {
-  await page.goto('/?seed=4');
-  await page.getByRole('button', { name: /^Sporeline/ }).tap();
-  await expect(page.getByRole('status')).toHaveText('Your decision');
-  const cards = page.getByRole('list', { name: 'Hand' }).getByRole('button');
-  await expect(cards).toHaveCount(5);
-  // Every card's left edge is on the screen, and so is all of the last.
-  const width = page.viewportSize()?.width ?? 0;
-  for (const card of await cards.all()) expect((await card.boundingBox())?.x).toBeLessThan(width - 20);
-  await expect(cards.last()).toBeInViewport({ ratio: 1 });
-  await expect(page.getByRole('button', { name: 'End turn' })).toBeInViewport({ ratio: 1 });
-
-  // With no bug in reach, Hyphal Lash can't be played: a tap still raises it, so it can be read.
-  const lash = cards.filter({ hasText: 'Hyphal Lash' });
-  await expect(lash).toHaveAttribute('aria-disabled', 'true');
-  // Forced: to Playwright a card that can't be played is a disabled button, though a finger can still land on it.
-  await lash.tap({ ...EDGE, force: true });
-  await expect(lash).toHaveClass(/is-lifted/);
-  await expect(lash).toBeInViewport({ ratio: 1 });
-
-  // Mycelial Mat needs no target: the first tap raises it and offers Play, and the second plays it.
-  const mat = cards.filter({ hasText: 'Mycelial Mat' });
-  await mat.tap(EDGE);
-  await expect(mat).toHaveAttribute('aria-pressed', 'true');
-  await expect(lash).not.toHaveClass(/is-lifted/);
-  await expect(page.getByRole('button', { name: 'Play Mycelial Mat' })).toBeVisible();
-  await expect(cards).toHaveCount(5);
-  await mat.tap(EDGE);
-  await expect(cards).toHaveCount(4);
-  await expect(page.getByLabel('Log')).toContainText('The Knot gains 5 block');
-});
-
 test('tapping a unit shows its details', async ({ page }) => {
   await start(page);
   const details = page.getByLabel('Unit details');

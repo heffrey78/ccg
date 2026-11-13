@@ -3,6 +3,7 @@
   "kind": "theme",
   "id": "loam",
   "name": "Loam, block printed",
+  "board": "table",
   "colors": {
     "accent": "#8a560c",
     "accentText": "#e2a53f",
