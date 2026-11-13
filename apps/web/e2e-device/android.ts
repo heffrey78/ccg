@@ -174,10 +174,27 @@ try {
   adb('shell', 'input', 'keyevent', 'KEYCODE_BACK');
   await expect(page.getByLabel('Sound')).toBeHidden();
   await expect(page.locator('header').getByText('Round 2')).toBeVisible();
-  adb('shell', 'input', 'keyevent', 'KEYCODE_BACK'); // The details that tap opened.
-  adb('shell', 'input', 'keyevent', 'KEYCODE_BACK');
+  // One more back leaves the game, or two if the details that tap opened are still up.
+  for (let press = 0; press < 2 && !(await page.getByRole('button', { name: /^Continue/ }).isVisible()); press++) {
+    adb('shell', 'input', 'keyevent', 'KEYCODE_BACK');
+    await page.waitForTimeout(800);
+  }
   await expect(page.getByRole('button', { name: /^Continue/ })).toBeVisible();
   screenshot('5-games-with-continue');
+
+  step('Sporeline plays on the card table: units are cards on a winding root, and the hand is a fan');
+  await tap(page, page.getByRole('button', { name: /^Sporeline/ }));
+  await expect(page.locator('.ccg-table .ccg-cell')).toHaveCount(9);
+  await expect(page.locator('[data-unit][aria-label^="The Knot"] .ccg-ucard-hp')).toHaveText('40');
+  await expect(page.getByRole('list', { name: 'Hand' }).getByRole('button')).toHaveCount(5);
+  await page.waitForTimeout(600);
+  screenshot('6-sporeline-table');
+  await tap(page, page.getByRole('button', { name: 'End turn' }));
+  await expect(page.locator('header').getByText('Round 2')).toBeVisible();
+  await expect(page.locator('[data-unit][aria-label^="Leafcutter"]').first()).toBeVisible();
+  screenshot('7-sporeline-round-2');
+  adb('shell', 'input', 'keyevent', 'KEYCODE_BACK');
+  await expect(page.getByRole('button', { name: /^Sporeline/ })).toBeVisible();
   adb('shell', 'input', 'keyevent', 'KEYCODE_BACK');
   await expect.poll(() => adb('shell', 'dumpsys', 'activity', 'activities').includes(`topResumedActivity=ActivityRecord{`) && adb('shell', 'dumpsys', 'activity', 'activities').match(/topResumedActivity=.*/)?.[0].includes(PACKAGE)).toBe(false);
 
