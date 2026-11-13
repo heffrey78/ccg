@@ -36,13 +36,23 @@ export interface WorkspaceProps {
   simulate: Simulator;
   /** Installs the exported zip where Play finds it (desktop's packages folder, #143). */
   installPackage?(name: string, zip: Uint8Array): Promise<void>;
+  /** Whether exported files can be saved from the page (default true). */
+  canDownload?: boolean;
   onClose(): void;
+  /** Set to what goes back one step in the workspace; it says whether there was one (Android's back). */
+  backRef?: { current: (() => boolean) | null };
 }
 
-export function Workspace({ session, ops, validate, playtestEngine, simulate, installPackage, onClose }: WorkspaceProps) {
+export function Workspace({ session, ops, validate, playtestEngine, simulate, installPackage, canDownload = true, onClose, backRef }: WorkspaceProps) {
   const store = useStore(session.store);
   const project = store.project;
-  const [selection, setSelection] = useState<Selection>({ kind: 'manifest' });
+  const [selection, select] = useState<Selection>({ kind: 'manifest' });
+  // On a phone the content list and the thing being edited take turns on the screen; wider, both show and this is ignored.
+  const [pane, setPane] = useState<'list' | 'detail'>('list');
+  const setSelection = useCallback((next: Selection) => {
+    select(next);
+    if (next) setPane('detail');
+  }, []);
   const [issues, setIssues] = useState<ProjectIssue[] | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   // Changes made to the folder outside the editor (#142).
@@ -149,6 +159,17 @@ export function Workspace({ session, ops, validate, playtestEngine, simulate, in
     return error;
   };
 
+  const close = () => (store.dirty ? setConfirmClose(true) : onClose());
+  if (backRef) {
+    backRef.current = () => {
+      if (confirmClose) setConfirmClose(false);
+      else if (playtest) setPlaytest(false);
+      else if (balance) setBalance(false);
+      else if (pane === 'detail' && matchMedia('(max-width: 760px)').matches) setPane('list');
+      else close();
+      return true;
+    };
+  }
   const where = session.source.kind === 'folder' ? `folder ${session.source.name}` : session.source.id.startsWith('edit-') ? 'this browser (your copy)' : 'this browser';
   const exportMenu = useRef<HTMLDetailsElement>(null);
   const closeMenu = () => exportMenu.current?.removeAttribute('open');
@@ -190,9 +211,11 @@ export function Workspace({ session, ops, validate, playtestEngine, simulate, in
             Run tests
           </button>
         </span>
+        {(canDownload || installPackage) && (
         <details className="ccg-menu" ref={exportMenu}>
           <summary>Export</summary>
           <div className="ccg-menu-items">
+            {canDownload && (
             <button
               type="button"
               onClick={() => {
@@ -203,6 +226,8 @@ export function Workspace({ session, ops, validate, playtestEngine, simulate, in
             >
               Export zip
             </button>
+            )}
+            {canDownload && (
             <button
               type="button"
               onClick={() => {
@@ -213,24 +238,26 @@ export function Workspace({ session, ops, validate, playtestEngine, simulate, in
             >
               Export JS module
             </button>
+            )}
             {installPackage && (
               <button
                 type="button"
                 onClick={() => {
                   closeMenu();
                   void installPackage(project.manifest.id, zipFiles(projectFiles(project))).then(
-                    () => setStatus(`Installed ${project.manifest.name} in the packages folder. It's in Play.`),
+                    () => setStatus(`Installed ${project.manifest.name}. It's in Play now.`),
                     (e: Error) => setStatus(`Install failed: ${e.message}`),
                   );
                 }}
-                title="Install the game where Play finds it, as a zip in the packages folder"
+                title="Install the game on this device, where Play finds it"
               >
                 Install in Play
               </button>
             )}
           </div>
         </details>
-        <button type="button" onClick={() => (store.dirty ? setConfirmClose(true) : onClose())}>
+        )}
+        <button type="button" className="ccg-toolbar-close" onClick={close}>
           Close
         </button>
       </header>
@@ -292,7 +319,7 @@ export function Workspace({ session, ops, validate, playtestEngine, simulate, in
         </div>
       )}
 
-      <div className="ccg-editor-main">
+      <div className="ccg-editor-main" data-pane={pane}>
         <Browser
           project={project}
           selection={shown}
@@ -307,6 +334,9 @@ export function Workspace({ session, ops, validate, playtestEngine, simulate, in
           }
         />
         <div className="ccg-editor-center">
+          <button type="button" className="ccg-back" onClick={() => setPane('list')}>
+            ‹ All content
+          </button>
           {shown?.kind === 'item' ? (
             <ItemPanel
               project={project}

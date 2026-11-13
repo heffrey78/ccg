@@ -26,7 +26,7 @@ describe('the platform adapters (#141)', () => {
     expect(platform.setFullscreen).toBeTypeOf('function');
   });
 
-  it('on Android, storage goes through the shell, only play is offered, and desktop services are absent (#161)', async () => {
+  it('on Android, storage goes through the shell, the editor is offered, and desktop services are absent (#161)', async () => {
     const data = new Map<string, string>();
     const invoke: Invoke = async <T,>(command: string, args?: Record<string, unknown>) => {
       if (command === 'kv_set') data.set(args?.key as string, args?.value as string);
@@ -36,8 +36,8 @@ describe('the platform adapters (#141)', () => {
     const platform = createPlatform({ android: true, invoke: Promise.resolve(invoke) });
     await platform.settings.set('soundVolume', 1);
     expect(await platform.settings.get('soundVolume', 0)).toBe(1);
-    expect(platform.playOnly).toBe(true);
-    expect(platform.packages).toBeUndefined();
+    expect(platform.playOnly).toBeUndefined();
+    expect(platform.onBack).toBeTypeOf('function');
     expect(platform.revealPackages).toBeUndefined();
     expect(platform.setFullscreen).toBeUndefined();
   });
