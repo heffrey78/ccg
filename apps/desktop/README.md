@@ -45,8 +45,15 @@ info, then Run anyway), and macOS needs Open Anyway in Privacy & Security.
 ## Android
 
 The Android app (#156, decision #157) is this same crate, with what needs a desktop
-behind `cfg(desktop)` (`src-tauri/src/desktop.rs`). It offers play only, without the
-editor, and keeps saves and settings in the app's own storage.
+behind `cfg(desktop)` (`src-tauri/src/desktop.rs`). It keeps saves and settings in the
+app's own storage.
+
+It offers the editor as well as play, laid out for a phone: the content list and the
+thing being edited take turns on the screen, and Android's back steps from one to the
+other, then out of the project, then back to Play. Projects are kept in the webview's
+own storage, as in a browser. There are no folders to open and no downloads, so a game
+is tried with **Export → Install in Play**, which keeps it on the device and lists it in
+Play, where it can be removed again.
 
 ```sh
 pnpm --filter @ccg/desktop build:android           # a debug-signed APK for a phone

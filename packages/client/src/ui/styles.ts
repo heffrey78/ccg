@@ -9,7 +9,7 @@ export const CSS = `
   --cell: #ebe6da; --cell-special: #d9e7d4; --cell-blocking: #8a8478; --threat: #c8462f;
   --mine: #2f6fb3; --enemy: #b8432f; --hp: #3c9a5f; --hp-track: #00000022; --block: #4b7bbd;
   --target: #e0a200; --accent: #2f6fb3; --reaction: #7a4bb3; --shadow: 0 1px 2px #0000001f, 0 2px 8px #00000014;
-  font-family: system-ui, sans-serif; color: var(--ink); background: var(--bg); min-height: 100vh; box-sizing: border-box; padding: var(--ccg-safe-top, 0px) var(--ccg-safe-right, 0px) var(--ccg-safe-bottom, 0px) var(--ccg-safe-left, 0px);
+  font-family: system-ui, sans-serif; color: var(--ink); background: var(--bg); min-height: 100vh; min-height: 100dvh; box-sizing: border-box; padding: calc(16px + var(--ccg-page-top, var(--ccg-safe-top, 0px))) calc(16px + var(--ccg-safe-right, 0px)) calc(16px + var(--ccg-safe-bottom, 0px)) calc(16px + var(--ccg-safe-left, 0px));
 }
 @media (prefers-color-scheme: dark) {
   .ccg-app {
@@ -25,12 +25,15 @@ export const CSS = `
 .ccg-app button:focus-visible, .ccg-app [role="button"]:focus-visible { outline: 3px solid var(--target); outline-offset: 2px; }
 .ccg-app .ccg-primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
 .ccg-muted { color: var(--muted); }
-.ccg-import { display: inline-block; margin: 0 0 12px; padding: 6px 12px; border: 1px dashed var(--line); border-radius: 6px; cursor: pointer; }
+.ccg-import { position: relative; display: inline-flex; align-items: center; box-sizing: border-box; padding: 6px 12px; border: 1px dashed var(--line); border-radius: 6px; cursor: pointer; }
+.ccg-import input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.ccg-import:focus-within { outline: 3px solid var(--target); outline-offset: 2px; }
 
 .ccg-encounter { display: flex; flex-direction: column; gap: 12px; }
 .ccg-topbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: baseline; }
 .ccg-topbar h1 { margin: 0; font-size: 1.3rem; }
 .ccg-turn-status { font-weight: 600; }
+.ccg-turn { display: contents; }
 .ccg-spacer { flex: 1; }
 .ccg-speed select { font: inherit; }
 
@@ -41,43 +44,11 @@ export const CSS = `
   .ccg-main { grid-template-columns: 1fr; }
   .ccg-log ol { max-height: 4.5rem; overflow-y: auto; }
   .ccg-topbar { gap: 4px 10px; }
-  .ccg-game { flex-direction: column; }
-  .ccg-difficulty { max-width: none; }
 }
 @media (max-width: 760px), (max-height: 500px) {
   .ccg-app .ccg-settings-toggle { display: inline-block; }
   .ccg-settings { display: none; }
   .ccg-settings.is-open { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; order: 1; width: 100%; }
-}
-/* A phone on its side: the board fills the screen, and the hand waits in a drawer at the bottom, its bar always there and its cards peeking. Nothing but the board stays up uninvited. */
-@media (max-height: 500px) and (min-width: 561px) {
-  .ccg-encounter { --ccg-drawer: min(52vh, 196px); --ccg-peek: 22px; --ccg-bar: 60px; position: fixed; inset: 0; z-index: 10; box-sizing: border-box; overflow: hidden; gap: 2px; background: var(--bg); padding: max(2px, var(--ccg-safe-top, 0px)) max(8px, var(--ccg-safe-right, 0px)) calc(var(--ccg-bar) + var(--ccg-peek)) max(8px, var(--ccg-safe-left, 0px)); }
-  .ccg-encounter .ccg-topbar { gap: 2px 10px; align-items: center; flex-wrap: nowrap; white-space: nowrap; }
-  .ccg-encounter .ccg-topbar h1 { font-size: 1.05rem; }
-  .ccg-encounter .ccg-topbar > span { font-size: .85rem; }
-  .ccg-app .ccg-topbar button { min-height: 36px; padding: 2px 10px; }
-  .ccg-encounter .ccg-settings.is-open { position: absolute; top: 44px; right: max(8px, var(--ccg-safe-right, 0px)); z-index: 6; width: auto; max-width: 70vw; padding: 8px 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; white-space: normal; }
-  .ccg-app .ccg-log-toggle { display: inline-block; }
-  .ccg-encounter .ccg-main { display: block; position: relative; flex: 1 1 0; min-height: 0; }
-  .ccg-encounter .ccg-stage { display: flex; box-sizing: border-box; height: 100%; padding: 0; border: 0; background: none; box-shadow: none; }
-  .ccg-app .ccg-board { max-height: none; height: 100%; }
-  .ccg-encounter .ccg-respond { top: 4px; bottom: auto; z-index: 2; }
-  .ccg-encounter .ccg-side { position: absolute; top: 4px; right: 0; z-index: 3; width: 240px; max-height: 100%; contain: none; overflow: visible; gap: 6px; pointer-events: none; }
-  .ccg-encounter .ccg-side > * { pointer-events: auto; }
-  .ccg-encounter .ccg-inspector { flex: none; height: auto; max-height: 11rem; padding: 6px 10px; }
-  .ccg-encounter .ccg-inspector.is-empty, .ccg-encounter .ccg-log { display: none; }
-  .ccg-encounter.is-log-open .ccg-log { display: flex; flex: 0 1 auto; flex-direction: column; min-height: 0; max-height: 60vh; }
-  .ccg-app .ccg-tray { position: absolute; left: max(8px, var(--ccg-safe-left, 0px)); right: max(8px, var(--ccg-safe-right, 0px)); bottom: 0; z-index: 5; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: 'toggle info actions' 'hand hand hand'; gap: 4px 10px; align-items: center; box-sizing: border-box; padding: 6px 10px 0; border-bottom: 0; border-radius: 12px 12px 0 0; touch-action: pan-x; transform: translateY(calc(var(--ccg-drawer) - var(--ccg-peek))); transition: transform .18s ease-out; }
-  .ccg-app .ccg-tray.is-open { transform: none; }
-  .ccg-app .ccg-hand-toggle { display: inline-block; grid-area: toggle; font-weight: 600; }
-  .ccg-tray .ccg-tray-info { grid-area: info; flex-wrap: nowrap; gap: 8px; overflow: hidden; white-space: nowrap; }
-  .ccg-tray .ccg-actions { grid-area: actions; flex-wrap: nowrap; justify-content: flex-end; }
-  .ccg-tray .ccg-choices { display: flex; gap: 8px; max-width: 45vw; overflow-x: auto; white-space: nowrap; }
-  .ccg-tray .ccg-hand { grid-area: hand; box-sizing: border-box; height: var(--ccg-drawer); align-items: flex-start; overflow-y: auto; padding-top: 4px; }
-  .ccg-tray:not(.is-open) .ccg-hand { pointer-events: none; }
-}
-@media (max-height: 500px) and (min-width: 561px) and (prefers-reduced-motion: reduce) {
-  .ccg-app .ccg-tray { transition: none; }
 }
 /* A finger is bigger than a pointer. */
 @media (pointer: coarse) {
@@ -161,6 +132,8 @@ export const CSS = `
 .ccg-pile-list { position: absolute; top: 100%; left: 0; z-index: 2; min-width: 200px; max-height: 260px; overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; box-shadow: var(--shadow); }
 .ccg-hand { list-style: none; display: flex; gap: 8px; margin: 0; padding: 0; overflow-x: auto; }
 .ccg-app .ccg-card { position: relative; width: 132px; min-height: 140px; display: flex; flex-direction: column; gap: 6px; text-align: left; padding: 8px; border-width: 2px; border-radius: 10px; transition: transform .12s; }
+.ccg-app .ccg-card[aria-disabled="true"] { opacity: 1; filter: saturate(.5) brightness(.74); }
+.ccg-app .ccg-card.is-lifted { filter: none; }
 .ccg-app .ccg-card.is-playable:hover { transform: translateY(-4px); }
 .ccg-app .ccg-card.is-selected { border-color: var(--target); transform: translateY(-8px); box-shadow: 0 0 0 3px color-mix(in srgb, var(--target) 35%, transparent); }
 .ccg-app .ccg-card.is-reaction { border-color: color-mix(in srgb, var(--reaction) 60%, var(--line)); }
@@ -176,9 +149,11 @@ export const CSS = `
 .ccg-choices { display: flex; gap: 6px; flex-wrap: wrap; margin-right: auto; }
 .ccg-app .ccg-choices .is-focused { border-color: var(--target); }
 
-.ccg-outcome { position: fixed; inset: 0; display: grid; place-content: center; text-align: center; background: color-mix(in srgb, var(--bg) 80%, transparent); z-index: 10; }
+.ccg-outcome { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: safe center; gap: 12px; box-sizing: border-box; padding: 16px; overflow-y: auto; text-align: center; background: color-mix(in srgb, var(--bg) 93%, transparent); z-index: 10; }
+.ccg-outcome > * { flex: none; }
 .ccg-outcome h2 { font-size: 2.4rem; margin: 0; }
-.ccg-rewards { display: flex; gap: 12px; justify-content: center; margin: 12px 0; flex-wrap: wrap; }
+.ccg-outcome p { margin: 0; }
+.ccg-rewards { display: flex; gap: 12px; justify-content: center; margin: 0; flex-wrap: wrap; }
 .ccg-app .ccg-reward { padding: 0; border: none; background: none; }
 .ccg-app .ccg-reward:hover .ccg-card { transform: translateY(-4px); border-color: var(--target); }
 .ccg-cell.is-fogged { fill: color-mix(in srgb, var(--ink) 22%, var(--cell)); }
@@ -203,6 +178,7 @@ export const CSS = `
 .ccg-permanents h2 { margin: 0 0 4px; font-size: 1rem; }
 .ccg-permanents ul { margin: 0; padding-left: 16px; }
 .ccg-permanents li { margin-bottom: 4px; }
+.ccg-run-map-scroll { max-width: 100%; overflow-x: auto; }
 .ccg-run-map { width: min(640px, 90vw); margin: 8px auto; display: block; }
 .ccg-thread { fill: none; stroke: color-mix(in srgb, var(--muted) 50%, transparent); stroke-width: 2; }
 .ccg-thread.is-walked { stroke: var(--reaction); stroke-width: 3; }
@@ -222,12 +198,24 @@ export const CSS = `
 .ccg-app .ccg-deck-pick > button { padding: 0; border: none; background: none; }
 .ccg-app .ccg-deck-pick > button:last-child { padding: 6px 12px; border: 1px solid var(--line); background: var(--panel); }
 .ccg-run-progress { font-weight: 600; color: var(--accent-text, var(--accent)); }
-.ccg-game { display: flex; gap: 12px; align-items: stretch; flex-wrap: wrap; }
-.ccg-difficulty { display: flex; flex-direction: column; justify-content: center; gap: 4px; max-width: 220px; }
+.ccg-home h1 { margin: 0 0 16px; font-size: 1.6rem; }
+.ccg-games { list-style: none; margin: 0 0 16px; padding: 0; display: grid; gap: 12px; }
+.ccg-game { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
+.ccg-app .ccg-game-play { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; width: 100%; padding: 14px 16px; border: 0; border-radius: 0; background: none; text-align: left; }
+.ccg-game-play:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.ccg-game-name { font-size: 1.15rem; }
+.ccg-game-name small { font-weight: 400; color: var(--muted); }
+.ccg-game-about { grid-column: 1; color: var(--muted); font-size: .92rem; }
+.ccg-game-go { grid-column: 2; grid-row: 1 / span 2; padding: 8px 16px; border-radius: 999px; background: var(--accent); color: #fff; font-weight: 600; white-space: nowrap; }
+.ccg-game-foot { display: flex; gap: 8px 12px; align-items: center; flex-wrap: wrap; padding: 8px 16px; border-top: 1px solid var(--line); }
+.ccg-difficulty { display: flex; flex: 1 1 200px; gap: 2px 8px; align-items: center; flex-wrap: wrap; }
+.ccg-difficulty small { flex-basis: 100%; }
 .ccg-difficulty select { font: inherit; }
-.ccg-app .ccg-game-edit { align-self: center; }
-.ccg-app .ccg-reveal-packages { margin: 0 0 12px 8px; }
-.ccg-continue { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin: 0 0 16px; padding: 12px 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); }
+.ccg-app .ccg-game-edit { margin-left: auto; }
+.ccg-app .ccg-game-edit ~ .ccg-game-edit { margin-left: 0; }
+.ccg-game-remove { display: flex; flex: 1 1 100%; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.ccg-home-tools { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.ccg-continue { display: flex; gap: 8px 12px; align-items: center; flex-wrap: wrap; margin: 0 0 16px; padding: 12px 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); }
 
 /* Beat motions (#123): durations divide by the animation speed. */
 .ccg-unit-figure { --ccg-beat: calc(420ms / var(--ccg-speed, 1)); }
@@ -266,6 +254,98 @@ export const CSS = `
 @keyframes ccg-fade { from { opacity: 1; } to { opacity: 0; } }
 @keyframes ccg-mote { from { transform: translate(0, 0); opacity: 1; } to { transform: translate(var(--mx), var(--my)); opacity: 0; } }
 @keyframes ccg-shot { from { transform: translate(var(--fx), var(--fy)); opacity: 1; } 90% { opacity: 1; } to { transform: translate(var(--tx), var(--ty)); opacity: 0; } }
+
+
+/* ---- phones: these come last, so they win over the rules above ---- */
+/* A phone held upright: the encounter is the whole screen. The board sits at the top, details and the log take what is left, and the hand is always under the thumb. */
+@media (max-width: 560px) {
+  .ccg-encounter { position: fixed; inset: 0; z-index: 10; box-sizing: border-box; overflow: hidden; gap: 6px; background-color: var(--bg); padding: max(6px, var(--ccg-safe-top, 0px)) max(8px, var(--ccg-safe-right, 0px)) max(6px, var(--ccg-safe-bottom, 0px)) max(8px, var(--ccg-safe-left, 0px)); }
+  .ccg-encounter .ccg-topbar { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; grid-template-areas: 'name run settings quit' 'turn turn turn turn'; gap: 2px 8px; align-items: center; }
+  .ccg-encounter .ccg-topbar h1 { grid-area: name; font-size: 1.1rem; }
+  .ccg-encounter .ccg-topbar > span { font-size: .85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ccg-encounter .ccg-topbar > .ccg-muted, .ccg-encounter .ccg-topbar > .ccg-spacer { display: none; }
+  .ccg-encounter .ccg-run-progress { grid-area: run; }
+  .ccg-encounter .ccg-settings-toggle { grid-area: settings; }
+  .ccg-encounter .ccg-topbar > button:last-child { grid-area: quit; }
+  .ccg-encounter .ccg-turn { grid-area: turn; display: flex; gap: 8px; }
+  .ccg-app .ccg-topbar button { min-height: 36px; padding: 2px 10px; }
+  .ccg-encounter .ccg-main { display: flex; flex-direction: column; flex: 1 1 0; min-height: 0; gap: 6px; }
+  .ccg-encounter .ccg-stage { flex: none; padding: 0; border-radius: 8px; overflow: hidden; }
+  .ccg-app .ccg-board { max-height: 38vh; }
+  .ccg-encounter .ccg-side { flex: 1 1 0; min-height: 0; gap: 6px; overflow-y: auto; }
+  .ccg-encounter .ccg-side > section, .ccg-encounter .ccg-inspector { padding: 6px 10px; box-shadow: none; }
+  .ccg-encounter .ccg-inspector { flex: none; max-height: none; }
+  .ccg-encounter .ccg-log { flex: 1 1 3rem; min-height: 3rem; display: flex; flex-direction: column; }
+  .ccg-encounter .ccg-log ol { flex: 1 1 0; min-height: 0; max-height: none; }
+  .ccg-app .ccg-tray { flex: none; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 8px 10px; }
+  .ccg-tray .ccg-tray-info { order: 1; flex: 1 1 auto; gap: 8px; }
+  .ccg-tray .ccg-actions { order: 2; flex: 0 1 auto; margin-left: auto; }
+  .ccg-tray .ccg-hand, .ccg-tray > .ccg-muted { order: 3; flex: 0 0 100%; }
+  .ccg-tray .ccg-choices { margin-right: 0; }
+}
+/* On any phone the hand fits the screen: cards overlap like a held hand, and the one picked comes forward, whole and a little larger. */
+@media (max-width: 560px), (max-height: 500px) and (min-width: 561px) {
+  .ccg-encounter .ccg-settings.is-open { position: absolute; top: calc(44px + var(--ccg-safe-top, 0px)); right: max(8px, var(--ccg-safe-right, 0px)); z-index: 6; flex-direction: column; align-items: stretch; width: auto; max-width: 80vw; padding: 10px 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); white-space: normal; }
+  .ccg-settings.is-open label { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+  .ccg-tray .ccg-hand { overflow: visible; gap: 0; justify-content: center; box-sizing: border-box; min-width: 0; padding-top: 6px; }
+  .ccg-tray .ccg-hand > li { flex: 1 1 0; min-width: 0; max-width: 130px; }
+  .ccg-tray .ccg-hand > li:last-child, .ccg-tray .ccg-hand > li:has(.is-selected, .is-lifted) { flex: 0 0 auto; }
+  .ccg-app .ccg-tray .ccg-card { width: 124px; min-height: 0; height: 176px; overflow: hidden; }
+  .ccg-app .ccg-tray .ccg-card.is-selected, .ccg-app .ccg-tray .ccg-card.is-lifted { z-index: 3; height: auto; min-height: 176px; overflow: visible; transform: translateY(-12px) scale(1.14); transform-origin: 50% 100%; box-shadow: 0 6px 18px #000a, 0 0 0 3px color-mix(in srgb, var(--target) 45%, transparent); }
+  .ccg-app .ccg-card.is-playable:hover { transform: none; }
+  .ccg-tray .ccg-card-top { min-height: 2.5em; }
+  .ccg-card-key { display: none; }
+  .ccg-app .ccg-pile-list { top: auto; bottom: calc(100% + 6px); max-height: 40vh; }
+  .ccg-outcome { padding: max(12px, var(--ccg-safe-top, 0px)) max(12px, var(--ccg-safe-right, 0px)) max(12px, var(--ccg-safe-bottom, 0px)) max(12px, var(--ccg-safe-left, 0px)); gap: 8px; }
+  .ccg-outcome h2 { font-size: 1.7rem; }
+  .ccg-rewards { gap: 8px; margin: 0; flex-wrap: nowrap; align-self: stretch; }
+  .ccg-app .ccg-rewards .ccg-reward { flex: 1 1 0; min-width: 0; max-width: 160px; }
+  .ccg-outcome .ccg-card.is-preview { box-sizing: border-box; width: 150px; max-width: 100%; min-height: 0; padding: 6px; }
+  .ccg-rewards .ccg-card.is-preview { width: 100%; }
+  .ccg-deck-pick { max-height: none; }
+  .ccg-run-map-scroll .ccg-run-map { width: auto; height: 250px; max-width: none; }
+}
+/* A phone on its side: the board fills the screen, and the hand waits in a drawer at the bottom, its bar always there and its cards peeking. Nothing but the board stays up uninvited. */
+@media (max-height: 500px) and (min-width: 561px) {
+  .ccg-encounter { --ccg-drawer: min(56vh, 204px); --ccg-peek: 22px; --ccg-bar: 60px; position: fixed; inset: 0; z-index: 10; box-sizing: border-box; overflow: hidden; gap: 2px; background: var(--bg); padding: max(2px, var(--ccg-safe-top, 0px)) max(8px, var(--ccg-safe-right, 0px)) calc(var(--ccg-bar) + var(--ccg-peek)) max(8px, var(--ccg-safe-left, 0px)); }
+  .ccg-encounter .ccg-topbar { gap: 2px 10px; align-items: center; flex-wrap: nowrap; white-space: nowrap; }
+  .ccg-encounter .ccg-topbar > *, .ccg-encounter .ccg-turn > * { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .ccg-encounter .ccg-topbar > h1, .ccg-encounter .ccg-topbar > button, .ccg-encounter .ccg-turn-status { flex: none; }
+  .ccg-encounter .ccg-topbar > .ccg-spacer { flex: 1 1 0; }
+  .ccg-encounter .ccg-settings { flex: none; overflow: visible; }
+  .ccg-encounter .ccg-topbar h1 { font-size: 1.05rem; }
+  .ccg-encounter .ccg-topbar > span { font-size: .85rem; }
+  .ccg-app .ccg-topbar button { min-height: 36px; padding: 2px 10px; }
+  .ccg-app .ccg-log-toggle { display: inline-block; }
+  .ccg-encounter .ccg-main { display: block; position: relative; flex: 1 1 0; min-height: 0; }
+  .ccg-encounter .ccg-stage { display: flex; box-sizing: border-box; height: 100%; padding: 0; border: 0; background: none; box-shadow: none; }
+  .ccg-app .ccg-board { max-height: none; height: 100%; }
+  .ccg-encounter .ccg-respond { top: 4px; bottom: auto; z-index: 2; }
+  .ccg-encounter .ccg-side { position: absolute; top: 4px; right: 0; z-index: 3; width: 240px; max-height: 100%; contain: none; overflow: visible; gap: 6px; pointer-events: none; }
+  .ccg-encounter .ccg-side > * { pointer-events: auto; }
+  .ccg-encounter .ccg-inspector { flex: none; height: auto; max-height: 11rem; padding: 6px 10px; }
+  .ccg-encounter .ccg-inspector.is-empty, .ccg-encounter .ccg-log { display: none; }
+  .ccg-encounter.is-log-open .ccg-log { display: flex; flex: 0 1 auto; flex-direction: column; min-height: 0; max-height: 60vh; }
+  .ccg-app .ccg-tray { position: absolute; left: max(8px, var(--ccg-safe-left, 0px)); right: max(8px, var(--ccg-safe-right, 0px)); bottom: 0; z-index: 5; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: 'toggle info actions' 'hand hand hand'; gap: 4px 10px; align-items: center; box-sizing: border-box; padding: 6px 10px 0; border-bottom: 0; border-radius: 12px 12px 0 0; touch-action: pan-x; transform: translateY(calc(var(--ccg-drawer) - var(--ccg-peek))); transition: transform .18s ease-out; }
+  .ccg-app .ccg-tray.is-open { transform: none; }
+  .ccg-app .ccg-hand-toggle { display: inline-block; grid-area: toggle; font-weight: 600; }
+  .ccg-tray .ccg-tray-info { grid-area: info; flex-wrap: nowrap; gap: 8px; overflow: hidden; white-space: nowrap; }
+  .ccg-tray .ccg-actions { grid-area: actions; flex-wrap: nowrap; justify-content: flex-end; }
+  .ccg-tray .ccg-choices { display: flex; gap: 8px; max-width: 45vw; overflow-x: auto; white-space: nowrap; }
+  .ccg-tray .ccg-hand { grid-area: hand; box-sizing: border-box; height: var(--ccg-drawer); align-items: flex-start; padding-top: 4px; }
+  .ccg-app .ccg-card-art { aspect-ratio: 16 / 9; }
+  .ccg-tray:not(.is-open) .ccg-hand { pointer-events: none; }
+  /* After a win the cards on offer matter more than the map, which the next screen shows. */
+  .ccg-outcome .ccg-run-map-scroll.is-passive { display: none; }
+  .ccg-run-map-scroll .ccg-run-map { height: 210px; }
+}
+/* On a small phone the bar keeps what matters: the game, where the run is, the round and whose move it is. */
+@media (max-height: 500px) and (min-width: 561px) and (max-width: 820px) {
+  .ccg-encounter .ccg-topbar > .ccg-muted, .ccg-encounter .ccg-turn > .ccg-muted { display: none; }
+}
+@media (max-height: 500px) and (min-width: 561px) and (prefers-reduced-motion: reduce) {
+  .ccg-app .ccg-tray { transition: none; }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .ccg-app *, .ccg-app *::before { animation: none !important; transition: none !important; }

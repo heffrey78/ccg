@@ -35,6 +35,24 @@ beforeAll(async () => {
   items = game.items;
 });
 
+describe("Sporeline's printed art", () => {
+  it('is what the print script makes from the drawings in art/', async () => {
+    // A stale print means a drawing changed without `node games/reference/scripts/print-art.mjs` being run.
+    const script = '../scripts/print-art.mjs';
+    const { prints } = (await import(script)) as { prints(): Record<string, string> };
+    const printed = prints();
+    const shipped = Object.keys(readGame()).filter((path) => path.endsWith('.svg')).sort();
+    expect(shipped).toEqual(Object.keys(printed).sort());
+    for (const [path, svg] of Object.entries(printed)) expect(readFileSync(join(ROOT, path), 'utf8'), path).toBe(svg);
+  });
+
+  it('uses no SVG filters, which Android draws wrongly inside the board and slowly everywhere', () => {
+    for (const [path, data] of Object.entries(readGame())) {
+      if (path.endsWith('.svg')) expect(new TextDecoder().decode(data), path).not.toMatch(/<filter|filter=/);
+    }
+  });
+});
+
 describe('Sporeline content', () => {
   it('is exactly what the editor saves, and validates with no problems', async () => {
     const files = readGame();
