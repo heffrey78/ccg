@@ -5,7 +5,8 @@
  */
 import { directoryStore, type DirectoryHandleLike } from '@ccg/editor';
 import type { OpenedFolder } from '@ccg/editor/ui';
-import { desktopInstallPackage, desktopOpenFolder, isDesktop, tauriInvoke, tauriListen } from './desktop.js';
+import { desktopInstallPackage, desktopOpenFolder, isAndroid, isDesktop, tauriInvoke, tauriListen } from './desktop.js';
+import { devicePackages } from './packages.js';
 
 type DirectoryPicker = (options?: { mode?: 'read' | 'readwrite' }) => Promise<DirectoryHandleLike>;
 
@@ -24,8 +25,12 @@ export function folderOpener(): (() => Promise<OpenedFolder | null>) | undefined
   };
 }
 
-/** Installing an exported game where Play finds it: desktop's packages folder (#143); none in a browser. */
+/** Installing an exported game where Play finds it: desktop's packages folder (#143), the page's own storage in a browser and on Android. */
 export function packageInstaller(): ((name: string, zip: Uint8Array) => Promise<void>) | undefined {
-  if (!isDesktop()) return undefined;
-  return async (name, zip) => desktopInstallPackage(await tauriInvoke())(name, zip);
+  if (isDesktop()) return async (name, zip) => desktopInstallPackage(await tauriInvoke())(name, zip);
+  const packages = devicePackages();
+  return packages && ((name, zip) => packages.install(name, zip));
 }
+
+/** Whether an exported file can be saved from the page: the Android app's webview has no downloads. */
+export const canDownload = (): boolean => !isAndroid();
