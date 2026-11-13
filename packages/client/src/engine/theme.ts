@@ -9,6 +9,7 @@ type ThemeItem = ContentItem & {
   colors?: Record<string, string>;
   fonts?: { body?: { family: string; font?: string }; display?: { family: string; font?: string } };
   table?: { color?: string; background?: string };
+  board?: 'grid' | 'table';
   frames?: (Omit<ThemeFrame, 'layout' | 'image'> & { name?: string; layout?: ThemeFrame['layout']; background?: string; match?: { tags?: string[]; rarity?: string[] } })[];
   defaultFrame?: string;
   sounds?: { cue: string; sound: string }[];
@@ -24,6 +25,7 @@ export function resolveTheme(item: ContentItem, url: (path: string) => string): 
     colors: { ...t.colors },
     fonts: { ...(body && { body }), ...(display && { display }) },
     ...(t.table && { table: { ...(t.table.color && { color: t.table.color }), ...(t.table.background && { image: url(t.table.background) }) } }),
+    ...(t.board && { board: t.board }),
     frames: (t.frames ?? []).map(({ match: _match, background, layout, name: _name, ...rest }) => ({
       ...rest,
       layout: layout ?? 'standard',

@@ -96,6 +96,8 @@ export interface Theme {
   colors: Record<string, string>;
   fonts: { body?: ThemeFont; display?: ThemeFont };
   table?: { color?: string; image?: string };
+  /** How a board is drawn: on tiles (the default), or as a card table on a phone. */
+  board?: 'grid' | 'table';
   frames: ThemeFrame[];
   /** Sound files' URLs by cue, replacing the built-in sounds. */
   sounds?: Record<string, string>;
@@ -127,6 +129,17 @@ export interface IntentSummary {
   damage?: number;
 }
 
+/** How one unit would differ after an action: only what changes is set. */
+export interface UnitPreview {
+  hp?: number;
+  block?: number;
+  pos?: string;
+  /** Its statuses afterwards, when any stack count changes. */
+  statuses?: Record<string, number>;
+  /** It would be gone from the board. */
+  gone?: true;
+}
+
 /** What the UI knows after each request. */
 export interface Snapshot {
   game: GameListing;
@@ -144,6 +157,11 @@ export interface Snapshot {
   presentation: Record<string, unknown>;
   /** Summaries of the intents in `view`, by intent id. */
   intents: Record<string, IntentSummary>;
+  /**
+   * A dry run of the player's plays: by index into `legal`, the units each would change. Left out for an
+   * action that uses chance or doesn't resolve at once, so nothing is promised that might not happen.
+   */
+  previews?: Record<number, Record<string, UnitPreview>>;
   /** A message about what the request did, e.g. how a reload applied changes. */
   notice?: string;
   /** The scene the current encounter is set in. */

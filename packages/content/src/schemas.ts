@@ -473,6 +473,8 @@ export function createContentSchemas(ops: OpRegistry, { formatVersion: version =
       fonts: z.object({ body: fontFace.optional(), display: fontFace.describe('Headings and card names.').optional() }).strict().optional(),
       /** What the play area sits on. */
       table: z.object({ color: color.optional(), background: assetPath.describe('An image behind the play area.').optional() }).strict().optional(),
+      /** How a board is drawn. */
+      board: z.enum(['grid', 'table']).describe('grid: units on tiles. table: on a phone, a lane is a winding path and each unit a standing card.').optional(),
       /** Sounds that replace the built-in ones (#159); any cue left out keeps its built-in sound. */
       sounds: z
         .array(z.object({ cue: z.enum(SOUND_CUES), sound: assetPath.describe('An audio file in the package (ogg, mp3, wav or m4a).') }).strict())

@@ -49,7 +49,7 @@ import { filesSource, unzipFiles, type ContentItem } from '@ccg/content';
 import { cardFace } from './faces.js';
 import { frameFor, resolveTheme } from './theme.js';
 import type { RunProgress } from './protocol.js';
-import type { Catalog, EngineReply, EngineRequest, GameListing, IntentSummary, SaveGame, Snapshot } from './protocol.js';
+import type { Catalog, EngineReply, EngineRequest, GameListing, IntentSummary, SaveGame, Snapshot, UnitPreview } from './protocol.js';
 
 export interface HostOptions {
   /** Packages bundled with the app. */
@@ -176,6 +176,49 @@ function intentSummaries(game: Running, declared: Partial<DeclaredIntent>[]): Re
   return out;
 }
 
+type PreviewUnit = { hp: number; block: number; pos: string; statuses: Record<string, number> };
+const unitsIn = (view: { world: unknown }): Record<string, PreviewUnit> => (view.world as { board?: { units: Record<string, PreviewUnit> } }).board?.units ?? {};
+
+/**
+ * A dry run of each card play and ability: the units it would change, as the player's side would see them.
+ * The kernel is pure, so this applies the action to the current state and throws the result away.
+ */
+function previewsOf(game: Running, state: GameState<unknown>, view: { world: unknown }, legal: Action[]): Record<number, Record<string, UnitPreview>> {
+  const out: Record<number, Record<string, UnitPreview>> = {};
+  if (legal.length > 80) return out;
+  const now = unitsIn(view);
+  const rng = JSON.stringify(state.rng);
+  legal.forEach((action, i) => {
+    if (action.type !== 'playCard' && action.type !== 'activate') return;
+    let after: Record<string, PreviewUnit>;
+    try {
+      const result = apply(game.rules, state, action);
+      // Chance, or a play that waits on a response, has no certain outcome to show.
+      if (!result.ok || JSON.stringify(result.state.rng) !== rng || result.state.stack.length > 0) return;
+      after = unitsIn(viewState(game.rules, result.state, game.side));
+    } catch {
+      return;
+    }
+    const diff: Record<string, UnitPreview> = {};
+    for (const [id, u] of Object.entries(now)) {
+      const a = after[id];
+      if (!a) {
+        diff[id] = { gone: true };
+        continue;
+      }
+      const d: UnitPreview = {};
+      if (a.hp !== u.hp) d.hp = a.hp;
+      if (a.block !== u.block) d.block = a.block;
+      if (a.pos !== u.pos) d.pos = a.pos;
+      const keys = new Set([...Object.keys(u.statuses ?? {}), ...Object.keys(a.statuses ?? {})]);
+      if ([...keys].some((k) => (u.statuses?.[k] ?? 0) !== (a.statuses?.[k] ?? 0))) d.statuses = { ...a.statuses };
+      if (Object.keys(d).length > 0) diff[id] = d;
+    }
+    if (Object.keys(diff).length > 0) out[i] = diff;
+  });
+  return out;
+}
+
 export function createEngineHost(options: HostOptions = {}): EngineHost {
   const registry = new PackageRegistry<unknown>();
   for (const pkg of options.packages ?? []) registry.register(pkg);
@@ -221,13 +264,16 @@ export function createEngineHost(options: HostOptions = {}): EngineHost {
     const view = viewState(game.rules, state, game.side);
     const declared = (view.world as { intents?: { declared: Partial<DeclaredIntent>[] } }).intents?.declared ?? [];
     const level = levelOf(game);
+    const legal = deciding === game.side ? legalActions(game.rules, state, game.side) : [];
+    const previews = previewsOf(game, state, view, legal);
     return {
       game: game.game,
       side: game.side,
       view,
       events: redactEvents(game.rules, events, game.side, state),
       deciding,
-      legal: deciding === game.side ? legalActions(game.rules, state, game.side) : [],
+      legal,
+      ...(Object.keys(previews).length > 0 && { previews }),
       catalog: game.catalog,
       presentation: game.rules.presentation ?? {},
       intents: intentSummaries(game, declared),
