@@ -147,12 +147,15 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, sound, volume =
   const [logOpen, setLogOpen] = useState(false);
   // On a phone on its side the hand is a drawer (#172); wider or taller, the styles ignore this.
   const [handOpen, setHandOpen] = useState(false);
+  // A card raised to be read, by touch: one that can't be played now has no other way to be seen whole.
+  const [reading, setReading] = useState<string | null>(null);
   const swipeFrom = useRef<number | null>(null);
   const swiped = useRef(false);
   useEffect(() => {
     setSelection(null);
     setFocus(0);
     setHandOpen(false);
+    setReading(null);
   }, [snapshot]);
   const choices = useMemo(() => choicesFor(selection, o, world, layout, side), [selection, o, world, layout, side]);
   const canAct = !busy && deciding === side && !view.outcome;
@@ -167,8 +170,8 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, sound, volume =
     [canAct, onAct, playback],
   );
 
-  /** Selects something; a single untargeted choice is played at once. */
-  const choose = (next: Selection) => {
+  /** Selects something; a single untargeted choice is played at once, unless it is held for a second tap. */
+  const choose = (next: Selection, hold = false) => {
     if (!canAct) return;
     // Choosing shows targets on the final board, so finish any animation first.
     playback.skip();
@@ -177,7 +180,7 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, sound, volume =
       return;
     }
     const list = choicesFor(next, o, world, layout, side);
-    if (list.length === 1 && list[0]?.anchor.kind === 'none') {
+    if (!hold && list.length === 1 && list[0]?.anchor.kind === 'none') {
       act(list[0].action);
       return;
     }
@@ -185,7 +188,33 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, sound, volume =
     setFocus(0);
     // Targets are on the board, so the drawer gets out of the way of choosing one. This must land in the
     // same render as the selection: an effect would leave a frame with targets showing behind a raised drawer.
-    if (list.length > 0) setHandOpen(false);
+    if (list.some((c) => c.anchor.kind !== 'none')) setHandOpen(false);
+  };
+
+  /**
+   * A card in the hand is picked. A click or a key plays it, or shows its targets. A finger can't hover, and
+   * covers the card it lands on, so a tap raises the card to be read first: a second tap, or the Play
+   * button, plays it. Targets show on the first tap, as they do for a click.
+   */
+  const onCard = (card: string, touch: boolean) => {
+    const playable = canAct && o.cards.has(card);
+    if (!touch) {
+      if (playable) choose({ kind: 'card', card });
+      return;
+    }
+    if (!playable) {
+      setSelection(null);
+      setReading((r) => (r === card ? null : card));
+      return;
+    }
+    setReading(null);
+    if (selection?.kind === 'card' && selection.card === card) {
+      const only = choices.length === 1 && choices[0]?.anchor.kind === 'none' ? choices[0] : null;
+      if (only) act(only.action);
+      else setSelection(null);
+      return;
+    }
+    choose({ kind: 'card', card }, true);
   };
 
   const targets: BoardTarget[] = choices.flatMap((c, i) => {
@@ -218,8 +247,9 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, sound, volume =
   // ---- board view: full screen fills the window and asks the browser for the whole screen ----
   if (closeRef) {
     closeRef.current = () => {
-      if (handOpen) setHandOpen(false);
+      if (reading) setReading(null);
       else if (selection) setSelection(null);
+      else if (handOpen) setHandOpen(false);
       else if (logOpen) setLogOpen(false);
       else if (settingsOpen) setSettingsOpen(false);
       else if (hovered) setHovered(null);
@@ -346,10 +376,12 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, sound, volume =
           </span>
         )}
         {snapshot.difficulty && <span className="ccg-muted">{snapshot.difficulty}</span>}
-        <span>Round {view.turn.round}</span>
-        <span className="ccg-muted">{view.turn.phase}</span>
-        <span role="status" className="ccg-turn-status">
-          {status}
+        <span className="ccg-turn">
+          <span>Round {view.turn.round}</span>
+          <span className="ccg-muted">{view.turn.phase}</span>
+          <span role="status" className="ccg-turn-status">
+            {status}
+          </span>
         </span>
         <span className="ccg-spacer" />
         <button type="button" className="ccg-log-toggle" aria-expanded={logOpen} onClick={() => setLogOpen((open) => !open)}>
@@ -537,7 +569,8 @@ export function Encounter({ snapshot, log, busy, speed, onSpeed, sound, volume =
             return { id, ...(face && { face }), playable: canAct && o.cards.has(id) };
           })}
           selected={selection?.kind === 'card' ? selection.card : null}
-          onSelect={(card) => choose({ kind: 'card', card })}
+          lifted={reading}
+          onSelect={onCard}
           responding={prompted}
         />
         <div className="ccg-actions">
