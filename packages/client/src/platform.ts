@@ -64,6 +64,8 @@ export interface Platform {
   playOnly?: boolean;
   /** Android's back, the gesture or the button; returns how to stop listening. */
   onBack?(handler: () => void): () => void;
+  /** When the app goes to the background and returns, where hiding the page doesn't say so (Android). */
+  onBackground?(handler: (background: boolean) => void): () => void;
   /** Leaves the app (back from its first page). */
   exit?(): void;
   /** Native full screen for the app window (desktop); the browser's Fullscreen API is used without it. */

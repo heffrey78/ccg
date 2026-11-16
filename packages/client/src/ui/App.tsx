@@ -123,6 +123,7 @@ export function App({ engine, platform, seed, renderers, encounter, editable, on
     void platform.settings.set('soundVolume', v);
   };
   useEffect(() => sound.attach(document), [sound]);
+  useEffect(() => platform.onBackground?.((background) => sound.setHidden(background)), [platform, sound]);
   // Back closes what's open in the game, then leaves the game, which stays saved, then the app (#162).
   const closeRef = useRef<(() => boolean) | null>(null);
   const backRef = useRef(() => {});
