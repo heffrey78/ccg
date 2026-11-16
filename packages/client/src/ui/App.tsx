@@ -52,19 +52,24 @@ export function App({ engine, platform, seed, renderers, encounter, editable, on
   const [view, setView] = useState<ViewMode>('standard');
   const [difficulties, setDifficulties] = useState<Record<string, string>>({});
   const [saved, setSaved] = useState<SavedGame | null>(null);
+  // Games installed on this device that the app can remove again, by package name (the game's id).
+  const [removable, setRemovable] = useState<string[]>([]);
 
   useEffect(() => {
     // Packages installed on the device load first, so they're in the list (#143).
     const installed = async () => {
       const failed: string[] = [];
+      const loaded: string[] = [];
       for (const pkg of (await platform.packages?.()) ?? []) {
         try {
           if ('zip' in pkg) await engine.importZip(pkg.zip);
           else await engine.loadFiles(pkg.files);
+          loaded.push(pkg.name);
         } catch (e) {
           failed.push(`${pkg.name}: ${(e as Error).message}`);
         }
       }
+      if (platform.removePackage) setRemovable(loaded);
       if (failed.length > 0) setError(`Some installed packages didn't load. ${failed.join('; ')}`);
     };
     void installed()
@@ -173,7 +178,7 @@ export function App({ engine, platform, seed, renderers, encounter, editable, on
   };
 
   return (
-    <main className="ccg-app" style={{ boxSizing: 'border-box', padding: 16 }}>
+    <main className="ccg-app">
       <style>{CSS}</style>
       <div style={{ maxWidth: snapshot && !debug && view !== 'standard' ? 'none' : 1120, margin: '0 auto' }}>
       {error && <p role="alert">{error}</p>}
@@ -227,6 +232,11 @@ export function App({ engine, platform, seed, renderers, encounter, editable, on
               setLog([]);
               void run(() => engine.loadSave(saved.save)).then(() => undefined);
             },
+          })}
+          {...(platform.removePackage && {
+            removable,
+            // The engine has the game loaded, and a bundled game it replaced comes back only on a fresh start.
+            onRemove: (game: string) => void platform.removePackage?.(game).then(() => location.reload(), (e: Error) => setError(e.message)),
           })}
           {...(platform.revealPackages && { onRevealPackages: () => void platform.revealPackages?.().catch((e: Error) => setError(e.message)) })}
           {...(!platform.playOnly && {

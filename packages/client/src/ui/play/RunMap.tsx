@@ -3,7 +3,7 @@
  * depth, threads between them, the path walked so far lit, and the nodes the
  * player can go to next offered as buttons.
  */
-import type { KeyboardEvent } from 'react';
+import { useEffect, useRef, type KeyboardEvent } from 'react';
 import type { RunProgress } from '../../engine/protocol.js';
 
 type MapData = NonNullable<RunProgress['map']>;
@@ -33,7 +33,16 @@ export function RunMap({ map, onChoose }: { map: MapData; onChoose?(node: string
     }
   };
 
+  // Where the map is wider than the screen (a phone held upright) it scrolls, starting at where the player is.
+  const scroller = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const box = scroller.current;
+    const here = at.get(map.current ?? '');
+    if (box && here && box.scrollWidth > box.clientWidth) box.scrollLeft = (here.x / width) * box.scrollWidth - box.clientWidth / 3;
+  }, [map.current]);
+
   return (
+    <div className={`ccg-run-map-scroll${onChoose ? '' : ' is-passive'}`} ref={scroller}>
     <svg className="ccg-run-map" viewBox={`0 0 ${width} ${height + 20}`} role="group" aria-label="Run map">
       {map.nodes.flatMap((n) =>
         n.next.map((next) => {
@@ -70,5 +79,6 @@ export function RunMap({ map, onChoose }: { map: MapData; onChoose?(node: string
         );
       })}
     </svg>
+    </div>
   );
 }

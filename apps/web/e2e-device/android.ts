@@ -1,6 +1,6 @@
 /**
  * The Android app end to end (#156): the APK on a device or the emulator, its webview driven by
- * Playwright's Android support, with the network off. It finds a game with no editor on offer,
+ * Playwright's Android support, with the network off. It makes a game in the editor and installs it,
  * plays by tapping, is killed mid-encounter and continues where it was.
  *
  *   pnpm --filter @ccg/desktop build:android:emulator
@@ -96,11 +96,34 @@ try {
   expect(Object.keys(area).sort()).toEqual(['bottom', 'left', 'right', 'top']);
   screenshot('0-whole-screen');
 
-  step('Play is offered without the editor');
+  step('Play and the editor are offered');
   await expect(page.getByRole('button', { name: /^Duel/ })).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByRole('navigation', { name: 'Mode' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: /^Edit / })).toHaveCount(0);
+  await expect(page.getByRole('navigation', { name: 'Mode' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Edit Sporeline' })).toBeVisible();
   screenshot('1-games');
+
+  step('A game is made on the device and installed; back steps out of the editor, and the game is in Play');
+  await tap(page, page.getByRole('link', { name: 'Editor' }));
+  await page.getByLabel('Game name').fill('Pocket Game');
+  await tap(page, page.getByRole('button', { name: 'Create project' }));
+  await expect(page.getByRole('heading', { name: 'Pocket Game', level: 1 })).toBeVisible({ timeout: 30_000 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  screenshot('1a-editor');
+  await tap(page, page.getByRole('navigation', { name: 'Content' }).getByRole('button', { name: /^Strike strike/ }));
+  await expect(page.getByRole('heading', { name: 'Strike', level: 2 })).toBeVisible();
+  screenshot('1b-card');
+  // The webview has no downloads, so only installing is offered.
+  await tap(page, page.getByText('Export', { exact: true }));
+  await expect(page.getByRole('button', { name: 'Export zip' })).toHaveCount(0);
+  await tap(page, page.getByRole('button', { name: 'Install in Play' }));
+  await expect(page.getByRole('status')).toContainText('Installed Pocket Game');
+  adb('shell', 'input', 'keyevent', 'KEYCODE_BACK'); // From the card to the content list.
+  await expect(page.getByRole('navigation', { name: 'Content' })).toBeVisible();
+  adb('shell', 'input', 'keyevent', 'KEYCODE_BACK'); // Closes the project.
+  await expect(page.getByRole('heading', { name: 'Edit or create a game' })).toBeVisible();
+  adb('shell', 'input', 'keyevent', 'KEYCODE_BACK'); // Back to Play.
+  await expect(page.getByRole('button', { name: /^Pocket Game/ })).toBeVisible({ timeout: 30_000 });
+  screenshot('1c-installed');
 
   step('A game starts and plays by tapping');
   await tap(page, page.getByRole('button', { name: /^Duel/ }));

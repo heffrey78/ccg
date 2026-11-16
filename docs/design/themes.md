@@ -49,7 +49,13 @@ white text on the accent, accent-coloured text on panels, and each frame's
 text and cost badge.
 
 Sporeline's theme, `games/reference/content/themes/loam.json`, is the worked
-example.
+example: block-printed cards on a dark table. Its frames use a light paper image
+as `background`, dark `ink`, and a border and cost badge in each strain's ink;
+the art itself is printed in the same inks (see the game's README).
+
+A frame's `ink` also colours the card's secondary text (keywords, the key
+hint), so a light card reads on a dark theme. In the editor a card's preview
+shows in the project's theme, in the frame the card will get.
 
 Nothing in a theme is code. Colours must be hex, font family names allow only
 letters, digits, spaces, `-` and `_`, and ids follow the content id pattern,

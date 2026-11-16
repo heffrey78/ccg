@@ -218,4 +218,59 @@ export const CSS = `
 .ccg-bar-value { padding-left: 8px; text-align: right; color: var(--ink); font-variant-numeric: tabular-nums; }
 .ccg-map-preview { width: 300px; }
 .ccg-raw summary { cursor: pointer; color: var(--muted); margin: 8px 0; }
+
+/* ---- phones and touch: these come last, so they win over the rules above ---- */
+.ccg-editor .ccg-back { display: none; }
+.ccg-picker h1 { margin: 0 0 12px; font-size: 1.6rem; }
+@media (max-width: 760px) {
+  /* The content list and what is being edited take turns: picking something shows it, and back returns to the list. */
+  .ccg-editor-main[data-pane="list"] > .ccg-editor-center, .ccg-editor-main[data-pane="detail"] > .ccg-browser { display: none; }
+  .ccg-editor .ccg-back { display: inline-block; margin-bottom: 8px; }
+  .ccg-browser { max-height: none; }
+  .ccg-editor-main, .ccg-item-form { grid-template-columns: minmax(0, 1fr); }
+  .ccg-editor-center, .ccg-form-control, .ccg-form-row, .ccg-section { min-width: 0; }
+  .ccg-editor .ccg-tree-item { padding: 9px 8px; }
+  .ccg-browser summary { min-height: 40px; }
+  .ccg-toolbar { gap: 6px; }
+  .ccg-toolbar h1 { order: 0; flex: 1 1 0; min-width: 0; font-size: 1.2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ccg-toolbar .ccg-toolbar-close { order: 1; }
+  .ccg-toolbar > .ccg-muted { order: 2; flex: 0 0 100%; font-size: .85rem; }
+  .ccg-toolbar > .ccg-spacer { display: none; }
+  .ccg-toolbar-group, .ccg-toolbar .ccg-menu { order: 3; }
+  .ccg-toolbar-group { padding-right: 0; margin-right: 0; border-right: 0; }
+  .ccg-menu-items { right: auto; left: 0; }
+  .ccg-browser, .ccg-editor-center, .ccg-validation, .ccg-confirm, .ccg-playtest { padding: 10px; }
+  .ccg-panel { padding: 12px; }
+  .ccg-item-header h2 { flex: 1 1 100%; font-size: 1.25rem; }
+  .ccg-form-row { grid-template-columns: minmax(84px, 36%) minmax(0, 1fr); gap: 6px; padding: 2px 0; }
+  .ccg-form-row.is-block { grid-template-columns: minmax(0, 1fr); }
+  .ccg-form-control > input:not([type]), .ccg-form-control > select { width: 100%; }
+  .ccg-form-row.is-block > .ccg-form-control { padding-left: 8px; }
+  .ccg-section { padding: 6px 8px 10px; }
+  .ccg-preview, .ccg-preview.ccg-theme-preview { position: static; order: -1; width: auto; align-items: center; }
+  .ccg-preview > * { max-width: 100%; }
+  .ccg-fields { grid-template-columns: 1fr; }
+  /* 16px keeps a phone from zooming the page when a field takes focus. */
+  .ccg-editor input:not([type]), .ccg-editor input[type="search"], .ccg-editor input[type="number"], .ccg-editor select, .ccg-editor textarea { box-sizing: border-box; max-width: 100%; min-height: 40px; font-size: 16px; }
+  .ccg-field input, .ccg-new-item input, .ccg-browser > input, .ccg-panel > label > input:not([type]) { width: 100%; }
+  .ccg-panel > label > input:not([type]) { display: block; margin-top: 4px; }
+  .ccg-project-list li { flex-wrap: wrap; }
+  .ccg-debugger-main, .ccg-charts { grid-template-columns: 1fr; }
+  .ccg-cost .ccg-row { flex-wrap: nowrap; min-width: 0; }
+  .ccg-cost .ccg-row input { flex: 1 1 0; min-width: 0; width: auto; }
+  .ccg-behavior, .ccg-effect, .ccg-behavior-child { min-width: 0; }
+  .ccg-behavior-head, .ccg-effect-head { flex-wrap: wrap; }
+  .ccg-behavior-body { margin-left: 2px; }
+  .ccg-behavior { padding: 4px 4px 4px 6px; }
+  .ccg-json, .ccg-state { font-size: .8rem; }
+}
+/* A finger is bigger than a pointer. */
+@media (pointer: coarse) {
+  .ccg-editor button, .ccg-editor .ccg-file-button, .ccg-editor .ccg-menu > summary { min-height: 40px; box-sizing: border-box; }
+  .ccg-editor .ccg-file-button, .ccg-editor .ccg-menu > summary { display: inline-flex; align-items: center; }
+  .ccg-editor .ccg-form-actions button, .ccg-editor .ccg-form-remove, .ccg-editor .ccg-var-toggle, .ccg-editor .ccg-add, .ccg-editor .ccg-effect-head button, .ccg-editor .ccg-behavior-toggle { min-width: 40px; }
+  .ccg-editor .ccg-tag { min-height: 34px; padding: 2px 12px; }
+  .ccg-editor .ccg-link, .ccg-editor .ccg-project-name { min-height: 0; }
+  .ccg-radio { padding: 6px 0; }
+}
 `;

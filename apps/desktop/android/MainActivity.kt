@@ -15,7 +15,7 @@ import androidx.core.view.WindowInsetsControllerCompat
 // Copied over the generated activity by build.sh. A game takes the whole screen (#172): the system
 // bars hide until swiped in, and the page draws behind any camera cutout, so its theme reaches every
 // edge. The page keeps its controls clear with the insets given here: the webview doesn't report them
-// reliably. It's also told when the app goes to the background and returns (#163): Android's webview
+// reliably. The keyboard is the one thing the page is kept clear of here, by ending above it. It's also told when the app goes to the background and returns (#163): Android's webview
 // goes on reporting the page as visible, and audio goes on playing.
 class MainActivity : TauriActivity() {
   private var webView: WebView? = null
@@ -30,9 +30,12 @@ class MainActivity : TauriActivity() {
       window.attributes.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
     }
     hideSystemBars()
-    ViewCompat.setOnApplyWindowInsetsListener(findViewById<View>(android.R.id.content)) { _, insets ->
+    ViewCompat.setOnApplyWindowInsetsListener(findViewById<View>(android.R.id.content)) { view, insets ->
       val area = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
       val density = resources.displayMetrics.density
+      // Drawing edge to edge, nothing moves the page out from under the keyboard: the page ends above
+      // it instead, so a field being typed in, as in the editor, stays in view.
+      view.setPadding(0, 0, 0, insets.getInsets(WindowInsetsCompat.Type.ime()).bottom)
       safeArea = """{"top":${area.top / density},"right":${area.right / density},"bottom":${area.bottom / density},"left":${area.left / density}}"""
       webView?.evaluateJavascript("window.dispatchEvent(new Event('ccg-insets'))", null)
       WindowInsetsCompat.CONSUMED

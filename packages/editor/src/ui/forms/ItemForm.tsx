@@ -138,17 +138,29 @@ export function ItemForm({ project, ops, item, issues, flagged, board, setBoard,
 function CardPreviewPane({ project, ops, item, board }: { project: Project; ops: OpRegistry; item: ContentItem; board: PreviewBoard }) {
   const art = typeof item.art === 'string' ? item.art : '';
   const artUrl = useAssetUrl(project.assets[art], art);
+  // The card is shown as it will be played: in the game's own theme, in the frame its tags or rarity pick.
+  const theme = itemsOfKind(project, 'theme')[0]?.[1];
+  const themeUrls = useAssetUrls(project, theme ? assetPaths(theme) : []);
   let face;
   try {
-    face = cardFace(item, ops, { topology: board, name: nameIn(project), art: () => artUrl ?? undefined });
+    face = cardFace(item, ops, { topology: board, name: nameIn(project), art: () => artUrl ?? undefined, ...(theme && { frame: (card: ContentItem) => frameFor(theme, card) }) });
   } catch {
     face = null;
   }
+  // A theme mid-edit can be malformed; the card then shows in the default look.
+  const css = (() => {
+    try {
+      return theme ? themeCss(resolveTheme(theme, (path) => themeUrls[path] ?? ''), '.ccg-card-sample') : '';
+    } catch {
+      return '';
+    }
+  })();
   return (
     <aside className="ccg-preview" aria-label="Preview">
       {face ? (
         <>
-          <div className="ccg-app ccg-preview-host">
+          {css && <style>{css}</style>}
+          <div className="ccg-app ccg-preview-host ccg-card-sample">
             <CardPreview face={face} />
           </div>
           <p className="ccg-card-preview" aria-label="Card text">

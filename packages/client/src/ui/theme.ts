@@ -50,7 +50,8 @@ function frameCss(scope: string, f: ThemeFrame): string {
     f.border && `border-color: ${f.border};`,
     f.borderWidth !== undefined && `border-width: ${f.borderWidth}px; border-style: solid;`,
     f.radius !== undefined && `border-radius: ${f.radius}px;`,
-    f.ink && `color: ${f.ink};`,
+    // Secondary text on the card follows the card's own ink, not the page's.
+    f.ink && `color: ${f.ink}; --muted: color-mix(in srgb, ${f.ink} 68%, transparent);`,
   ]
     .filter(Boolean)
     .join(' ');
@@ -76,7 +77,8 @@ export function themeCss(theme: Theme, scope: string): string {
     .filter(Boolean)
     .join(' ');
   if (tokens) out.push(`${page}, ${scope} { ${tokens} }`, `${page} { background-color: var(--bg); }`);
-  if (table) out.push(`${page}, .ccg-encounter.is-view-full${scope} { ${table} }`);
+  // The encounter carries the table too: where it covers the page (full screen, and on phones) the table is still under it.
+  if (table) out.push(`${page}, .ccg-encounter${scope} { ${table} }`);
   if (body) out.push(`${scope} { font-family: ${body}; }`);
   if (display) out.push(`${scope} h1, ${scope} h2, ${scope} .ccg-card-name, ${scope} .ccg-banner { font-family: ${display}; }`);
   for (const frame of theme.frames) out.push(frameCss(scope, frame));

@@ -3,7 +3,7 @@ import { indexedDbLibrary, type Project, type ProjectIssue } from '@ccg/editor';
 import { EngineClient, workerTransport } from '@ccg/client/engine';
 import { EditorApp, type InstalledGame, type Simulator } from '@ccg/editor/ui';
 import type { GameRecord } from '@ccg/core';
-import { folderOpener, packageInstaller } from './platform/folders.js';
+import { canDownload, folderOpener, packageInstaller } from './platform/folders.js';
 
 function workerValidator(): (project: Project) => Promise<ProjectIssue[]> {
   const worker = new Worker(new URL('./validate.worker.ts', import.meta.url), { type: 'module' });
@@ -61,7 +61,7 @@ const simulate = workerSimulator();
 const openFolder = folderOpener();
 const installPackage = packageInstaller();
 
-export default function Editor({ installed, edit, onEdited }: { installed: InstalledGame[]; edit?: string; onEdited(): void }) {
+export default function Editor({ installed, edit, onEdited, backRef }: { installed: InstalledGame[]; edit?: string; onEdited(): void; backRef?: { current: (() => boolean) | null } }) {
   return (
     <EditorApp
       library={library}
@@ -71,8 +71,10 @@ export default function Editor({ installed, edit, onEdited }: { installed: Insta
       installed={installed}
       onEdited={onEdited}
       {...(edit && { edit })}
+      {...(backRef && { backRef })}
       {...(openFolder && { openFolder })}
       {...(installPackage && { installPackage })}
+      canDownload={canDownload()}
     />
   );
 }

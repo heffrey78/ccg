@@ -3,6 +3,9 @@ import { devices, expect, test } from '@playwright/test';
 const { defaultBrowserType: _browser, ...pixel } = devices['Pixel 7'];
 test.use(pixel);
 
+// At phone size the hand's cards overlap, each showing its left edge, so that is where a finger lands.
+const EDGE = { position: { x: 14, y: 40 } };
+
 const start = async (page: import('@playwright/test').Page) => {
   await page.goto('/?seed=4&encounter=duel:close-quarters');
   await page.getByRole('button', { name: /^Duel/ }).tap();
@@ -20,9 +23,11 @@ test('an encounter can be finished by touch alone at phone size (#162)', async (
     } else if (status === 'Your decision') {
       const card = hand.getByRole('button', { disabled: false }).first();
       if (await card.count()) {
-        await card.tap();
+        // A tap raises the card: its targets show on the board, or a second tap plays it.
+        await card.tap(EDGE);
         const target = page.locator('.ccg-board').getByRole('button', { name: /^Play / }).first();
         if (await target.count()) await target.tap();
+        else await card.tap(EDGE);
       } else {
         await page.getByRole('button', { name: 'End turn' }).tap();
       }
@@ -40,6 +45,38 @@ test('the settings fold away, and nothing is wider than the phone', async ({ pag
   await page.getByRole('button', { name: 'Settings' }).tap();
   await expect(page.getByLabel('Sound')).toBeHidden();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test('the whole hand fits the screen, and a tap raises a card to be read before it is played', async ({ page }) => {
+  await page.goto('/?seed=4');
+  await page.getByRole('button', { name: /^Sporeline/ }).tap();
+  await expect(page.getByRole('status')).toHaveText('Your decision');
+  const cards = page.getByRole('list', { name: 'Hand' }).getByRole('button');
+  await expect(cards).toHaveCount(5);
+  // Every card's left edge is on the screen, and so is all of the last.
+  const width = page.viewportSize()?.width ?? 0;
+  for (const card of await cards.all()) expect((await card.boundingBox())?.x).toBeLessThan(width - 20);
+  await expect(cards.last()).toBeInViewport({ ratio: 1 });
+  await expect(page.getByRole('button', { name: 'End turn' })).toBeInViewport({ ratio: 1 });
+
+  // With no bug in reach, Hyphal Lash can't be played: a tap still raises it, so it can be read.
+  const lash = cards.filter({ hasText: 'Hyphal Lash' });
+  await expect(lash).toHaveAttribute('aria-disabled', 'true');
+  // Forced: to Playwright a card that can't be played is a disabled button, though a finger can still land on it.
+  await lash.tap({ ...EDGE, force: true });
+  await expect(lash).toHaveClass(/is-lifted/);
+  await expect(lash).toBeInViewport({ ratio: 1 });
+
+  // Mycelial Mat needs no target: the first tap raises it and offers Play, and the second plays it.
+  const mat = cards.filter({ hasText: 'Mycelial Mat' });
+  await mat.tap(EDGE);
+  await expect(mat).toHaveAttribute('aria-pressed', 'true');
+  await expect(lash).not.toHaveClass(/is-lifted/);
+  await expect(page.getByRole('button', { name: 'Play Mycelial Mat' })).toBeVisible();
+  await expect(cards).toHaveCount(5);
+  await mat.tap(EDGE);
+  await expect(cards).toHaveCount(4);
+  await expect(page.getByLabel('Log')).toContainText('The Knot gains 5 block');
 });
 
 test('tapping a unit shows its details', async ({ page }) => {
@@ -118,11 +155,15 @@ test.describe('on its side', () => {
         if (await card.count()) {
           if ((await drawerRaised(page)) !== 'true') await page.getByRole('button', { name: /^Hand/ }).tap();
           await page.waitForTimeout(220);
-          await card.tap();
+          await card.tap(EDGE);
           const target = page.locator('.ccg-board').getByRole('button', { name: /^Play / }).first();
           if (await target.count()) {
             expect(await drawerRaised(page)).toBe('false');
             await target.tap();
+          } else {
+            // Nothing to aim: the drawer stays up, and the Play button plays the card.
+            expect(await drawerRaised(page)).toBe('true');
+            await page.getByRole('group', { name: 'Choose a target' }).getByRole('button', { name: /^Play / }).tap();
           }
         } else {
           await page.getByRole('button', { name: 'End turn' }).tap();

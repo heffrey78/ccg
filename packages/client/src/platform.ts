@@ -56,11 +56,13 @@ export type InstalledPackage = { name: string; files: Record<string, Uint8Array>
 export interface Platform {
   storage: KeyValueStorage;
   settings: SettingsStore;
-  /** Game packages installed on the device (desktop's packages folder), loaded alongside the bundled ones. */
+  /** Game packages installed on the device (desktop's packages folder, the page's storage elsewhere), loaded alongside the bundled ones. */
   packages?(): Promise<InstalledPackage[]>;
+  /** Removes an installed package, where the app keeps them itself; a packages folder is managed in the file manager. */
+  removePackage?(name: string): Promise<void>;
   /** Shows the folder those packages live in. */
   revealPackages?(): Promise<void>;
-  /** Only playing is offered, not the editor (the Android app, decision #157). */
+  /** Only playing is offered, not the editor or loading games from files: for a host that ships a player alone. */
   playOnly?: boolean;
   /** Android's back, the gesture or the button; returns how to stop listening. */
   onBack?(handler: () => void): () => void;
