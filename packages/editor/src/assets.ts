@@ -13,7 +13,7 @@ export interface AssetUse {
 
 const escape = (part: string) => part.replace(/~/g, '~0').replace(/\//g, '~1');
 
-/** Every asset reference in the project's items (`art`, `icon`, `background` and `font` fields, at any depth), by asset path. */
+/** Every asset reference in the project's items (`art`, `icon`, `background`, `font` and `sound` fields, at any depth), by asset path. */
 export function assetRefs(project: Project): Map<string, AssetUse[]> {
   const out = new Map<string, AssetUse[]>();
   for (const [key, item] of Object.entries(project.items)) {

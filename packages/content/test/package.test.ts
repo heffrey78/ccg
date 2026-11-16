@@ -5,6 +5,7 @@ import {
   createContentSchemas,
   exportJsonSchemas,
   loadPackage,
+  memorySource,
   serializeItem,
   type ContentIssue,
   type LoadedPackage,
@@ -215,5 +216,27 @@ describe('format versions and migrations', () => {
       ok: false,
       message: 'no migration from formatVersion 2',
     });
+  });
+});
+
+describe('theme sounds (#159)', () => {
+  const load = (sounds: unknown, assets: Record<string, string> = {}) =>
+    loadPackage(
+      memorySource({
+        'game.json': `{"formatVersion":1,"id":"g","name":"G","version":"0.1.0","engine":"^0.0.0"}\n`,
+        'content/themes/look.json': `${JSON.stringify({ formatVersion: 1, kind: 'theme', id: 'look', name: 'Look', sounds })}\n`,
+        ...assets,
+      }),
+      schemas,
+    );
+
+  it('accepts a known cue with an asset in the package', async () => {
+    expect((await load([{ cue: 'hit', sound: 'assets/audio/hit.ogg' }], { 'assets/audio/hit.ogg': 'audio' })).issues).toEqual([]);
+  });
+
+  it('flags a missing file and an unknown cue', async () => {
+    const missing = await load([{ cue: 'hit', sound: 'assets/audio/gone.ogg' }]);
+    expect(missing.issues.map((i) => i.message)).toContain("missing asset 'assets/audio/gone.ogg'");
+    expect((await load([{ cue: 'jingle', sound: 'assets/audio/hit.ogg' }], { 'assets/audio/hit.ogg': 'audio' })).issues.length).toBeGreaterThan(0);
   });
 });

@@ -13,6 +13,10 @@ function fakeAudio(state: AudioContextState = 'running') {
   const master = { gain: param(), connect: vi.fn() };
   let gains = 0;
   const context = {
+    decodeAudioData: vi.fn(async (bytes: ArrayBuffer) => {
+      if (bytes.byteLength === 0) throw new Error('not audio');
+      return { fromFile: true } as unknown as AudioBuffer;
+    }),
     state,
     currentTime: 10,
     sampleRate: 8000,
@@ -112,6 +116,77 @@ describe('Sound', () => {
     sound.setHidden(false);
     sound.play('card');
     expect(audio.started.length).toBeGreaterThan(0);
+  });
+
+  describe('a game\'s own sounds', () => {
+    const settle = () => new Promise((resolve) => setTimeout(resolve));
+    const playedBuffers = (audio: ReturnType<typeof fakeAudio>) => {
+      const buffers: unknown[] = [];
+      const create = audio.context.createBufferSource;
+      audio.context.createBufferSource = () => {
+        const source = create();
+        Object.defineProperty(source, 'buffer', { set: (b) => buffers.push(b) });
+        return source;
+      };
+      return buffers;
+    };
+
+    it('replace the cues they name, and the others stay built in', async () => {
+      const audio = fakeAudio();
+      const buffers = playedBuffers(audio);
+      const sound = new Sound(audio.create, async () => new ArrayBuffer(8));
+      sound.setVolume(1);
+      sound.setSounds({ hit: 'blob:hit' });
+      sound.play('card');
+      await settle();
+      sound.play('hit');
+      expect(buffers).toEqual([{ fromFile: true }]);
+      sound.play('heal');
+      expect(buffers).toHaveLength(1);
+    });
+
+    it('wait for audio before loading, and need none at volume 0', async () => {
+      const audio = fakeAudio();
+      const fetchFile = vi.fn(async () => new ArrayBuffer(8));
+      const sound = new Sound(audio.create, fetchFile);
+      sound.setSounds({ hit: 'blob:hit' });
+      sound.play('hit');
+      await settle();
+      expect(fetchFile).not.toHaveBeenCalled();
+      sound.setVolume(1);
+      sound.play('card');
+      expect(fetchFile).toHaveBeenCalledWith('blob:hit');
+    });
+
+    it('fall back to the built-in sound when a file is broken or missing', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      for (const fetchFile of [async () => new ArrayBuffer(0), async () => Promise.reject(new Error('404'))]) {
+        const audio = fakeAudio();
+        const sound = new Sound(audio.create, fetchFile);
+        sound.setVolume(1);
+        sound.setSounds({ hit: 'blob:hit' });
+        sound.play('card');
+        await settle();
+        audio.started.length = 0;
+        sound.play('hit');
+        expect(audio.started.length).toBeGreaterThan(0);
+      }
+      expect(warn).toHaveBeenCalledTimes(2);
+      warn.mockRestore();
+    });
+
+    it('are dropped when another game starts', async () => {
+      const audio = fakeAudio();
+      const buffers = playedBuffers(audio);
+      const sound = new Sound(audio.create, async () => new ArrayBuffer(8));
+      sound.setVolume(1);
+      sound.play('card');
+      sound.setSounds({ heal: 'blob:heal' });
+      await settle();
+      sound.setSounds({});
+      sound.play('heal');
+      expect(buffers).toEqual([]);
+    });
   });
 
   it('survives no audio and broken audio', () => {
