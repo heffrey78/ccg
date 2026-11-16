@@ -12,7 +12,7 @@ const encounter = params.get('encounter') ?? undefined;
 // The editor is its own chunk: players never download it.
 const Editor = lazy(() => import('./editor.js'));
 
-const route = () => (location.hash.startsWith('#/create') ? 'create' : 'play');
+const route = () => (!platform.playOnly && location.hash.startsWith('#/create') ? 'create' : 'play');
 /** `#/create/edit/<game>` opens an installed game in the editor (Play's Edit button). */
 const editRequest = () => /^#\/create\/edit\/([a-z0-9_-]+)$/.exec(location.hash)?.[1];
 const editable = INSTALLED.map((g) => g.id);
@@ -47,14 +47,16 @@ export function Root({ engine }: { engine: EngineClient }) {
   return (
     <>
       <style>{MODES_CSS}</style>
-      <nav aria-label="Mode" className="ccg-modes">
-        <a href="#/" aria-current={page === 'play' ? 'page' : undefined}>
-          Play
-        </a>
-        <a href="#/create" aria-current={page === 'create' ? 'page' : undefined}>
-          Editor
-        </a>
-      </nav>
+      {!platform.playOnly && (
+        <nav aria-label="Mode" className="ccg-modes">
+          <a href="#/" aria-current={page === 'play' ? 'page' : undefined}>
+            Play
+          </a>
+          <a href="#/create" aria-current={page === 'create' ? 'page' : undefined}>
+            Editor
+          </a>
+        </nav>
+      )}
       {page === 'create' ? (
         <div style={{ padding: 16, maxWidth: 1600, margin: '0 auto' }}>
           <Suspense fallback={<p>Loading the editor…</p>}>
@@ -73,8 +75,7 @@ export function Root({ engine }: { engine: EngineClient }) {
         <App
           engine={engine}
           platform={platform}
-          editable={editable}
-          onEdit={(game) => (location.hash = `#/create/edit/${game}`)}
+          {...(!platform.playOnly && { editable, onEdit: (game: string) => (location.hash = `#/create/edit/${game}`) })}
           {...(seed !== undefined && { seed })}
           {...(encounter !== undefined && { encounter })}
         />

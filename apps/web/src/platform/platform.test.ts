@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createPlatform } from './index.js';
-import type { Invoke } from './desktop.js';
+import { isAndroid, isDesktop, type Invoke } from './desktop.js';
 
 describe('the platform adapters (#141)', () => {
   it('on desktop, storage and settings go through the shell commands', async () => {
@@ -23,6 +23,38 @@ describe('the platform adapters (#141)', () => {
     expect(await platform.storage.get('settings:animationSpeed')).toBeNull();
     expect(calls.map(([c]) => c)).toEqual(['kv_set', 'kv_get', 'kv_keys', 'kv_delete', 'kv_get']);
     expect(platform.setFullscreen).toBeTypeOf('function');
+  });
+
+  it('on Android, storage goes through the shell, only play is offered, and desktop services are absent (#161)', async () => {
+    const data = new Map<string, string>();
+    const invoke: Invoke = async <T,>(command: string, args?: Record<string, unknown>) => {
+      if (command === 'kv_set') data.set(args?.key as string, args?.value as string);
+      if (command === 'kv_get') return (data.get(args?.key as string) ?? null) as T;
+      return undefined as T;
+    };
+    const platform = createPlatform({ android: true, invoke: Promise.resolve(invoke) });
+    await platform.settings.set('soundVolume', 1);
+    expect(await platform.settings.get('soundVolume', 0)).toBe(1);
+    expect(platform.playOnly).toBe(true);
+    expect(platform.packages).toBeUndefined();
+    expect(platform.revealPackages).toBeUndefined();
+    expect(platform.setFullscreen).toBeUndefined();
+  });
+
+  it('tells the Android app from the desktop app and a browser by the shell and the user agent', () => {
+    const inBrowser = isAndroid();
+    expect(inBrowser).toBe(false);
+    vi.stubGlobal('window', { __TAURI_INTERNALS__: {} });
+    vi.stubGlobal('navigator', { userAgent: 'Mozilla/5.0 (Linux; Android 16; Pixel) Chrome/140 Mobile' });
+    expect(isAndroid()).toBe(true);
+    expect(isDesktop()).toBe(false);
+    vi.stubGlobal('navigator', { userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/605.1.15' });
+    expect(isAndroid()).toBe(false);
+    expect(isDesktop()).toBe(true);
+    vi.stubGlobal('window', {});
+    vi.stubGlobal('navigator', { userAgent: 'Mozilla/5.0 (Linux; Android 16; Pixel) Chrome/140 Mobile' });
+    expect(isAndroid()).toBe(false);
+    vi.unstubAllGlobals();
   });
 
   it('in a browser without IndexedDB it falls back to memory, with no native full screen', async () => {

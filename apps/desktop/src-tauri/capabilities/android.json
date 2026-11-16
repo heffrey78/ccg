@@ -1,0 +1,8 @@
+{
+  "$schema": "../gen/schemas/mobile-schema.json",
+  "identifier": "android",
+  "description": "What the Android app's page may do: the storage commands, and leave the app when back is pressed on its first page.",
+  "windows": ["main"],
+  "platforms": ["android"],
+  "permissions": ["core:default", "core:app:allow-exit"]
+}

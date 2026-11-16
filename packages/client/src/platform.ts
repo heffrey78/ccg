@@ -60,6 +60,8 @@ export interface Platform {
   packages?(): Promise<InstalledPackage[]>;
   /** Shows the folder those packages live in. */
   revealPackages?(): Promise<void>;
+  /** Only playing is offered, not the editor (the Android app, decision #157). */
+  playOnly?: boolean;
   /** Native full screen for the app window (desktop); the browser's Fullscreen API is used without it. */
   setFullscreen?(on: boolean): Promise<void>;
 }
