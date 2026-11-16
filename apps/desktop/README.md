@@ -63,3 +63,14 @@ Play Store would need a higher target and a release key.
 
 The Gradle project (`src-tauri/gen/android`) is generated and not committed. Delete it to
 regenerate it.
+
+`.github/workflows/android.yml` builds the phone's APK on every push and pull request that
+changes the app. Every push to main puts it on the
+[Android (latest)](https://github.com/heffrey78/ccg/releases/tag/android-latest) pre-release, at
+`https://github.com/heffrey78/ccg/releases/download/android-latest/ccg-android.apk`. Each APK
+installs over the last only if they share a signing key, kept in the `ANDROID_DEBUG_KEYSTORE`
+secret (base64).
+
+`pnpm --filter @ccg/web e2e:android` runs the app end to end on a device or an emulator, with the
+network off. It needs an APK built for that device's architecture. Tested on the emulator; check
+sound and touch on a real phone too, as the emulator runs without audio.
