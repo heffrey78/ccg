@@ -15,7 +15,10 @@ and `desktop.ts` calls the Rust commands in `src-tauri/src/lib.rs`.
 ## Run it
 
 You need Rust, and on Linux the webview libraries (WebKitGTK 4.1, librsvg, and
-libappindicator; see Tauri's prerequisites).
+libappindicator; see Tauri's prerequisites). Sound on Linux also needs GStreamer's
+good plugins, which WebKitGTK plays audio through (`gst-plugins-good` on Arch,
+`gstreamer1.0-plugins-good` on Debian and Ubuntu). The bundles take care of this: the
+deb and rpm depend on them, and the AppImage carries them.
 
 ```sh
 pnpm --filter @ccg/desktop dev            # the app on the Vite dev server, with hot reload
@@ -23,5 +26,18 @@ pnpm --filter @ccg/desktop build:desktop  # installers under src-tauri/target/re
 pnpm --filter @ccg/desktop test:rust      # the Rust tests
 ```
 
-CI builds Linux and Windows bundles in `.github/workflows/desktop.yml`. Download
-them from the run's artifacts.
+## Builds and releases
+
+`.github/workflows/desktop.yml` builds Linux, Windows and, as best effort, Apple-silicon
+Mac, and starts each built app with `CCG_SMOKE=1`: it quits with success once the page
+shows a game, and fails after a minute if it never does.
+
+- **Every pull request and push:** the bundles are kept as the run's artifacts.
+- **Every push to main:** they replace the assets of the
+  [Desktop (test builds)](https://github.com/heffrey78/ccg/releases/tag/desktop-test-builds)
+  pre-release, under names that stay the same.
+- **A tag `v1.2.3`:** must match `version` in `tauri.conf.json`, and drafts a GitHub
+  Release with the bundles. Publishing the draft is the owner's decision.
+
+The builds are unsigned, so Windows SmartScreen warns about an unknown publisher (More
+info, then Run anyway), and macOS needs Open Anyway in Privacy & Security.
