@@ -123,6 +123,16 @@ export function App({ engine, platform, seed, renderers, encounter, editable, on
     void platform.settings.set('soundVolume', v);
   };
   useEffect(() => sound.attach(document), [sound]);
+  // Back closes what's open in the game, then leaves the game, which stays saved, then the app (#162).
+  const closeRef = useRef<(() => boolean) | null>(null);
+  const backRef = useRef(() => {});
+  backRef.current = () => {
+    if (debug) setDebug(false);
+    else if (snapshot && closeRef.current?.()) return;
+    else if (snapshot) setSnapshot(null);
+    else platform.exit?.();
+  };
+  useEffect(() => platform.onBack?.(() => backRef.current()), [platform]);
   // Full screen needs a click to enter, so only the windowed views are remembered.
   const changeView = (v: ViewMode) => {
     setView(v);
@@ -175,6 +185,7 @@ export function App({ engine, platform, seed, renderers, encounter, editable, on
           busy={busy}
           speed={speed}
           onSpeed={changeSpeed}
+          closeRef={closeRef}
           sound={sound}
           volume={volume}
           onVolume={changeVolume}
@@ -217,19 +228,20 @@ export function App({ engine, platform, seed, renderers, encounter, editable, on
             },
           })}
           {...(platform.revealPackages && { onRevealPackages: () => void platform.revealPackages?.().catch((e: Error) => setError(e.message)) })}
-          onImport={(file) =>
-            void file
-              .arrayBuffer()
-              .then((buffer) => engine.importZip(new Uint8Array(buffer)))
-              .then(
-                ({ games: list, loaded }) => {
-                  setGames(list);
-                  setLastPlayed(loaded);
-                  setError(null);
-                },
-                (e: Error) => setError(e.message),
-              )
-          }
+          {...(!platform.playOnly && {
+            onImport: (file: File) =>
+              void file
+                .arrayBuffer()
+                .then((buffer) => engine.importZip(new Uint8Array(buffer)))
+                .then(
+                  ({ games: list, loaded }) => {
+                    setGames(list);
+                    setLastPlayed(loaded);
+                    setError(null);
+                  },
+                  (e: Error) => setError(e.message),
+                ),
+          })}
         />
       ) : (
         <p>Loading…</p>

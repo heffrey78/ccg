@@ -86,7 +86,7 @@ export function Inspector({ unit, intent, summary, permanent, catalog, world, ab
   if (!unit)
     return (
       <section className="ccg-inspector" aria-label="Unit details">
-        <p className="ccg-muted">Hover or focus a unit for details.</p>
+        <p className="ccg-muted">Hover, tap or focus a unit for details.</p>
       </section>
     );
   const name = (id: string) => catalog.names[id] ?? id;
