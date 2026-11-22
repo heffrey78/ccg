@@ -97,3 +97,23 @@ test("Sporeline's cards are printed: paper stock in the strain's ink, shown the 
   await expect(card).toHaveCSS('border-top-color', 'rgb(35, 95, 148)');
   await expect(card).toHaveCSS('color', 'rgb(31, 24, 18)');
 });
+
+test('a picture is added from the field that needs it, in a game with no files yet', async ({ page }) => {
+  await newGame(page, 'Picture Game');
+  await content(page).getByRole('button', { name: /^First Fight first-fight/ }).tap();
+  await page.getByRole('button', { name: '+ Background' }).tap();
+  const field = page.getByLabel('Background', { exact: true });
+  await expect(field).toContainText('no images in this game yet');
+
+  // A 1x1 PNG, chosen through the device's file chooser.
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/iZk9HQAAAABJRU5ErkJggg==', 'base64');
+  await page.getByLabel('Add a file for Background').setInputFiles({ name: 'Mossy Glade.png', mimeType: 'image/png', buffer: png });
+  await expect(field).toHaveValue('assets/images/mossy-glade.png');
+  await expect(page.getByText('must be a path under assets/')).toBeHidden();
+  expect(await fits(page)).toBe(true);
+
+  // One undo takes back both the file and the field.
+  await page.getByRole('button', { name: 'Undo' }).tap();
+  await expect(field).toHaveValue('');
+  await expect(field).toContainText('no images in this game yet');
+});

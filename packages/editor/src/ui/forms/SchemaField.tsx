@@ -10,6 +10,7 @@ import type { Project } from '../../project.js';
 import { itemsOfKind } from '../../project.js';
 import { defaultValue, describe, itemHint, matchOption, type JsonSchema } from '../../forms/schema.js';
 import type { PreviewBoard } from '../../forms/patterns.js';
+import { mimeType } from '../../assets.js';
 import { AssetPreview } from '../AssetPanel.js';
 import type { Behavior } from '@ccg/core';
 import { BehaviorEditor } from './BehaviorEditor.js';
@@ -31,7 +32,16 @@ export interface FormContext {
   warnings?: Map<string, string[]>;
   /** The pointer to highlight (jump-to-field). */
   flagged?: string | undefined;
+  /** Brings files into the project; the field's next change then lands in the same undo step. Resolves to their asset paths. */
+  importAssets?(files: FileList): Promise<string[]>;
 }
+
+/** The file types each asset field takes: what the picker lists and what the device's file chooser offers. */
+const ASSET_TYPES: Record<string, { family: string; accept: string; noun: string }> = {
+  sound: { family: 'audio/', accept: 'audio/*', noun: 'sounds' },
+  font: { family: 'font/', accept: '.woff2,.woff,.ttf,.otf', noun: 'fonts' },
+};
+const IMAGES = { family: 'image/', accept: 'image/*', noun: 'images' };
 
 export const Form = createContext<FormContext | null>(null);
 
@@ -104,18 +114,39 @@ export function SchemaField({ node, root, value, onChange, pointer, label, hint:
   }
   if (hint === 'asset' && (typeof value === 'string' || value === undefined)) {
     const current = (value as string | undefined) ?? '';
-    const assets = Object.keys(ctx.project.assets).sort();
+    const type = ASSET_TYPES[pointer.slice(pointer.lastIndexOf('/') + 1)] ?? IMAGES;
+    const assets = Object.keys(ctx.project.assets)
+      .filter((a) => a === current || mimeType(a).startsWith(type.family))
+      .sort();
+    const importAssets = ctx.importAssets;
     return row(
-      <span className="ccg-row">
+      <span className="ccg-row ccg-asset-field">
         {current && <AssetPreview project={ctx.project} path={current} size={40} />}
         <select aria-label={label} value={current} onChange={(e) => onChange(e.target.value)}>
-          {!assets.includes(current) && <option value={current}>{current ? `${current} (missing)` : '— choose a file —'}</option>}
+          {!assets.includes(current) && (
+            <option value={current}>{current ? `${current} (missing)` : assets.length === 0 ? `— no ${type.noun} in this game yet —` : '— choose a file —'}</option>
+          )}
           {assets.map((a) => (
             <option key={a} value={a}>
               {a.slice('assets/'.length)}
             </option>
           ))}
         </select>
+        {importAssets && (
+          <label className="ccg-file-button">
+            Add a file…
+            <input
+              type="file"
+              accept={type.accept}
+              aria-label={`Add a file for ${label}`}
+              onChange={(e) => {
+                const files = e.target.files;
+                if (files && files.length > 0) void importAssets(files).then((paths) => paths[0] && onChange(paths[0]));
+                e.target.value = '';
+              }}
+            />
+          </label>
+        )}
       </span>,
     );
   }

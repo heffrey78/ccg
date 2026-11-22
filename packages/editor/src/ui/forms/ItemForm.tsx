@@ -3,7 +3,8 @@
  * live preview drawn by the play client's own renderer for cards and a chip
  * for statuses. Header fields (name, id, tags) belong to the item panel.
  */
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
+import type { Command } from '../../commands.js';
 import { previewIntents } from '../../behavior.js';
 import { previewSetup } from '../../forms/patterns.js';
 import { createContentSchemas, type ContentItem, type ContentKind, type OpRegistry } from '@ccg/content';
@@ -14,7 +15,7 @@ import { describe, jsonSchemaOf } from '../../forms/schema.js';
 import type { PreviewBoard } from '../../forms/patterns.js';
 import type { Project } from '../../project.js';
 import type { ProjectIssue } from '../../validate.js';
-import { AssetPreview, useAssetUrl, useAssetUrls } from '../AssetPanel.js';
+import { AssetPreview, importAssets, useAssetUrl, useAssetUrls } from '../AssetPanel.js';
 import { itemsOfKind } from '../../project.js';
 import { EncounterBoard } from './EncounterBoard.js';
 import { Form, ObjectFields, type FormContext } from './SchemaField.js';
@@ -69,7 +70,8 @@ export interface ItemFormProps {
   flagged?: string | undefined;
   board: PreviewBoard;
   setBoard(board: PreviewBoard): void;
-  onChange(item: ContentItem): void;
+  /** `first`, when given, runs before the edit in the same undo step (a file the field just brought in). */
+  onChange(item: ContentItem, first?: Command): void;
 }
 
 /** A content reference's display name, from the project (unqualified ids) by trying each kind. */
@@ -86,6 +88,8 @@ export function nameIn(project: Project) {
 
 export function ItemForm({ project, ops, item, issues, flagged, board, setBoard, onChange }: ItemFormProps) {
   const schemas = useMemo(() => createContentSchemas(ops), [ops]);
+  // Files a field has read but not yet stored: stored by the edit that points the field at them.
+  const pending = useRef<Command | undefined>(undefined);
   const root = jsonSchemaOf(schemas[item.kind]);
   const spec = describe(root, root);
   const ctx: FormContext = useMemo(() => {
@@ -95,7 +99,12 @@ export function ItemForm({ project, ops, item, issues, flagged, board, setBoard,
       const map = i.severity === 'warning' ? warnings : byPointer;
       map.set(i.pointer, [...(map.get(i.pointer) ?? []), i.message]);
     }
-    return { project, ops, kind: item.kind, board, setBoard, issues: byPointer, warnings, flagged };
+    const importer = async (files: FileList) => {
+      const { command, paths } = await importAssets(project, files);
+      pending.current = command;
+      return paths;
+    };
+    return { project, ops, kind: item.kind, board, setBoard, issues: byPointer, warnings, flagged, importAssets: importer };
   }, [project, ops, item.kind, board, setBoard, issues, flagged]);
   if (spec.kind !== 'object') return null;
 
@@ -104,7 +113,11 @@ export function ItemForm({ project, ops, item, issues, flagged, board, setBoard,
   const rest = spec.fields.map((f) => f.key).filter((k) => !listed.has(k) && !HEADER_FIELDS.includes(k));
   const groups: [string, string[]][] = sections ? [...sections, ...(rest.length > 0 ? [['More', rest] as [string, string[]]] : [])] : [['', rest]];
   const value = item as unknown as Record<string, unknown>;
-  const change = (v: Record<string, unknown>) => onChange(v as unknown as ContentItem);
+  const change = (v: Record<string, unknown>) => {
+    const first = pending.current;
+    pending.current = undefined;
+    onChange(v as unknown as ContentItem, first);
+  };
 
   return (
     <Form.Provider value={ctx}>

@@ -228,7 +228,7 @@ export function ItemPanel({
           flagged={pointer}
           board={board}
           setBoard={setBoard}
-          onChange={(next) => setError(run(`Edit ${item.name}`, updateItem(itemKey, next)))}
+          onChange={(next, first) => setError(run(`Edit ${item.name}`, first ? (p) => updateItem(itemKey, next)(first(p)) : updateItem(itemKey, next)))}
         />
       </div>
       <details className="ccg-raw">
